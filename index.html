@@ -1,0 +1,2898 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STAGELY</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;color:inherit}
+body{color:var(--text);font-family:'Rajdhani',sans-serif;font-size:14px;letter-spacing:.3px}
+:root{
+  --bg:#080808;--s1:#0f0f0f;--s2:#161616;--s3:#1e1e1e;--s4:#282828;
+  --border:#1a1a1a;--border2:#252525;--border3:#333;
+  --text:#f0f0f0;--muted:#4a4a4a;--muted2:#2a2a2a;
+  --g:#22c55e;--g2:rgba(34,197,94,.1);--gb:rgba(34,197,94,.35);
+  --o:#f97316;--o2:rgba(249,115,22,.1);--ob:rgba(249,115,22,.3);
+  --r:#ef4444;--r2:rgba(239,68,68,.08);--rb:rgba(239,68,68,.3);
+  --b:#3b82f6;--b2:rgba(59,130,246,.08);--bb:rgba(59,130,246,.3);
+  --gold:#f59e0b;--gold2:rgba(245,158,11,.1);
+}
+/* ── LIGHT MODE ── */
+html.light {
+  --bg:#f4f4f5;--s1:#ffffff;--s2:#f1f1f3;--s3:#e4e4e7;--s4:#d4d4d8;
+  --border:#e4e4e7;--border2:#d1d1d6;--border3:#aaa;
+  --text:#111;--muted:#888;--muted2:#bbb;
+  --g:#16a34a;--g2:rgba(22,163,74,.1);--gb:rgba(22,163,74,.35);
+  --o:#ea6c00;--o2:rgba(234,108,0,.1);--ob:rgba(234,108,0,.3);
+  --r:#dc2626;--r2:rgba(220,38,38,.08);--rb:rgba(220,38,38,.3);
+  --b:#2563eb;--b2:rgba(37,99,235,.08);--bb:rgba(37,99,235,.3);
+  --gold:#d97706;--gold2:rgba(217,119,6,.1);
+}
+html.light .topbar, html.light .sidebar { box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+html.light .ca { color: var(--g); }
+html.light .cd { color: var(--text); }
+@media (max-width: 768px) {
+  .sidebar { width: 48px !important; }
+  .sidebar .ni-lbl, .sidebar .ns, .sidebar .ctag span { opacity: 0; pointer-events: none; }
+  .kpi-row { grid-template-columns: 1fr 1fr !important; }
+  .sg { grid-template-columns: 1fr !important; }
+  .sc { width: 160px !important; }
+  .ca-name { font-size: 9px !important; }
+  .cd-name { font-size: 9px !important; }
+  .board { height: calc(100vh - 130px) !important; }
+  .content { padding: 12px !important; }
+}
+@media (max-width: 480px) {
+  .kpi-row { grid-template-columns: 1fr 1fr !important; }
+  .kpi-v { font-size: 22px !important; }
+  .sc { width: 140px !important; }
+}
+
+/* ── SHELL ── */
+.shell{display:flex;height:100vh;background:var(--bg)}
+
+/* ── SIDEBAR ── */
+.sidebar{width:180px;background:var(--s1);border-right:1px solid var(--border2);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;transition:width .2s}
+.sidebar.col{width:48px}
+.logo{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:18px;color:var(--o);padding:14px 12px;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;letter-spacing:3px}
+.logo-t{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px}
+.ni{display:flex;align-items:center;gap:9px;padding:8px 12px;cursor:pointer;color:var(--muted);font-size:13px;border-left:2px solid transparent;transition:.1s;white-space:nowrap;font-weight:500;letter-spacing:.5px}
+.ni:hover{color:var(--text);background:var(--s2)}
+.ni.on{color:var(--text);border-left-color:var(--o);background:var(--s2)}
+.ni-ico{font-size:13px;flex-shrink:0;width:18px;text-align:center}
+.ni-lbl{transition:opacity .15s}
+.sidebar.col .ni-lbl,.sidebar.col .ns,.sidebar.col .ctag span{opacity:0}
+.ns{font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:.8px;padding:10px 12px 3px;white-space:nowrap}
+.ctag{margin-top:auto;padding:10px 12px;border-top:1px solid var(--border2);font-size:10px;color:var(--muted);white-space:nowrap}
+.ctag strong{color:var(--text);display:block;font-size:11px;margin-bottom:1px}
+.nbadge{margin-left:auto;background:var(--o);color:#000;font-size:8px;font-weight:700;padding:1px 5px;border-radius:8px}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.topbar{height:46px;background:var(--s1);border-bottom:1px solid var(--border2);display:flex;align-items:center;padding:0 16px;gap:10px;flex-shrink:0}
+.ptitle{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:16px;flex:1;color:var(--text);letter-spacing:1px;text-transform:uppercase}
+.btn{padding:5px 11px;border-radius:3px;font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:'Rajdhani',sans-serif;white-space:nowrap;transition:.1s;letter-spacing:.5px}
+.btn-o{background:var(--o);color:#000}.btn-o:hover{filter:brightness(1.1)}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border2)}.btn-ghost:hover{color:var(--text)}
+.btn-r{background:var(--r2);color:var(--r);border:1px solid var(--rb)}
+.btn-b{background:var(--b2);color:var(--b);border:1px solid var(--bb)}
+.content{flex:1;overflow-y:auto;padding:18px}
+.view{display:none}.view.on{display:block}
+
+/* ── DASHBOARD ── */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.kpi{background:var(--s1);border:1px solid var(--border2);border-radius:5px;padding:12px 14px}
+.kpi-v{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:26px;line-height:1;margin-bottom:2px}
+.kpi-l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.kpi-s{font-size:10px;margin-top:3px;color:var(--muted)}
+
+/* Lineup chronologique */
+.lineup-wrap{background:var(--s1);border:1px solid var(--border2);border-radius:5px;overflow:hidden;margin-bottom:14px}
+.lineup-head{padding:10px 14px;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between}
+.lineup-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.lineup-table{width:100%;border-collapse:collapse}
+.lineup-table th{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;padding:7px 12px;border-bottom:1px solid var(--border2);text-align:left;background:var(--s2);white-space:nowrap}
+.lineup-table td{padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px;vertical-align:middle}
+.lineup-table tr:last-child td{border-bottom:none}
+.lineup-table tr:hover td{background:var(--s2)}
+.day-pill{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--o)}
+.time-lbl{font-size:12px;font-weight:500;color:var(--text)}
+.performer-cell{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.perf-chip{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:500;padding:3px 8px;border-radius:3px;background:var(--g2);border:1px solid var(--gb);color:var(--g)}
+.perf-chip.mc{background:var(--gold2);border-color:rgba(245,158,11,.35);color:var(--gold)}
+.perf-empty{font-size:10px;color:var(--muted2);font-style:italic}
+.dot-m{width:6px;height:6px;border-radius:50%;background:#3b82f6;flex-shrink:0}
+.dot-f{width:6px;height:6px;border-radius:50%;background:#f472b6;flex-shrink:0}
+.day-separator td{background:var(--s2);padding:0;border-top:1px solid var(--border2);border-bottom:1px solid var(--border2)}
+.day-sep-label{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:12px;color:var(--o);display:flex;align-items:center;gap:8px;padding:8px 12px;letter-spacing:.5px}
+.day-sep-date{font-size:10px;color:var(--muted);font-family:'Rajdhani',sans-serif;font-weight:400}
+
+/* Dash right column */
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dash-card{background:var(--s1);border:1px solid var(--border2);border-radius:5px;padding:12px 14px}
+.dc-title{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.mrow{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)}
+.mrow:last-child{border-bottom:none}
+.mbar{height:2px;flex:1;background:var(--s3);border-radius:1px;overflow:hidden}
+.mfill{height:100%;border-radius:1px}
+.rs{font-size:9px;padding:2px 6px;border-radius:2px;font-weight:600}
+.rs-r{background:var(--g2);color:var(--g);border:1px solid var(--gb)}
+.rs-p{background:var(--gold2);color:var(--gold);border:1px solid rgba(245,158,11,.35)}
+.rs-n{background:var(--r2);color:var(--r);border:1px solid var(--rb)}
+
+/* ── PLANNING ── */
+.plan-bar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.wk-nav{display:flex;align-items:center;gap:6px}
+.wk-lbl{font-size:11px;min-width:150px;color:var(--text)}
+.arr{background:var(--s2);border:1px solid var(--border2);color:var(--muted);width:22px;height:22px;border-radius:3px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center}
+.arr:hover{color:var(--text)}
+.board-wrap{overflow-x:auto;overflow-y:hidden}
+.board{display:flex;height:calc(100vh - 152px)}
+.dg{display:flex;flex-direction:column;border-right:2px solid var(--border2);flex-shrink:0}
+.dg-hd{background:var(--s2);padding:6px 10px;border-bottom:1px solid var(--border2);display:flex;align-items:baseline;gap:6px;flex-shrink:0}
+.dg-name{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text)}
+.dg-date{font-size:10px;color:var(--muted)}
+.sr{display:flex;flex:1;overflow-y:auto}
+.sc{width:205px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--bg)}
+.sc:last-child{border-right:none}
+.sc-hd{background:var(--s1);padding:6px 10px;border-bottom:1px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.sc-time{font-size:12px;font-weight:500;color:var(--text)}
+.sc-meta{font-size:9px;color:var(--muted);margin-top:1px}
+.sc-badge{font-size:8px;padding:2px 5px;border-radius:2px;background:var(--g2);color:var(--g);border:1px solid var(--gb)}
+.sc-body{flex:1;overflow-y:auto;padding:5px;display:flex;flex-direction:column;gap:3px}
+.ca{border-radius:3px;padding:6px 8px;background:var(--g2);border:1px solid var(--gb);position:relative;display:flex;align-items:center;gap:5px}
+.ca:hover{background:rgba(34,197,94,.17)}
+.ca-rm{position:absolute;top:3px;right:4px;font-size:9px;color:var(--r);cursor:pointer;background:none;border:none;font-family:'Rajdhani',sans-serif;opacity:0}
+.ca:hover .ca-rm{opacity:1}
+.ca-name{font-size:10px;font-weight:500;color:var(--g);word-break:break-word;flex:1}
+.mc-b{font-size:7px;font-weight:700;padding:1px 4px;border-radius:2px;background:var(--gold2);color:var(--gold);border:1px solid rgba(245,158,11,.35);flex-shrink:0}
+.cd{border-radius:3px;padding:5px 8px;background:var(--s2);border:1px solid var(--border2);cursor:pointer;display:flex;align-items:center;gap:5px;transition:.1s}
+.cd:hover{background:var(--s3);border-color:var(--ob)}
+.cd.full{opacity:.3;cursor:default;pointer-events:none}
+.cd-name{font-size:10px;font-weight:500;word-break:break-word;flex:1;color:var(--text)}
+.add-i{font-size:12px;color:var(--muted);flex-shrink:0;opacity:.4}
+.cd:hover .add-i{opacity:1;color:var(--o)}
+.gdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.gm{background:#3b82f6}.gf{background:#f472b6}
+.ddot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.sc-sep{height:1px;background:var(--border);margin:2px 0}
+.sc-empty{font-size:9px;color:var(--muted2);text-align:center;padding:12px 0}
+
+/* ── DISPOS ADMIN ── */
+.dtbl{width:100%;border-collapse:collapse;font-size:11px}
+.dtbl th{text-align:left;padding:7px 12px;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border2);background:var(--s1)}
+.dtbl td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.dtbl tr:hover td{background:var(--s2)}
+.dchips{display:flex;flex-wrap:wrap;gap:3px}
+.dchip{font-size:8px;padding:2px 5px;border-radius:2px;font-weight:500;white-space:nowrap;background:var(--g2);color:var(--g);border:1px solid var(--gb)}
+.lnk-row{display:flex;align-items:center;gap:5px}
+.lnk-v{font-size:9px;color:var(--b);font-family:monospace;background:var(--s2);border:1px solid var(--border2);padding:2px 6px;border-radius:2px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px}
+.cbtn{font-size:9px;padding:2px 6px;background:var(--s3);border:1px solid var(--border2);border-radius:2px;color:var(--muted);cursor:pointer;font-family:'Rajdhani',sans-serif}
+.cbtn:hover{color:var(--text)}
+
+/* ── HUMORISTES ── */
+.hum-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.sinp{background:var(--s2);border:1px solid var(--border2);border-radius:3px;padding:6px 9px;color:var(--text);font-size:11px;font-family:'Rajdhani',sans-serif;width:170px}
+.sinp:focus{outline:none;border-color:var(--o)}
+.hum-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:7px}
+.hcard{background:var(--s1);border:1px solid var(--border2);border-radius:5px;padding:11px 13px;position:relative;transition:.1s}
+.hcard:hover{background:var(--s2)}
+.hcard-name{font-size:11px;font-weight:500;margin-bottom:5px;display:flex;align-items:center;gap:6px;padding-right:18px;color:var(--text)}
+.pp{font-size:8px;padding:1px 4px;border-radius:2px;font-weight:500}
+.pp-h{background:var(--gold2);color:var(--gold)}.pp-r{background:var(--g2);color:var(--g)}.pp-n{background:var(--b2);color:var(--b)}
+.pbar{height:2px;flex:1;background:var(--s3);border-radius:1px;overflow:hidden}
+.pbar-f{height:100%;border-radius:1px}
+.pres-row{display:flex;align-items:center;gap:6px;margin-top:4px}
+.del-btn{position:absolute;top:7px;right:7px;background:none;border:none;color:var(--muted2);font-size:11px;cursor:pointer;opacity:0}
+.hcard:hover .del-btn{opacity:1}
+.del-btn:hover{color:var(--r)}
+.hcard-actions{display:flex;gap:4px;margin-top:9px}
+.drd{width:5px;height:5px;border-radius:50%}
+.drd-r{background:var(--g)}.drd-p{background:var(--gold)}.drd-n{background:var(--r)}
+
+/* ── RÉGLAGES ── */
+.sg{display:grid;grid-template-columns:1fr;gap:10px}
+.scard{background:var(--s1);border:1px solid var(--border2);border-radius:5px;padding:14px}
+.stitle{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.srow{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)}
+.srow:last-child{border-bottom:none}
+.slbl{font-size:11px;color:var(--text)}.ssub{font-size:9px;color:var(--muted);margin-top:1px}
+.tgl{width:34px;height:18px;background:var(--s3);border-radius:9px;cursor:pointer;position:relative;border:none;transition:.2s;flex-shrink:0}
+.tgl.on{background:var(--g)}
+.tgl::after{content:'';position:absolute;width:12px;height:12px;background:#fff;border-radius:50%;top:3px;left:3px;transition:.2s}
+.tgl.on::after{left:19px}
+.sc-r{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--s2);border-radius:3px;border:1px solid var(--border2);margin-bottom:5px}
+.sc-d{font-size:11px;font-weight:500;width:34px;flex-shrink:0}
+.sc-ts{display:flex;gap:4px;flex-wrap:wrap;flex:1;align-items:center}
+.sc-chip{font-size:9px;padding:2px 7px;border-radius:2px;background:var(--s3);border:1px solid var(--border2);color:var(--text);display:inline-flex;align-items:center;gap:4px}
+.sc-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:9px;font-family:'Rajdhani',sans-serif}
+.sc-del:hover{color:var(--r)}
+.asbtn{font-size:9px;padding:2px 7px;border-radius:2px;background:transparent;border:1px dashed var(--border2);color:var(--muted);cursor:pointer;font-family:'Rajdhani',sans-serif}
+.asbtn:hover{border-color:var(--o);color:var(--o)}
+.st-inp{background:var(--s2);border:1px solid var(--o);border-radius:2px;padding:2px 6px;color:var(--text);font-size:9px;font-family:'Rajdhani',sans-serif;width:58px}
+.st-inp:focus{outline:none}
+/* code admin display */
+.code-display{background:var(--s3);border:1px solid var(--border3);border-radius:4px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;margin-top:6px}
+.code-val{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:22px;letter-spacing:4px;color:var(--o)}
+
+/* ── MODAL ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:100;display:none;align-items:center;justify-content:center;padding:16px}
+.overlay.open{display:flex}
+.modal{background:var(--s1);border:1px solid var(--border2);border-radius:6px;padding:18px;width:380px;max-width:100%;max-height:90vh;overflow-y:auto}
+.modal-title{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;margin-bottom:12px}
+.fr{margin-bottom:9px}
+.fl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;display:block}
+.fi,.fsl{width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:3px;padding:7px 9px;color:var(--text);font-size:11px;font-family:'Rajdhani',sans-serif}
+.fi:focus,.fsl:focus{outline:none;border-color:var(--o)}
+.fta{width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:3px;padding:7px 9px;color:var(--text);font-size:11px;font-family:'Rajdhani',sans-serif;resize:vertical;min-height:65px}
+.ma{display:flex;gap:6px;justify-content:flex-end;margin-top:12px;padding-top:10px;border-top:1px solid var(--border2)}
+.gbtn{flex:1;padding:7px;border-radius:3px;border:1px solid var(--border2);background:var(--s2);color:var(--muted);cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:10px;display:flex;align-items:center;justify-content:center;gap:5px;transition:.1s}
+.gbtn.gm{border-color:#3b82f6;color:#3b82f6;background:var(--b2)}
+.gbtn.gf{border-color:#f472b6;color:#f472b6;background:rgba(244,114,182,.08)}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:14px;right:14px;background:var(--s1);border:1px solid var(--border2);border-radius:4px;padding:7px 12px;font-size:10px;z-index:999;transform:translateY(30px);opacity:0;transition:.2s;pointer-events:none;max-width:260px}
+.toast.show{transform:translateY(0);opacity:1}
+
+/* ══════════════════════════════════════
+   VUE HUMORISTE — LOGIN + DISPOS
+══════════════════════════════════════ */
+#hv-screen{display:none;min-height:100vh;overflow-y:auto;background:var(--bg);position:relative}
+#hv-screen::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 50% at 50% -10%,rgba(249,115,22,.06) 0%,transparent 70%);pointer-events:none;z-index:0}
+.hv-center{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 16px 60px;position:relative;z-index:1}
+.login-box{width:100%;max-width:420px}
+.login-logo{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:24px;color:var(--o);letter-spacing:3px;margin-bottom:4px;text-align:center}
+.login-sub{font-size:11px;color:var(--muted);margin-bottom:28px;text-align:center}
+.login-card{background:var(--s1);border:1px solid var(--border2);border-radius:8px;padding:24px}
+.login-title{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;margin-bottom:18px}
+.lf{margin-bottom:12px}
+.ll{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px;display:block}
+.li{width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:4px;padding:10px 12px;color:var(--text);font-size:12px;font-family:'Rajdhani',sans-serif;transition:.15s}
+.li:focus{outline:none;border-color:var(--o);background:var(--s1)}
+.li.code-inp{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:18px;letter-spacing:6px;text-align:center;text-transform:uppercase}
+.li.code-inp::placeholder{font-family:'Rajdhani',sans-serif;font-weight:400;font-size:12px;letter-spacing:0;text-transform:none}
+.login-err{font-size:10px;color:var(--r);margin-top:8px;display:none}
+.login-btn{width:100%;padding:11px;background:var(--o);color:#000;border:none;border-radius:4px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:12px;letter-spacing:.5px;cursor:pointer;margin-top:14px;transition:.1s}
+.login-btn:hover{filter:brightness(1.1)}
+.login-sep{height:1px;background:var(--border2);margin:16px 0;position:relative}
+.login-sep::after{content:'ou';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--s1);padding:0 10px;font-size:9px;color:var(--muted)}
+.dispo-wrap{width:100%;max-width:520px}
+.dispo-header{margin-bottom:22px;text-align:center}
+.dispo-name{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:20px;margin-bottom:4px}
+.dispo-club{font-size:11px;color:var(--muted);margin-bottom:8px}
+.deadline-p{display:inline-block;background:var(--o2);border:1px solid var(--ob);color:var(--o);font-size:10px;padding:4px 12px;border-radius:20px;letter-spacing:.3px}
+.dispo-actions{display:flex;gap:6px;justify-content:center;margin-bottom:20px;flex-wrap:wrap}
+.qa{padding:7px 14px;border-radius:20px;font-size:10px;cursor:pointer;border:1px solid var(--border2);background:var(--s2);color:var(--text);font-family:'Rajdhani',sans-serif;transition:.1s}
+.qa:hover{border-color:var(--gb);color:var(--g)}
+.qa.qa-clear{color:var(--muted)}
+
+/* Tableau dispos */
+.dispo-table{width:100%;border-collapse:collapse;background:var(--s1);border-radius:6px;overflow:hidden;border:1px solid var(--border2);table-layout:fixed}
+.dispo-table th{padding:8px 12px;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;background:var(--s2);border-bottom:1px solid var(--border2);text-align:left}
+.dispo-table th:nth-child(3),.dispo-table th:nth-child(4){text-align:center;width:80px}
+.dispo-table th:nth-child(2){width:90px}
+.dispo-table td{padding:0;border-bottom:1px solid var(--border)}
+.dispo-table tr:last-child td{border-bottom:none}
+.dispo-table tr:hover td{background:rgba(255,255,255,.015)}
+.dt-day{padding:10px 12px;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dt-time{padding:10px 12px;font-size:12px;font-weight:600;white-space:nowrap;color:var(--muted)}
+.dt-check{padding:8px 12px;text-align:center}
+.dt-mc{padding:8px 12px;text-align:center}
+
+/* Toggle checkbox */
+.tcheck{display:flex;align-items:center;justify-content:center}
+.tcheck input[type=checkbox]{display:none}
+.tcheck label{width:28px;height:28px;border-radius:5px;border:1.5px solid var(--border3);background:var(--s2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;font-size:14px;color:transparent}
+.tcheck input:checked+label{background:var(--g2);border-color:var(--gb);color:var(--g)}
+.tcheck label:hover{border-color:var(--gb)}
+
+/* MC toggle */
+.mc-check{display:flex;align-items:center;justify-content:center}
+.mc-check input[type=checkbox]{display:none}
+.mc-check label{width:28px;height:28px;border-radius:5px;border:1.5px solid var(--border3);background:var(--s2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;font-size:10px;font-weight:700;color:transparent;font-family:'Rajdhani',sans-serif}
+.mc-check input:checked+label{background:var(--gold2);border-color:rgba(245,158,11,.4);color:var(--gold)}
+.mc-check label:hover{border-color:rgba(245,158,11,.4)}
+.mc-check.disabled label{opacity:.25;cursor:not-allowed}
+.mc-check.disabled label:hover{border-color:var(--border3)}
+
+.dispo-submit{margin-top:20px;text-align:center}
+.submit-btn{padding:12px 32px;background:var(--o);color:#000;border:none;border-radius:4px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:12px;letter-spacing:.5px;cursor:pointer;transition:.1s}
+.submit-btn:hover{filter:brightness(1.1)}
+.submit-count{font-size:10px;color:var(--muted);margin-top:8px}
+.submit-ok{background:var(--g2);border:1px solid var(--gb);border-radius:5px;padding:14px;text-align:center;font-size:12px;color:var(--g);margin-top:14px;display:none}
+
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--s4);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- ══════════ VUE HUMORISTE ══════════ -->
+<div id="hv-screen">
+  <div class="hv-center">
+
+    <!-- LOGIN -->
+    <div class="login-box" id="hv-login">
+      <div class="login-logo">STAGELY</div>
+      <div class="login-sub">Portail humoristes</div>
+
+      <!-- Choix page -->
+      <div id="hv-page-choice" class="login-card">
+        <div class="login-title" style="text-align:center;margin-bottom:16px">Que veux-tu faire ?</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button onclick="showLoginFor('dispos')" style="padding:14px 20px;background:var(--o);color:#000;border:none;border-radius:5px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;letter-spacing:.5px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px">
+            <span style="font-size:20px">📅</span>
+            <div><div>Envoyer mes disponibilités</div><div style="font-size:10px;font-weight:400;opacity:.7;margin-top:2px">Indiquer mes créneaux pour le mois à venir</div></div>
+          </button>
+          <button onclick="showLoginFor('manage')" style="padding:14px 20px;background:var(--s2);color:var(--text);border:1px solid var(--border2);border-radius:5px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;letter-spacing:.5px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px">
+            <span style="font-size:20px">✏️</span>
+            <div><div>Modifier mes dates de passage</div><div style="font-size:10px;font-weight:400;opacity:.5;margin-top:2px">Me retirer d'un créneau déjà planifié</div></div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Formulaire connexion -->
+      <div id="hv-login-form" class="login-card" style="display:none">
+        <button onclick="document.getElementById('hv-page-choice').style.display='block';document.getElementById('hv-login-form').style.display='none'" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:10px;font-family:'Rajdhani',sans-serif;margin-bottom:10px">← Retour</button>
+        <div class="login-title" id="login-form-title">Connexion</div>
+        <div class="lf"><label class="ll">Prénom</label><input class="li" id="l-prenom" placeholder="Ton prénom" oninput="clearErr()"></div>
+        <div class="lf"><label class="ll">Nom</label><input class="li" id="l-nom" placeholder="Ton nom" oninput="clearErr()"></div>
+        <div class="lf"><label class="ll">Email</label><input class="li" id="l-email" type="email" placeholder="ton@email.com" oninput="clearErr()"></div>
+        <div class="lf"><label class="ll">Téléphone WhatsApp</label><input class="li" id="l-phone" type="tel" placeholder="+33 6 xx xx xx xx" oninput="clearErr()"></div>
+        <div class="login-sep"></div>
+        <div class="lf">
+          <label class="ll">Code club</label>
+          <input class="li code-inp" id="l-code" placeholder="Code reçu par l'admin" maxlength="6" oninput="this.value=this.value.toUpperCase();clearErr()">
+        </div>
+        <div class="login-err" id="l-err">Code incorrect ou champs manquants</div>
+        <button class="login-btn" id="login-btn-main" onclick="hvLogin()">Continuer →</button>
+      </div>
+    </div>
+
+    <!-- GÉRER MES DATES -->
+    <div class="dispo-wrap" id="hv-manage" style="display:none">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+        <button onclick="backToAdmin()" style="background:none;border:1px solid var(--border2);color:var(--muted);padding:5px 12px;border-radius:3px;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:10px">← Admin</button>
+      </div>
+      <div class="dispo-header">
+        <div class="dispo-name" id="manage-uname">—</div>
+        <div class="dispo-club">BCC · Mes dates de passage</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">Décoche les dates qui ne te conviennent plus. On mettra à jour le planning automatiquement.</div>
+      </div>
+      <table class="dispo-table" style="margin-top:16px">
+        <thead><tr>
+          <th>Date</th><th>Créneau</th><th style="text-align:center">Toujours dispo</th>
+        </tr></thead>
+        <tbody id="manage-tbody"></tbody>
+      </table>
+      <div class="dispo-submit">
+        <button class="submit-btn" onclick="submitManageDates()">Confirmer mes disponibilités</button>
+        <div class="submit-ok" id="manage-ok" style="display:none">✓ Merci ! Le planning a été mis à jour.</div>
+      </div>
+    </div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+        <button onclick="backToAdmin()" style="background:none;border:1px solid var(--border2);color:var(--muted);padding:5px 12px;border-radius:3px;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:10px">← Admin</button>
+      </div>
+      <div class="dispo-header">
+        <div class="dispo-name" id="hv-uname">—</div>
+        <div class="dispo-club" id="hv-club">BCC · Disponibilités</div>
+        <div class="deadline-p">⏰ Deadline : <span id="hv-deadline">—</span></div>
+      </div>
+      <div class="dispo-actions">
+        <button class="qa" onclick="hvAll()">✓ Tout cocher</button>
+        <button class="qa qa-clear" onclick="hvClear()">Tout décocher</button>
+      </div>
+
+      <table class="dispo-table">
+        <thead><tr>
+          <th>Jour</th>
+          <th>Créneau</th>
+          <th style="text-align:center">Disponible</th>
+          <th style="text-align:center">MC <span style="color:var(--muted);font-size:8px;font-weight:400">*</span></th>
+        </tr></thead>
+        <tbody id="hv-tbody"></tbody>
+      </table>
+      <div style="font-size:9px;color:var(--muted);margin-top:8px;padding:0 2px">
+        * Le MC fait le chapeau lors de la clôture et le tient à la sortie
+      </div>
+
+      <div class="dispo-submit">
+        <button class="submit-btn" onclick="hvSubmit()">Envoyer mes disponibilités</button>
+        <div class="submit-count" id="hv-count">0 créneau coché</div>
+        <div class="submit-ok" id="hv-ok">✓ Disponibilités envoyées — merci ! Tu peux fermer cette page.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════ VUE ADMIN ══════════ -->
+<div class="shell" id="admin-screen">
+
+<div class="sidebar" id="sidebar">
+  <div class="logo">STAGELY <button class="logo-t" onclick="toggleSB()">≡</button></div>
+  <div class="ns">Général</div>
+  <div class="ni on" onclick="nav('dashboard')"><span class="ni-ico">⊡</span><span class="ni-lbl">Dashboard</span></div>
+  <div class="ns">Programmation</div>
+  <div class="ni" onclick="nav('planning')"><span class="ni-ico">⊞</span><span class="ni-lbl">Planning</span></div>
+  <div class="ni" onclick="nav('dispos')"><span class="ni-ico">◫</span><span class="ni-lbl">Disponibilités</span><span class="nbadge" id="bdg-dispos">8</span></div>
+  <div class="ns">Gestion</div>
+  <div class="ni" onclick="nav('humoristes')"><span class="ni-ico">◉</span><span class="ni-lbl">Humoristes</span></div>
+  <div class="ni" onclick="nav('reglages')"><span class="ni-ico">⚙</span><span class="ni-lbl">Réglages</span></div>
+  <div class="ns">Communication</div>
+  <div class="ni" onclick="nav('chat')"><span class="ni-ico">✉</span><span class="ni-lbl">Chat groupe</span><span class="nbadge" id="bdg-chat" style="display:none">0</span></div>
+  <div class="ctag"><strong id="club-badge">BCC</strong><span class="ni-lbl">Directeur artistique</span></div>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <div class="ptitle" id="ptitle">Dashboard</div>
+    <div id="tactions" style="display:flex;gap:6px;align-items:center"></div>
+  </div>
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div id="view-dashboard" class="view on">
+      <div class="kpi-row">
+        <div class="kpi"><div class="kpi-v" id="kv-hum" style="color:var(--o)">15</div><div class="kpi-l">Humoristes</div><div class="kpi-s">dans le groupe</div></div>
+        <div class="kpi"><div class="kpi-v" id="kv-asgn" style="color:var(--g)">8</div><div class="kpi-l">Assignés</div><div class="kpi-s" id="ks-asgn">sur 15 créneaux</div></div>
+        <div class="kpi"><div class="kpi-v" id="kv-dispos" style="color:var(--b)">7</div><div class="kpi-l">Dispos reçues</div><div class="kpi-s" id="ks-dispos">8 en attente</div></div>
+        <div class="kpi"><div class="kpi-v" id="kv-pres" style="color:var(--gold)">89%</div><div class="kpi-l">Présence moy.</div><div class="kpi-s">sur le groupe</div></div>
+      </div>
+
+      <!-- Lineup chronologique -->
+      <div class="lineup-wrap">
+        <div class="lineup-head">
+          <span class="lineup-title">Line-up de la semaine</span>
+          <button class="btn btn-ghost" style="font-size:9px;padding:2px 7px" onclick="nav('planning')">Modifier →</button>
+        </div>
+        <table class="lineup-table" id="lineup-tbl"></table>
+      </div>
+
+      <div class="dash-grid">
+        <div class="dash-card">
+          <div class="dc-title">Statut dispos <button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="nav('dispos')">→</button></div>
+          <div id="dash-dispo"></div>
+        </div>
+        <div class="dash-card">
+          <div class="dc-title">Top fiabilité</div>
+          <div id="dash-rel"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLANNING -->
+    <div id="view-planning" class="view">
+      <div class="plan-bar">
+        <div class="wk-nav">
+          <button class="arr" onclick="chgWk(-1)">‹</button>
+          <span class="wk-lbl" id="wk-lbl"></span>
+          <button class="arr" onclick="chgWk(1)">›</button>
+        </div>
+        <div style="font-size:10px;color:var(--muted);display:flex;align-items:center;gap:8px">
+          <span><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--g);margin-right:3px"></span>Dispo</span>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:5px">
+          <button class="btn btn-ghost" onclick="clearAll()">Réinitialiser</button>
+          <button class="btn btn-o" onclick="exportLU()">↓ Exporter</button>
+        </div>
+      </div>
+      <div class="board-wrap"><div class="board" id="board"></div></div>
+    </div>
+
+    <!-- DISPOS ADMIN -->
+    <div id="view-dispos" class="view">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted)">Dispos — <strong style="color:var(--text)" id="d-month">juin 2025</strong></span>
+        <div style="margin-left:auto;display:flex;gap:5px">
+          <button class="btn btn-b" onclick="relancerTous()">⏰ Relancer</button>
+          <button class="btn btn-o" onclick="openModal('modal-dispo')">✉ Envoyer demandes</button>
+        </div>
+      </div>
+      <table class="dtbl"><thead><tr>
+        <th>Humoriste</th><th>Statut</th><th>Dispos</th><th>MC</th><th>Lien</th><th></th>
+      </tr></thead><tbody id="d-tbody"></tbody></table>
+    </div>
+
+    <!-- HUMORISTES -->
+    <div id="view-humoristes" class="view">
+      <div class="hum-toolbar">
+        <input class="sinp" type="text" placeholder="Rechercher..." oninput="filterH(this.value)">
+        <div style="display:flex;gap:4px" id="pfilters">
+          <button class="pfb" onclick="setP(this,'all')" style="padding:3px 9px;border-radius:3px;font-size:9px;border:1px solid var(--o);color:var(--o);background:transparent;cursor:pointer;font-family:'Rajdhani',sans-serif">Tous</button>
+          <button class="pfb" onclick="setP(this,'headliner')" style="padding:3px 9px;border-radius:3px;font-size:9px;border:1px solid var(--border2);color:var(--muted);background:transparent;cursor:pointer;font-family:'Rajdhani',sans-serif">Headliner</button>
+          <button class="pfb" onclick="setP(this,'regular')" style="padding:3px 9px;border-radius:3px;font-size:9px;border:1px solid var(--border2);color:var(--muted);background:transparent;cursor:pointer;font-family:'Rajdhani',sans-serif">Régulier</button>
+          <button class="pfb" onclick="setP(this,'new')" style="padding:3px 9px;border-radius:3px;font-size:9px;border:1px solid var(--border2);color:var(--muted);background:transparent;cursor:pointer;font-family:'Rajdhani',sans-serif">Nouveau</button>
+        </div>
+        <div style="margin-left:auto"><button class="btn btn-o" onclick="openModal('modal-add-hum')">+ Ajouter</button></div>
+      </div>
+      <div class="hum-cards" id="hcards"></div>
+    </div>
+
+    <!-- RÉGLAGES -->
+    <div id="view-reglages" class="view">
+      <div class="sg">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="scard">
+          <div class="stitle">Infos du club</div>
+          <div class="fr"><label class="fl">Nom du club</label><input class="fi" id="s-club" value="BCC" oninput="document.getElementById('club-badge').textContent=this.value"></div>
+          <div class="fr"><label class="fl">Ville</label><input class="fi" value="Paris"></div>
+          <div class="fr"><label class="fl">Deadline dispos (jour du mois)</label><input class="fi" id="s-deadline" type="number" value="15" min="1" max="28"></div>
+          <button class="btn btn-o" onclick="toast('✓ Sauvegardé')" style="margin-top:4px">Sauvegarder</button>
+        </div>
+        <div class="scard">
+          <div class="stitle">Code d'accès humoristes</div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:10px">Communique ce code aux humoristes pour qu'ils accèdent à leur portail de disponibilités.</div>
+          <div class="code-display">
+            <div class="code-val" id="club-code">BCC24</div>
+            <button class="btn btn-ghost" onclick="regenCode()" style="font-size:9px">↻ Régénérer</button>
+          </div>
+          <div style="font-size:9px;color:var(--muted);margin-top:8px;margin-bottom:14px">Lien portail : <span style="color:var(--b)">stagely.io/portal</span></div>
+
+          <!-- Partage rapide -->
+          <div style="height:1px;background:var(--border2);margin-bottom:14px"></div>
+          <div class="stitle" style="margin-bottom:10px">Partage rapide</div>
+
+          <!-- Lien avec code pré-rempli -->
+          <div style="font-size:9px;color:var(--muted);margin-bottom:6px">Lien direct — le code est déjà inclus</div>
+          <div style="display:flex;gap:6px;margin-bottom:14px;align-items:center">
+            <div id="share-link-val" style="flex:1;background:var(--s3);border:1px solid var(--border2);border-radius:3px;padding:7px 10px;font-size:10px;color:var(--b);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">stagely.io/portal?code=BCC24</div>
+            <button class="btn btn-ghost" onclick="copyShareLink()" style="font-size:9px;flex-shrink:0">Copier</button>
+          </div>
+
+          <!-- QR Code -->
+          <div style="font-size:9px;color:var(--muted);margin-bottom:8px">QR Code — à afficher ou envoyer en image</div>
+          <div style="display:flex;align-items:flex-start;gap:14px">
+            <div id="qr-wrap" style="display:inline-block;line-height:0"></div>
+            <div style="display:flex;flex-direction:column;gap:6px;padding-top:4px">
+              <button class="btn btn-ghost" onclick="downloadQR()" style="font-size:9px">↓ Télécharger</button>
+              <div style="font-size:9px;color:var(--muted2)">Scanne = accès direct au portail avec code pré-rempli</div>
+            </div>
+        </div><!-- end 2-col row -->
+        <div class="scard">
+          <div class="stitle">Préférences planning</div>
+          <div class="srow"><div><div class="slbl">Max humoristes / créneau</div></div><select class="fi" style="width:50px;padding:3px 5px" id="s-max"><option>2</option><option>3</option><option selected>4</option><option>5</option></select></div>
+          <div class="srow"><div><div class="slbl">1er = MC automatique</div></div><button class="tgl on" onclick="this.classList.toggle('on')"></button></div>
+          <div class="srow"><div><div class="slbl">Marqueurs genre H/F</div></div><button class="tgl on" onclick="this.classList.toggle('on')"></button></div>
+          <div class="srow"><div><div class="slbl">Mode clair</div><div class="ssub">Passer en thème blanc</div></div><button class="tgl" id="tgl-light" onclick="toggleTheme(this)"></button></div>
+        </div>
+        <div class="scard">
+          <div class="stitle">Séances par défaut <span style="text-transform:none;letter-spacing:0;font-size:9px;color:var(--muted);font-weight:400">✕ annuler · + ajouter</span></div>
+          <div id="slots-cfg"></div>
+        </div>
+        <div class="scard" style="border-color:var(--rb)">
+          <div class="stitle" style="color:var(--r)">Zone dangereuse</div>
+          <div class="srow"><div><div class="slbl">Vider le planning</div><div class="ssub">Efface toutes les assignations</div></div><button class="btn btn-r" onclick="clearAll();toast('Planning vidé')">Vider</button></div>
+          <div class="srow"><div><div class="slbl">Réinitialiser humoristes</div></div><button class="btn btn-r" onclick="resetH()">Reset</button></div>
+        </div>
+
+        <!-- RAPPELS AUTO -->
+        <div class="scard">
+          <div class="stitle" style="display:flex;align-items:center;justify-content:space-between">
+            Rappels automatiques
+            <span id="reminders-status" style="font-size:9px;padding:2px 7px;border-radius:2px;background:var(--g2);color:var(--g);border:1px solid var(--gb)">Actif</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+            <div style="background:var(--s2);border:1px solid var(--border2);border-radius:4px;padding:12px">
+              <div style="font-size:11px;font-weight:500;margin-bottom:4px;color:var(--b)">⏰ 3h avant</div>
+              <div style="font-size:10px;color:var(--muted);line-height:1.5">Message WhatsApp individuel à chaque humoriste du créneau.</div>
+              <div style="margin-top:6px;font-size:9px;color:var(--muted2)">→ Humoristes uniquement</div>
+            </div>
+            <div style="background:var(--s2);border:1px solid var(--border2);border-radius:4px;padding:12px">
+              <div style="font-size:11px;font-weight:500;margin-bottom:4px;color:var(--o)">🔔 1h avant</div>
+              <div style="font-size:10px;color:var(--muted);line-height:1.5">Rappel urgent + notif admin dans l'app.</div>
+              <div style="margin-top:6px;font-size:9px;color:var(--muted2)">→ Humoristes + Admin</div>
+            </div>
+            <div style="background:var(--s2);border:1px solid var(--border2);border-radius:4px;padding:12px">
+              <div style="font-size:11px;font-weight:500;margin-bottom:4px;color:var(--g)">📋 3 min avant</div>
+              <div style="font-size:10px;color:var(--muted);line-height:1.5">Line-up complet dans l'ordre avec durées.</div>
+              <div style="margin-top:6px;font-size:9px;color:var(--muted2)">→ Humoristes uniquement</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-o" onclick="const n=scheduleReminders();document.getElementById('reminders-status').textContent=n+' timers actifs'">⏰ Activer rappels cette semaine</button>
+            <button class="btn btn-ghost" onclick="cancelAllReminders();document.getElementById('reminders-status').textContent='Désactivé';document.getElementById('reminders-status').style.background='var(--r2)';document.getElementById('reminders-status').style.color='var(--r)';document.getElementById('reminders-status').style.borderColor='var(--rb)'">Désactiver</button>
+            <button class="btn btn-ghost" onclick="testReminders()" style="font-size:9px">🧪 Tester</button>
+            <span style="font-size:9px;color:var(--muted)">⚠ Nécessite WhatsApp configuré pour l'envoi réel</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHAT -->
+    <div id="view-chat" class="view" style="height:calc(100vh - 86px);display:none;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-shrink:0">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--o2);border:1px solid var(--ob);display:flex;align-items:center;justify-content:center;font-size:14px">💬</div>
+        <div>
+          <div style="font-size:12px;font-weight:600" id="chat-group-name">BCC — Groupe général</div>
+          <div style="font-size:10px;color:var(--muted)" id="chat-members-count">15 membres</div>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:6px">
+          <button class="btn btn-ghost" style="font-size:9px" onclick="openModal('modal-chat-members')">👥 Membres</button>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div id="chat-messages" style="flex:1;overflow-y:auto;background:var(--s1);border:1px solid var(--border2);border-radius:6px 6px 0 0;padding:14px;display:flex;flex-direction:column;gap:10px"></div>
+
+      <!-- Input -->
+      <div style="background:var(--s1);border:1px solid var(--border2);border-top:none;border-radius:0 0 6px 6px;padding:10px 12px;display:flex;gap:8px;align-items:flex-end;flex-shrink:0">
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="chat-sender-row">
+            <span style="font-size:9px;color:var(--muted);align-self:center">Envoyer en tant que :</span>
+            <select id="chat-sender" style="background:var(--s2);border:1px solid var(--border2);border-radius:3px;padding:3px 7px;color:var(--text);font-size:10px;font-family:'Rajdhani',sans-serif"></select>
+          </div>
+          <div style="display:flex;gap:8px;align-items:flex-end">
+            <textarea id="chat-input" placeholder="Écris un message au groupe..." style="flex:1;background:var(--s2);border:1px solid var(--border2);border-radius:4px;padding:8px 10px;color:var(--text);font-size:11px;font-family:'Rajdhani',sans-serif;resize:none;min-height:36px;max-height:100px;line-height:1.4" onkeydown="chatKeydown(event)" rows="1"></textarea>
+            <button class="btn btn-o" onclick="sendChatMsg()" style="padding:8px 14px;align-self:flex-end">↑</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div><!-- shell -->
+
+<!-- MODAL: envoyer planning -->
+<div class="overlay" id="modal-send-planning">
+  <div class="modal" style="width:540px;max-height:85vh">
+    <div class="modal-title">📲 Envoyer le planning aux humoristes</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Chaque humoriste assigné reçoit ses dates + un lien pour signaler une indisponibilité.</div>
+    <div id="send-planning-list" style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto;margin-bottom:14px"></div>
+    <div style="background:var(--s2);border:1px solid var(--border2);border-radius:4px;padding:10px 12px;margin-bottom:14px">
+      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Aperçu du message</div>
+      <div id="send-planning-preview" style="font-size:11px;color:var(--text);line-height:1.7;white-space:pre-wrap"></div>
+    </div>
+    <div class="ma">
+      <button class="btn btn-ghost" onclick="closeModal('modal-send-planning')">Annuler</button>
+      <button class="btn btn-o" onclick="sendPlanningToAll()" style="font-weight:700">Envoyer à tous →</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: fiche humoriste -->
+<div class="overlay" id="modal-fiche">
+  <div class="modal" style="width:520px;max-height:85vh">
+    <div id="fiche-content"></div>
+    <div class="ma" style="margin-top:12px">
+      <button class="btn btn-ghost" onclick="closeModal('modal-fiche')">Fermer</button>
+      <button class="btn btn-o" onclick="saveFiche()">Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: membres du chat -->
+<div class="overlay" id="modal-chat-members">
+  <div class="modal">
+    <div class="modal-title">Membres du groupe</div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:12px">Tous les humoristes du groupe ont accès au chat.</div>
+    <div id="chat-members-list" style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto"></div>
+    <div class="ma"><button class="btn btn-o" onclick="closeModal('modal-chat-members')">Fermer</button></div>
+  </div>
+</div>
+
+<!-- MODAL: demandes dispos -->
+<div class="overlay" id="modal-dispo">
+  <div class="modal">
+    <div class="modal-title">Envoyer demandes de disponibilités</div>
+    <div class="fr"><label class="fl">Destinataires</label><select class="fsl" id="d-dest"><option>Tous les humoristes actifs</option><option>Non-répondants uniquement</option><option>Headliners uniquement</option></select></div>
+    <div class="fr"><label class="fl">Message</label><textarea class="fta">Salut {NOM} ! Remplis tes dispos via stagely.io/portal — code : {CODE} — deadline le {DEADLINE}.</textarea></div>
+    <div style="font-size:9px;color:var(--muted)">Variables : {NOM} {CODE} {DEADLINE}</div>
+    <div class="ma"><button class="btn btn-ghost" onclick="closeModal('modal-dispo')">Annuler</button><button class="btn btn-o" onclick="sendDispos()">✉ Envoyer</button></div>
+  </div>
+</div>
+
+<!-- MODAL: ajouter humoriste -->
+<div class="overlay" id="modal-add-hum">
+  <div class="modal">
+    <div class="modal-title">Nouvel humoriste</div>
+    <div class="fr"><label class="fl">Nom complet</label><input class="fi" id="n-name" placeholder="PRÉNOM NOM"></div>
+    <div class="fr"><label class="fl">Genre</label>
+      <div style="display:flex;gap:6px;margin-top:4px">
+        <button class="gbtn gm" id="gbtn-m" onclick="selG('m')"><span style="width:7px;height:7px;border-radius:50%;background:#3b82f6;display:inline-block"></span>Homme</button>
+        <button class="gbtn" id="gbtn-f" onclick="selG('f')"><span style="width:7px;height:7px;border-radius:50%;background:#f472b6;display:inline-block"></span>Femme</button>
+      </div>
+    </div>
+    <div class="fr"><label class="fl">Priorité</label><select class="fsl" id="n-prio"><option value="new">Nouveau</option><option value="regular">Régulier</option><option value="headliner">Headliner</option></select></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="fr"><label class="fl">Durée de passage (min)</label><input class="fi" id="n-dur" type="number" value="10" min="5" max="60"></div>
+      <div class="fr"><label class="fl">Présence estimée (%)</label><input class="fi" id="n-pres" type="number" value="100" min="0" max="100"></div>
+    </div>
+    <div class="fr"><label class="fl">Téléphone WhatsApp</label><input class="fi" id="n-phone" placeholder="+33612345678"></div>
+    <div class="ma"><button class="btn btn-ghost" onclick="closeModal('modal-add-hum')">Annuler</button><button class="btn btn-o" onclick="addH()">Ajouter</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════════
+
+const CLUB_CODE = 'BCC24';
+let currentCode = CLUB_CODE;
+
+let DAYS_CONFIG = [
+  {name:'MAR',label:'Mardi',   slots:['20H15','21H30']},
+  {name:'MER',label:'Mercredi',slots:['20H15','21H30']},
+  {name:'JEU',label:'Jeudi',   slots:['20H15','21H30']},
+  {name:'VEN',label:'Vendredi',slots:['19H00','20H15','21H30']},
+  {name:'SAM',label:'Samedi',  slots:['19H00','20H30','21H45','23H00']},
+  {name:'DIM',label:'Dimanche',slots:['20H15','21H30']},
+];
+
+const BASE_WEEK = new Date(2025,4,5);
+let weekOffset = 0;
+const MOIS=['jan','fév','mar','avr','mai','juin','juil','aoû','sep','oct','nov','déc'];
+const MOIS_FULL=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+
+let COMEDIANS = [
+  {id:'lotfi',    name:'LOTFI ABDELLI',     prio:'headliner',presence:95, gender:'m', duration:20, phone:''},
+  {id:'david',    name:'DAVID AZRIA',        prio:'headliner',presence:91, gender:'m', duration:20, phone:''},
+  {id:'patrick',  name:'PATRICK DOUGLAS',    prio:'regular',  presence:98, gender:'m', duration:15, phone:''},
+  {id:'tony',     name:'TONY SAINT LAURENT', prio:'regular',  presence:96, gender:'m', duration:15, phone:''},
+  {id:'leongomes',name:'LÉON GOMES',         prio:'regular',  presence:82, gender:'m', duration:10, phone:''},
+  {id:'guillaume',name:'GUILLAUME DOLLE',    prio:'regular',  presence:88, gender:'m', duration:15, phone:''},
+  {id:'mh',       name:'MH',                 prio:'regular',  presence:90, gender:'f', duration:15, phone:''},
+  {id:'alicia',   name:'ALICIA THE QUEEN',   prio:'regular',  presence:85, gender:'f', duration:10, phone:''},
+  {id:'anne',     name:'ANNE',               prio:'new',      presence:100,gender:'f', duration:10, phone:''},
+  {id:'merlin',   name:'MERLIN',             prio:'new',      presence:80, gender:'m', duration:10, phone:''},
+  {id:'sara',     name:'SARA NMOR',          prio:'new',      presence:100,gender:'f', duration:10, phone:''},
+  {id:'karim',    name:'KARIM BRIMO',        prio:'regular',  presence:78, gender:'m', duration:10, phone:''},
+  {id:'nadia',    name:'NADIA B.',            prio:'regular',  presence:87, gender:'f', duration:10, phone:''},
+  {id:'thomas',   name:'THOMAS K.',           prio:'new',     presence:100,gender:'m', duration:10, phone:''},
+  {id:'sof',      name:'SOFIA A.',            prio:'regular', presence:92, gender:'f', duration:10, phone:''},
+];
+const ORIG = JSON.parse(JSON.stringify(COMEDIANS));
+
+// DISPOS_DATA : humId -> { "YYYY-MM-DD-slot": {dispo, mc} }
+let DISPOS_DATA = {};
+
+let DISPO_STATUS = {
+  lotfi:'replied',david:'replied',patrick:'replied',tony:'replied',
+  guillaume:'replied',mh:'replied',alicia:'replied',
+  leongomes:'pending',merlin:'pending',
+  anne:'none',sara:'none',karim:'none',nadia:'none',thomas:'none',sof:'none',
+};
+
+// Clé unique = date exacte
+// Format: "2025-05-10-20H15"
+function dateKey(date, slot) {
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}-${slot}`;
+}
+
+// Génère tous les créneaux d'un mois (year, month 0-indexed)
+function getMonthSlots(year, month) {
+  const DAY_NAMES = ['DIM','LUN','MAR','MER','JEU','VEN','SAM'];
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const result = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(year, month, d);
+    const cfg = DAYS_CONFIG.find(dc => dc.name === DAY_NAMES[date.getDay()]);
+    if (!cfg) continue;
+    cfg.slots.forEach(slot => {
+      const k = dateKey(date, slot);
+      if (cancelledSlots[k]) return; // séance annulée
+      result.push({ key: k, date, day:d, dayName:cfg.name, dayLabel:cfg.label, slot });
+    });
+  }
+  return result;
+}
+
+// makeKey pour la démo (BASE_WEEK = 5 mai 2025)
+function makeKey(dayIndex, slot, wkOffset) {
+  const d = new Date(2025, 4, 5);
+  d.setDate(d.getDate() + wkOffset*7 + dayIndex + 1);
+  return dateKey(d, slot);
+}
+
+let assignments = {};
+let cancelledSlots = {};
+
+(function() {
+  const demo = {
+    lotfi:    [[4,'19H00'],[4,'20H30'],[4,'21H45'],[4,'23H00'],[5,'20H15'],[5,'21H30']],
+    david:    [[0,'20H15'],[0,'21H30'],[1,'20H15'],[3,'20H15']],
+    patrick:  [[0,'20H15'],[0,'21H30'],[1,'20H15'],[1,'21H30'],[2,'20H15'],[3,'19H00'],[3,'20H15'],[3,'21H30'],[4,'19H00'],[4,'20H30'],[5,'20H15'],[5,'21H30']],
+    tony:     [[0,'20H15'],[0,'21H30'],[1,'20H15'],[1,'21H30'],[2,'21H30'],[3,'19H00'],[3,'20H15'],[4,'20H30'],[5,'20H15'],[5,'21H30']],
+    guillaume:[[0,'20H15'],[1,'20H15'],[1,'21H30'],[4,'20H30']],
+    mh:       [[1,'21H30'],[2,'20H15']],
+    alicia:   [[2,'21H30'],[3,'19H00'],[3,'20H15'],[4,'19H00'],[4,'20H30'],[4,'21H45']],
+  };
+  Object.entries(demo).forEach(([id, entries]) => {
+    DISPOS_DATA[id] = {};
+    entries.forEach(([di, slot]) => { DISPOS_DATA[id][makeKey(di,slot,0)] = {dispo:true,mc:false}; });
+  });
+  DISPOS_DATA['mh'][makeKey(2,'20H15',0)]      = {dispo:true,mc:true};
+  DISPOS_DATA['patrick'][makeKey(1,'20H15',0)] = {dispo:true,mc:true};
+  assignments[makeKey(4,'19H00',0)] = ['tony'];
+  assignments[makeKey(4,'20H30',0)] = ['alicia'];
+  assignments[makeKey(4,'21H45',0)] = ['lotfi'];
+  assignments[makeKey(5,'20H15',0)] = ['lotfi'];
+  assignments[makeKey(1,'20H15',0)] = ['patrick'];
+  assignments[makeKey(1,'21H30',0)] = ['guillaume'];
+  assignments[makeKey(2,'20H15',0)] = ['mh'];
+  assignments[makeKey(0,'21H30',0)] = ['merlin'];
+})();
+
+let humFilter='', prioFilter='all', newGender='m';
+
+// ══════════════════════════════════════════════════
+// ROUTING
+// ══════════════════════════════════════════════════
+
+function goToPortal() {
+  window.location.hash = '#/portal';
+  checkRoute();
+}
+function backToAdmin() {
+  window.location.hash = '';
+  document.getElementById('hv-screen').style.display = 'none';
+  document.getElementById('admin-screen').style.display = 'flex';
+  // Reset la vue planning pour forcer un re-render avec les nouvelles dispos
+  renderDashboard();
+  // Si le planning est visible, le re-render aussi
+  const planView = document.getElementById('view-planning');
+  if (planView && planView.classList.contains('on')) renderPlanning();
+}
+
+// ══════════════════════════════════════════════════
+// VUE HUMORISTE — LOGIN
+// ══════════════════════════════════════════════════
+
+let hvUser = null;
+let hvSlots = {}; // key -> {dispo:bool, mc:bool}
+
+function clearErr() { document.getElementById('l-err').style.display = 'none'; }
+
+let hvLoginMode = 'dispos'; // 'dispos' ou 'manage'
+
+function showLoginFor(mode) {
+  hvLoginMode = mode;
+  document.getElementById('hv-page-choice').style.display = 'none';
+  document.getElementById('hv-login-form').style.display = 'block';
+  document.getElementById('login-form-title').textContent = mode === 'dispos'
+    ? 'Envoyer mes disponibilités'
+    : 'Modifier mes dates de passage';
+  document.getElementById('login-btn-main').textContent = mode === 'dispos'
+    ? 'Accéder au formulaire →'
+    : 'Accéder à mes dates →';
+}
+
+function hvLogin() {
+  const prenom = document.getElementById('l-prenom').value.trim();
+  const nom = document.getElementById('l-nom').value.trim();
+  const email = document.getElementById('l-email').value.trim();
+  const phone = document.getElementById('l-phone').value.trim();
+  const code = document.getElementById('l-code').value.trim().toUpperCase();
+
+  if (!prenom || !nom || !email || !phone) {
+    document.getElementById('l-err').textContent = 'Remplis tous les champs';
+    document.getElementById('l-err').style.display = 'block'; return;
+  }
+  if (code !== currentCode) {
+    document.getElementById('l-err').textContent = 'Code club incorrect';
+    document.getElementById('l-err').style.display = 'block'; return;
+  }
+
+  // Cherche ou crée l'humoriste par nom
+  const fullName = `${prenom.toUpperCase()} ${nom.toUpperCase()}`;
+  // Recherche souple : nom complet, ou prénom seul
+  let found = COMEDIANS.find(c =>
+    c.name.toUpperCase() === fullName ||
+    c.name.toUpperCase().split(' ')[0] === prenom.toUpperCase()
+  );
+  if (!found) {
+    const stableId = (prenom+'_'+nom).toLowerCase().replace(/\s+/g,'').replace(/[^a-z0-9_]/g,'');
+    found = {id: stableId, name: fullName, prio:'new', presence:100, gender:'m', duration:10, phone};
+    COMEDIANS.push(found);
+    DISPO_STATUS[found.id] = 'none';
+  } else {
+    if (phone && !found.phone) { found.phone = phone; autoSave(); }
+  }
+  hvUser = found;
+  // Charge les dispos existantes (clés génériques MAR-20H15)
+  hvSlots = {};
+  const existing = DISPOS_DATA[hvUser.id] || {};
+  Object.entries(existing).forEach(([k,v]) => {
+    // Ne charge que les clés génériques pour pré-cocher
+    if (!k.match(/^\d{4}-/)) hvSlots[k] = {dispo:v.dispo||false, mc:v.mc||false};
+  });
+
+  // Charger ses dispos existantes
+  hvSlots = {};
+  if (DISPOS_DATA[hvUser.id]) {
+    Object.entries(DISPOS_DATA[hvUser.id]).forEach(([k,v]) => hvSlots[k] = {dispo:v.dispo||false, mc:v.mc||false});
+  }
+
+  document.getElementById('hv-login').style.display = 'none';
+  document.getElementById('hv-dispos').style.display = 'none';
+  document.getElementById('hv-manage').style.display = 'none';
+
+  if (hvLoginMode === 'manage') {
+    showManageDates(hvUser.id);
+  } else {
+    document.getElementById('hv-uname').textContent = `${prenom} ${nom}`;
+    const clubName = document.getElementById('s-club')?.value||'BCC';
+    const now2 = new Date();
+    const nextM = (now2.getMonth()+1) % 12;
+    const nextY = now2.getMonth()===11 ? now2.getFullYear()+1 : now2.getFullYear();
+    document.getElementById('hv-club').textContent = `${clubName} · Disponibilités ${MOIS_FULL[nextM]} ${nextY}`;
+    const dl = document.getElementById('s-deadline')?.value || 15;
+    document.getElementById('hv-deadline').textContent = `${dl} ${MOIS_FULL[nextM]} ${nextY}`;
+    renderHvTable();
+    document.getElementById('hv-dispos').style.display = 'block';
+  }
+}
+
+// Génère tous les créneaux du mois prochain
+// Chaque entrée a: key (générique MAR-20H15), dateStr (Mardi 6 mai), date réelle
+function getNextMonthSlots() {
+  const now = new Date();
+  const year = now.getMonth() === 11 ? now.getFullYear()+1 : now.getFullYear();
+  const month = (now.getMonth()+1) % 12;
+  return getMonthSlots(year, month);
+}
+
+function renderHvTable() {
+  const slots = getNextMonthSlots();
+  let html = '';
+  let prevDateStr = null;
+  slots.forEach(({key, day, dayLabel, slot}) => {
+    const s = hvSlots[key] || {dispo:false, mc:false};
+    const uid = key.replace(/[-H]/g,'_');
+    const now = new Date();
+    const month = (now.getMonth()+1) % 12;
+    const dateStr = `${dayLabel} ${day} ${MOIS[month]}`;
+    if (dateStr !== prevDateStr) {
+      html += `<tr class="day-separator"><td colspan="4"><div class="day-sep-label">${dateStr}</div></td></tr>`;
+      prevDateStr = dateStr;
+    }
+    html += `<tr>
+      <td class="dt-day"></td>
+      <td class="dt-time">${slot.replace('H',':')}</td>
+      <td class="dt-check">
+        <div class="tcheck">
+          <input type="checkbox" id="d-${uid}" ${s.dispo?'checked':''} onchange="hvToggle('${key}','dispo',this.checked)">
+          <label for="d-${uid}">✓</label>
+        </div>
+      </td>
+      <td class="dt-mc">
+        <div class="mc-check ${!s.dispo?'disabled':''}" id="mc-wrap-${uid}">
+          <input type="checkbox" id="mc-${uid}" ${s.mc?'checked':''} ${!s.dispo?'disabled':''} onchange="hvToggle('${key}','mc',this.checked)">
+          <label for="mc-${uid}">MC</label>
+        </div>
+      </td>
+    </tr>`;
+  });
+  document.getElementById('hv-tbody').innerHTML = html;
+  updateHvCount();
+}
+
+function hvToggle(key, field, val) {
+  if (!hvSlots[key]) hvSlots[key] = {dispo:false, mc:false};
+  hvSlots[key][field] = val;
+  if (field === 'dispo' && !val) hvSlots[key].mc = false;
+  renderHvTable();
+}
+
+function hvAll() {
+  getNextMonthSlots().forEach(({key}) => { hvSlots[key] = {dispo:true, mc:false}; });
+  renderHvTable();
+}
+function hvClear() {
+  hvSlots = {};
+  renderHvTable();
+}
+
+function updateHvCount() {
+  const n = Object.values(hvSlots).filter(v => v.dispo).length;
+  document.getElementById('hv-count').textContent = `${n} créneau${n>1?'x':''} coché${n>1?'s':''}`;
+}
+
+function hvSubmit() {
+  const n = Object.values(hvSlots).filter(v => v.dispo).length;
+  if (!n) { toast('Coche au moins un créneau'); return; }
+  if (!hvUser) return;
+
+  // hvSlots a déjà des clés datées (ex: 2025-05-06-20H15) depuis getNextMonthSlots
+  DISPOS_DATA[hvUser.id] = {};
+  Object.entries(hvSlots).forEach(([k, v]) => {
+    if (v.dispo) DISPOS_DATA[hvUser.id][k] = {dispo: true, mc: v.mc || false};
+  });
+  DISPO_STATUS[hvUser.id] = 'replied';
+  updateBadge();
+
+  document.getElementById('hv-ok').style.display = 'block';
+  document.querySelector('.submit-btn').disabled = true;
+  document.querySelector('.submit-btn').style.opacity = '.4';
+}
+
+// ══════════════════════════════════════════════════
+// NAVIGATION ADMIN
+// ══════════════════════════════════════════════════
+
+const PTITLES = {dashboard:'Dashboard',planning:'Planning',dispos:'Disponibilités',humoristes:'Humoristes',reglages:'Réglages',chat:'Chat groupe BCC'};
+const PACTIONS = {
+  planning:`<button class="btn btn-ghost" onclick="clearAll()">Réinitialiser</button><button class="btn btn-ghost" onclick="exportPDF()" style="font-size:9px">📄 PDF</button><button class="btn btn-ghost" onclick="exportLU()">↓ Exporter</button><button class="btn btn-o" onclick="openSendPlanningModal()" style="font-weight:700">📲 Envoyer le planning</button>`,
+  dispos:`<button class="btn btn-b" onclick="relancerTous()">⏰ Relancer</button><button class="btn btn-o" onclick="openModal('modal-dispo')">✉ Demandes</button>`,
+  humoristes:`<button class="btn btn-o" onclick="openModal('modal-add-hum')">+ Ajouter</button>`,
+  reglages:`<button class="btn btn-o" onclick="toast('✓ Sauvegardé')">Sauvegarder</button>`,
+  dashboard:`<button class="btn btn-ghost" style="font-size:9px" onclick="toggleSearch()">🔍</button><button class="btn btn-ghost" style="font-size:9px" onclick="goToPortal()">👁 Portail</button><button class="btn btn-ghost" style="font-size:9px" onclick="nav('planning')">Planning →</button>`,
+  chat:`<button class="btn btn-ghost" style="font-size:9px" onclick="openModal('modal-chat-members')">👥 Membres</button>`,
+};
+
+function nav(id) {
+  document.querySelectorAll('.view').forEach(v=>{
+    v.classList.remove('on');
+    if(v.id === 'view-chat') v.style.display = 'none';
+  });
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
+  const v = document.getElementById('view-'+id);
+  if(v) v.classList.add('on');
+  document.querySelectorAll('.ni').forEach(n=>{if(n.getAttribute('onclick')===`nav('${id}')`) n.classList.add('on');});
+  document.getElementById('ptitle').textContent = PTITLES[id]||id;
+  document.getElementById('tactions').innerHTML = PACTIONS[id]||'';
+  if(id==='dashboard') renderDashboard();
+  if(id==='planning') renderPlanning();
+  if(id==='dispos') renderDispos();
+  if(id==='humoristes') renderHumoristes();
+  if(id==='reglages') { renderSlotsCfg(); updateShareWidget(currentCode); }
+  if(id==='chat') {
+    const cv = document.getElementById('view-chat');
+    if(cv) cv.style.display = 'flex';
+    renderChat();
+    // Clear badge
+    const badge = document.getElementById('bdg-chat');
+    if(badge) { badge.style.display='none'; badge.textContent='0'; }
+  }
+}
+
+function toggleSB() { document.getElementById('sidebar').classList.toggle('col'); }
+
+// ══════════════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════════════
+
+function updateBadge() {
+  const n = COMEDIANS.filter(c=>DISPO_STATUS[c.id]!=='replied').length;
+  document.getElementById('bdg-dispos').textContent = n;
+}
+
+function renderDashboard() {
+  document.getElementById('kv-hum').textContent = COMEDIANS.length;
+  const total = DAYS_CONFIG.reduce((a,d)=>a+d.slots.length,0);
+  const asgn = Object.values(assignments).reduce((a,arr)=>a+arr.length,0);
+  document.getElementById('kv-asgn').textContent = asgn;
+  document.getElementById('ks-asgn').textContent = `sur ${total} créneaux`;
+  const replied = COMEDIANS.filter(c=>DISPO_STATUS[c.id]==='replied').length;
+  document.getElementById('kv-dispos').textContent = replied;
+  document.getElementById('ks-dispos').textContent = `${COMEDIANS.length-replied} en attente`;
+  const avg = Math.round(COMEDIANS.reduce((a,c)=>a+c.presence,0)/COMEDIANS.length);
+  document.getElementById('kv-pres').textContent = avg+'%';
+
+  // ── Lineup chronologique ──
+  const weekStart = getWeekStart();
+  let tbl = '';
+  let prevDay = '';
+  DAYS_CONFIG.forEach((day,di) => {
+    const d = new Date(weekStart); d.setDate(weekStart.getDate() + di + 1);
+    day.slots.forEach((slot) => {
+      const key = dateKey(d, slot);
+      const ids = (assignments[key]||[]).filter(id=>COMEDIANS.find(c=>c.id===id));
+      // Séparateur de jour
+      if (day.name !== prevDay) {
+        tbl += `<tr class="day-separator">
+          <td colspan="3" class="day-separator">
+            <div class="day-sep-label">
+              <span class="day-pill">${day.label}</span>
+              <span class="day-sep-date">${d.getDate()} ${MOIS[d.getMonth()]}</span>
+            </div>
+          </td>
+        </tr>`;
+        prevDay = day.name;
+      }
+      tbl += `<tr>
+        <td style="width:10px;padding-left:20px"></td>
+        <td class="time-lbl">${slot.replace('H',':')}</td>
+        <td><div class="performer-cell">`;
+      if (ids.length) {
+        ids.forEach((id,idx) => {
+          const c = COMEDIANS.find(c=>c.id===id);
+          const isMC = idx === 0;
+          const isMCwanted = DISPOS_DATA[id]?.[key]?.mc;
+          tbl += `<span class="perf-chip ${isMC?'mc':''}">
+            <span class="${c.gender==='f'?'dot-f':'dot-m'}"></span>
+            ${isMC?'MC · ':''}${c?.name.split(' ')[0]} ${c?.name.split(' ')[1]?.[0]||''}.
+          </span>`;
+        });
+      } else {
+        tbl += `<span class="perf-empty">— non assigné</span>`;
+      }
+      tbl += `</div></td></tr>`;
+    });
+  });
+  document.getElementById('lineup-tbl').innerHTML = tbl;
+
+  // Dispo status
+  const r=COMEDIANS.filter(c=>DISPO_STATUS[c.id]==='replied').length;
+  const p=COMEDIANS.filter(c=>DISPO_STATUS[c.id]==='pending').length;
+  const nn=COMEDIANS.filter(c=>DISPO_STATUS[c.id]==='none').length;
+  const noneList=COMEDIANS.filter(c=>DISPO_STATUS[c.id]==='none');
+  document.getElementById('dash-dispo').innerHTML=`
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
+      <span class="rs rs-r">✓ ${r}</span><span class="rs rs-p">⏳ ${p}</span><span class="rs rs-n">✕ ${nn}</span>
+    </div>
+    <div style="height:5px;background:var(--s3);border-radius:3px;display:flex;overflow:hidden;margin-bottom:10px">
+      <div style="width:${r/COMEDIANS.length*100}%;background:var(--g)"></div>
+      <div style="width:${p/COMEDIANS.length*100}%;background:var(--gold)"></div>
+      <div style="width:${nn/COMEDIANS.length*100}%;background:var(--r)"></div>
+    </div>
+    ${noneList.slice(0,4).map(c=>`<div class="mrow"><span class="gdot g${c.gender}"></span><span style="font-size:10px;flex:1">${c.name}</span><button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="sendRem('${c.id}')">Relancer</button></div>`).join('')}`;
+
+  // Top reliability
+  document.getElementById('dash-rel').innerHTML=[...COMEDIANS].sort((a,b)=>b.presence-a.presence).slice(0,6).map(c=>{
+    const col=c.presence>=90?'var(--g)':c.presence>=75?'var(--o)':'var(--r)';
+    return `<div class="mrow"><span class="gdot g${c.gender}"></span><span style="font-size:10px;flex:1">${c.name}</span><div class="mbar"><div class="mfill" style="width:${c.presence}%;background:${col}"></div></div><span style="font-size:9px;color:${col};width:25px;text-align:right">${c.presence}%</span></div>`;
+  }).join('');
+
+  updateBadge();
+}
+
+// ══════════════════════════════════════════════════
+// PLANNING
+// ══════════════════════════════════════════════════
+
+// Date de début de semaine affichée (lundi)
+function getWeekStart() {
+  // Commence à la semaine courante du mois de dispos
+  const now = new Date();
+  const year = now.getMonth() === 11 ? now.getFullYear()+1 : now.getFullYear();
+  const month = (now.getMonth()+1) % 12;
+  // Premier lundi du mois prochain
+  const firstDay = new Date(year, month, 1);
+  const dayOfWeek = firstDay.getDay(); // 0=dim
+  const daysToMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek) % 7 || 7;
+  const firstMonday = new Date(year, month, daysToMonday === 7 ? 1 : daysToMonday);
+  // Ajouter weekOffset semaines
+  firstMonday.setDate(firstMonday.getDate() + weekOffset * 7);
+  return firstMonday;
+}
+
+function getWkLabel() {
+  const ws = getWeekStart();
+  const we = new Date(ws); we.setDate(ws.getDate() + 6);
+  return `${ws.getDate()} ${MOIS[ws.getMonth()]} – ${we.getDate()} ${MOIS[we.getMonth()]} ${we.getFullYear()}`;
+}
+
+function renderPlanning() {
+  document.getElementById('wk-lbl').textContent = getWkLabel();
+  const MAX = parseInt(document.getElementById('s-max')?.value)||4;
+  const weekStart = getWeekStart(); // lundi
+  let html = '';
+
+  DAYS_CONFIG.forEach((day, di) => {
+    // di=0=MAR(mardi), di=1=MER... lundi=weekStart, mardi=+1, etc.
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + di + 1); // +1 car lundi=0, mardi=+1
+    const key_fn = (slot) => dateKey(date, slot);
+
+    html += `<div class="dg"><div class="dg-hd"><span class="dg-name">${day.name}</span><span class="dg-date">${date.getDate()} ${MOIS[date.getMonth()]}</span></div><div class="sr">`;
+
+    day.slots.forEach(slot => {
+      const key = key_fn(slot);
+      const asgnIds = (assignments[key]||[]).filter(id=>COMEDIANS.find(c=>c.id===id));
+
+      // Séance annulée ?
+      if (cancelledSlots[key]) {
+        html += `<div class="sc"><div class="sc-hd" style="background:var(--r2);border-bottom-color:var(--rb)">
+          <div><div class="sc-time" style="color:var(--r);text-decoration:line-through">${slot.replace('H',':')}</div><div class="sc-meta" style="color:var(--r)">Annulée</div></div>
+          <button onclick="restoreSlot('${key}')" title="Rétablir" style="background:none;border:1px solid var(--rb);color:var(--r);cursor:pointer;font-size:9px;padding:2px 6px;border-radius:2px">Rétablir</button>
+        </div><div class="sc-body"><div class="sc-empty" style="color:var(--r)">Séance annulée</div></div></div>`;
+        return;
+      }
+
+      const isFull = asgnIds.length >= MAX;
+      const available = COMEDIANS.filter(c => {
+        if (asgnIds.includes(c.id)) return false;
+        return DISPOS_DATA[c.id]?.[key]?.dispo;
+      }).sort((a,b) => ({headliner:3,regular:2,new:1}[b.prio] - {headliner:3,regular:2,new:1}[a.prio]) || (b.presence - a.presence));
+      const totalD = COMEDIANS.filter(c => DISPOS_DATA[c.id]?.[key]?.dispo).length;
+
+      html += `<div class="sc"><div class="sc-hd"><div><div class="sc-time">${slot.replace('H',':')}</div><div class="sc-meta">${totalD} dispo${totalD>1?'s':''}</div></div>
+        <div style="display:flex;align-items:center;gap:4px">
+          ${asgnIds.length?`<span class="sc-badge">${asgnIds.length}/${MAX}</span>`:''}
+          <button title="Annuler cette séance" onclick="cancelSlot('${key}','${slot}','${day.label} ${date.getDate()} ${MOIS[date.getMonth()]}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:2px 4px;border-radius:2px;transition:.1s" onmouseover="this.style.color='var(--r)'" onmouseout="this.style.color='var(--muted)'">⊘</button>
+        </div>
+      </div>
+      <div class="sc-body" ondragover="event.preventDefault();this.style.background='var(--o2)'" ondragleave="this.style.background=''" ondrop="dropOnSlot(event,'${key}');this.style.background=''">`;
+
+      asgnIds.forEach((id,idx) => {
+        const c = COMEDIANS.find(c=>c.id===id); if(!c) return;
+        html += `<div class="ca" draggable="true"
+          ondragstart="dragStart(event,'${id}','${key}')"
+          ondragend="dragEnd(event)">
+          <button class="ca-rm" onclick="unassign('${key}','${id}')">✕</button>
+          <span class="gdot g${c.gender}"></span>
+          <div class="ca-name">${c.name}</div>
+          ${idx===0?`<span class="mc-b">MC</span>`:''}
+          <span style="font-size:8px;color:rgba(34,197,94,.5);margin-left:auto">${c.duration||10}m</span>
+        </div>`;
+      });
+      if (asgnIds.length && available.length) html += `<div class="sc-sep"></div>`;
+      available.forEach(c => {
+        html += `<div class="cd ${isFull?'full':''}" onclick="${isFull?'':` planAsgn('${c.id}','${key}')`}">
+          <span class="ddot" style="background:var(--g)"></span>
+          <span class="gdot g${c.gender}"></span>
+          <div class="cd-name">${c.name}</div>
+          ${!isFull?`<span class="add-i">+</span>`:''}
+        </div>`;
+      });
+      if (!asgnIds.length && !available.length) html += `<div class="sc-empty">— aucun dispo</div>`;
+      html += `</div></div>`;
+    });
+    html += `</div></div>`;
+  });
+  document.getElementById('board').innerHTML = html;
+}
+
+function planAsgn(id,key){
+  if(!assignments[key]) assignments[key]=[];
+  const MAX=parseInt(document.getElementById('s-max')?.value)||4;
+  if(assignments[key].length>=MAX){toast('Créneau plein');return;}
+  if(assignments[key].includes(id)) return;
+  assignments[key].push(id);
+  toast(`✓ ${COMEDIANS.find(c=>c.id===id)?.name} assigné`);
+  renderPlanning();
+}
+function unassign(key,id){
+  assignments[key]=(assignments[key]||[]).filter(i=>i!==id);
+  if(!assignments[key].length) delete assignments[key];
+  toast(`✕ ${COMEDIANS.find(c=>c.id===id)?.name} retiré`);
+  renderPlanning();
+}
+function clearAll(){assignments={};renderPlanning();toast('Planning réinitialisé');}
+function chgWk(d){weekOffset+=d;renderPlanning();}
+
+// ── EXPORT PDF ──
+function exportPDF() {
+  const weekStart = getWeekStart();
+  const clubName = document.getElementById('s-club')?.value || 'BCC';
+
+  let rows = '';
+  DAYS_CONFIG.forEach((day, di) => {
+    const date = new Date(weekStart); date.setDate(weekStart.getDate() + di + 1);
+    const dateStr = `${day.label} ${date.getDate()} ${MOIS[date.getMonth()]}`;
+    let hasRow = false;
+    day.slots.forEach(slot => {
+      const key = dateKey(date, slot);
+      const ids = (assignments[key]||[]).filter(id => COMEDIANS.find(c=>c.id===id));
+      if (!hasRow) {
+        rows += `<tr><td colspan="4" style="padding:14px 16px 6px;background:#111;border-bottom:1px solid #222">
+          <span style="font-family:Rajdhani,sans-serif;font-weight:700;font-size:15px;color:#f97316;text-transform:uppercase;letter-spacing:2px">${dateStr}</span>
+        </td></tr>`;
+        hasRow = true;
+      }
+      const timeCell = `<td style="padding:8px 16px;color:#888;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;border-bottom:1px solid #1a1a1a">${slot.replace('H',':')}</td>`;
+      if (ids.length) {
+        const artistsHtml = ids.map((id, idx) => {
+          const c = COMEDIANS.find(c=>c.id===id);
+          const isMC = idx === 0;
+          const dotColor = c?.gender === 'f' ? '#f472b6' : '#3b82f6';
+          return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0">
+            <span style="width:6px;height:6px;border-radius:50%;background:${dotColor};flex-shrink:0;display:inline-block"></span>
+            <span style="font-size:13px;font-weight:600;color:#f0f0f0">${c?.name||'?'}</span>
+            ${isMC ? `<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:2px;background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3)">MC</span>` : ''}
+            <span style="font-size:11px;color:#555;margin-left:auto">${c?.duration||10} min</span>
+          </div>`;
+        }).join('');
+        rows += `<tr>${timeCell}<td colspan="3" style="padding:8px 16px;border-bottom:1px solid #1a1a1a;vertical-align:top">${artistsHtml}</td></tr>`;
+      } else {
+        rows += `<tr>${timeCell}<td colspan="3" style="padding:8px 16px;border-bottom:1px solid #1a1a1a;color:#333;font-style:italic;font-size:12px;vertical-align:top">— Non assigné</td></tr>`;
+      }
+    });
+  });
+
+  const totalSlots = DAYS_CONFIG.reduce((a,d)=>a+d.slots.length,0);
+  const assignedCount = Object.values(assignments).reduce((a,arr)=>a+arr.length,0);
+
+  const html = `<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{background:#080808;color:#f0f0f0;font-family:'Rajdhani',sans-serif;padding:32px;min-height:100vh}
+      @media print{body{padding:20px}@page{margin:15mm;background:#080808}}
+    </style>
+  </head><body>
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:28px;padding-bottom:16px;border-bottom:2px solid #f97316">
+      <div>
+        <div style="font-family:Rajdhani,sans-serif;font-weight:700;font-size:32px;color:#f97316;letter-spacing:4px;text-transform:uppercase">${clubName}</div>
+        <div style="font-size:16px;color:#666;letter-spacing:2px;text-transform:uppercase;margin-top:2px">Line-up — ${getWkLabel()}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:12px;color:#444">Généré le ${new Date().toLocaleDateString('fr-FR')}</div>
+        <div style="font-size:12px;color:#444;margin-top:2px">${assignedCount}/${totalSlots} créneaux assignés</div>
+      </div>
+    </div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="padding:8px 16px;font-size:10px;color:#444;text-transform:uppercase;letter-spacing:1px;text-align:left;background:#0a0a0a;border-bottom:1px solid #222">Créneau</th>
+        <th colspan="3" style="padding:8px 16px;font-size:10px;color:#444;text-transform:uppercase;letter-spacing:1px;text-align:left;background:#0a0a0a;border-bottom:1px solid #222">Artistes</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="margin-top:24px;padding-top:14px;border-top:1px solid #1a1a1a;display:flex;gap:20px">
+      <span style="font-size:11px;color:#444;display:flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:#3b82f6;display:inline-block"></span> Homme</span>
+      <span style="font-size:11px;color:#444;display:flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:#f472b6;display:inline-block"></span> Femme</span>
+      <span style="font-size:11px;color:#444;display:flex;align-items:center;gap:5px"><span style="padding:1px 5px;border-radius:2px;background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3);font-size:9px">MC</span> Maître de cérémonie</span>
+    </div>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) { toast('⚠ Autorise les popups pour exporter'); return; }
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 800);
+  toast('📄 PDF ouvert');
+}
+
+function exportLU(){
+  const weekStart = getWeekStart();
+  let txt=`LINE-UP BCC — ${getWkLabel()}\n${'─'.repeat(40)}\n`;
+  DAYS_CONFIG.forEach((day,di)=>{
+    const d=new Date(weekStart);d.setDate(weekStart.getDate()+di+1);
+    txt+=`\n${day.label.toUpperCase()} ${d.getDate()}\n`;
+    day.slots.forEach(s=>{
+      const key=dateKey(d,s);
+      const ids=assignments[key]||[];
+      const names=ids.map(id=>{const c=COMEDIANS.find(c=>c.id===id);return c?`${id===ids[0]?'[MC] ':''}${c.name} (${c.duration||10}min)`:id});
+      txt+=`  ${s.replace('H',':')}  ${names.length?names.join(', '):'— libre'}\n`;
+    });
+  });
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'}));
+  a.download='lineup-bcc.txt';a.click();toast('↓ Exporté');
+}
+
+// ── RECHERCHE GLOBALE ──
+function toggleSearch() {
+  let box = document.getElementById('global-search-box');
+  if (box) { box.remove(); return; }
+  box = document.createElement('div');
+  box.id = 'global-search-box';
+  box.style.cssText = 'position:fixed;top:56px;left:50%;transform:translateX(-50%);width:420px;max-width:90vw;background:var(--s1);border:1px solid var(--o);border-radius:6px;padding:12px;z-index:200;box-shadow:0 8px 32px rgba(0,0,0,.6)';
+  box.innerHTML = `<input id="gs-inp" placeholder="🔍 Rechercher..." style="width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:3px;padding:9px 12px;color:var(--text);font-size:12px;font-family:'Rajdhani',sans-serif;outline:none" autofocus oninput="runSearch(this.value)">
+    <div id="gs-results" style="margin-top:8px;display:flex;flex-direction:column;gap:3px;max-height:300px;overflow-y:auto"></div>
+    <div style="font-size:9px;color:var(--muted);margin-top:8px">Echap pour fermer</div>`;
+  document.body.appendChild(box);
+  document.getElementById('gs-inp').focus();
+  document.addEventListener('keydown', _closeSearch);
+}
+function _closeSearch(e) {
+  if (e.key==='Escape') { document.getElementById('global-search-box')?.remove(); document.removeEventListener('keydown',_closeSearch); }
+}
+function runSearch(q) {
+  if (!q.trim()) { document.getElementById('gs-results').innerHTML=''; return; }
+  const ql = q.toLowerCase();
+  let results = [];
+  COMEDIANS.filter(c=>c.name.toLowerCase().includes(ql)).forEach(c=>{
+    results.push({type:'humoriste',label:c.name,sub:`${c.prio} · ${c.duration||10}min · ${c.presence}%`,action:`closeGS();nav('humoristes')`});
+  });
+  Object.entries(assignments).forEach(([key,ids])=>{
+    ids.forEach(id=>{
+      const c=COMEDIANS.find(c=>c.id===id);
+      if(c?.name.toLowerCase().includes(ql)){
+        const parts=key.split('-');
+        results.push({type:'créneau',label:c.name,sub:`${parts[2]}/${parts[1]} ${parts[3]?.replace('H',':')}`,action:`closeGS();nav('planning')`});
+      }
+    });
+  });
+  document.getElementById('gs-results').innerHTML = results.slice(0,8).map(r=>
+    `<div onclick="${r.action}" style="padding:7px 10px;border-radius:3px;background:var(--s2);cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='var(--s2)'">
+      <span style="font-size:8px;padding:1px 5px;border-radius:2px;background:var(--s4);color:var(--muted);white-space:nowrap">${r.type}</span>
+      <span style="font-size:11px;flex:1">${r.label}</span>
+      <span style="font-size:10px;color:var(--muted)">${r.sub}</span>
+    </div>`).join('') || `<div style="font-size:11px;color:var(--muted);padding:8px">Aucun résultat</div>`;
+}
+function closeGS(){ document.getElementById('global-search-box')?.remove(); }
+
+// ══════════════════════════════════════════════════
+// DISPOS ADMIN
+// ══════════════════════════════════════════════════
+
+function renderDispos(){
+  const now=new Date();
+  document.getElementById('d-month').textContent=`${MOIS[now.getMonth()]} ${now.getFullYear()}`;
+  document.getElementById('d-tbody').innerHTML=COMEDIANS.map(c=>{
+    const st=DISPO_STATUS[c.id]||'none';
+    const dd=DISPOS_DATA[c.id]||{};
+    const dSlots=Object.entries(dd).filter(([,v])=>v.dispo).map(([k])=>k);
+    const mcSlots=Object.entries(dd).filter(([,v])=>v.mc).map(([k])=>k);
+    const stC={replied:'rs-r',pending:'rs-p',none:'rs-n'}[st];
+    const stL={replied:'✓ Répondu',pending:'⏳ Envoyé',none:'✕ Pas envoyé'}[st];
+    return `<tr>
+      <td><span style="display:flex;align-items:center;gap:6px"><span class="gdot g${c.gender}"></span>${c.name}</span></td>
+      <td><span class="rs ${stC}">${stL}</span></td>
+      <td style="font-size:12px;font-weight:600;color:var(--g)">${dSlots.length ? dSlots.length : '<span style="color:var(--muted2)">—</span>'}</td>
+      <td><div class="dchips">${mcSlots.length?mcSlots.map(k=>`<span class="dchip" style="background:var(--gold2);color:var(--gold);border-color:rgba(245,158,11,.35)">${k.split('-')[0]} ${k.split('-')[1].replace('H',':')}</span>`).join(''):'<span style="color:var(--muted2);font-size:9px">—</span>'}</div></td>
+      <td><div class="lnk-row">
+        <span class="lnk-v">stagely.io/portal</span>
+        <button class="cbtn" onclick="toast('✓ Lien copié')">Copier</button>
+      </div></td>
+      <td>${st!=='replied'?`<button class="btn btn-ghost" style="font-size:9px;padding:2px 7px" onclick="sendRem('${c.id}')">⏰</button>`:''}</td>
+    </tr>`;
+  }).join('');
+  updateBadge();
+}
+
+function sendRem(id){
+  const c=COMEDIANS.find(c=>c.id===id);
+  DISPO_STATUS[id]='pending';
+  renderDispos();renderDashboard();
+  toast(`⏰ Relance → ${c?.name}`);
+}
+function relancerTous(){
+  const n=COMEDIANS.filter(c=>DISPO_STATUS[c.id]!=='replied');
+  n.forEach(c=>DISPO_STATUS[c.id]='pending');
+  renderDispos();toast(`⏰ ${n.length} relances envoyées`);
+}
+function sendDispos(){
+  let t=COMEDIANS;
+  const dest=document.getElementById('d-dest').value;
+  if(dest.includes('Non')) t=COMEDIANS.filter(c=>DISPO_STATUS[c.id]!=='replied');
+  if(dest.includes('Head')) t=COMEDIANS.filter(c=>c.prio==='headliner');
+  t.forEach(c=>{if(DISPO_STATUS[c.id]==='none') DISPO_STATUS[c.id]='pending';});
+  closeModal('modal-dispo');renderDispos();
+  toast(`✉ ${t.length} demandes envoyées`);
+}
+
+// ══════════════════════════════════════════════════
+// HUMORISTES
+// ══════════════════════════════════════════════════
+
+function renderHumoristes(){
+  const list=COMEDIANS.filter(c=>{
+    if(prioFilter!=='all'&&c.prio!==prioFilter) return false;
+    if(humFilter&&!c.name.toLowerCase().includes(humFilter.toLowerCase())) return false;
+    return true;
+  });
+  const ppC={headliner:'pp-h',regular:'pp-r',new:'pp-n'};
+  const ppL={headliner:'Headliner',regular:'Régulier',new:'Nouveau'};
+  document.getElementById('hcards').innerHTML=list.map(c=>{
+    const pCol=c.presence>=90?'var(--g)':c.presence>=75?'var(--o)':'var(--r)';
+    const ds=DISPO_STATUS[c.id]||'none';
+    const drdC={replied:'drd-r',pending:'drd-p',none:'drd-n'}[ds];
+    const drdL={replied:'Dispos reçues',pending:'Demande envoyée',none:'Pas contacté'}[ds];
+    return `<div class="hcard">
+      <button class="del-btn" onclick="delH('${c.id}')">✕</button>
+      <div class="hcard-name"><span class="gdot g${c.gender}" style="width:8px;height:8px"></span>${c.name}</div>
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
+        <span class="pp ${ppC[c.prio]}">${ppL[c.prio]}</span>
+        <span style="font-size:9px;color:var(--muted);background:var(--s3);padding:1px 5px;border-radius:2px">${c.duration||10} min</span>
+        <span class="drd ${drdC}"></span>
+        <span style="font-size:8px;color:var(--muted)">${drdL}</span>
+      </div>
+      <div class="pres-row">
+        <span style="font-size:9px;color:var(--muted)">Présence</span>
+        <div class="pbar"><div class="pbar-f" style="width:${c.presence}%;background:${pCol}"></div></div>
+        <span style="font-size:9px;color:${pCol}">${c.presence}%</span>
+      </div>
+      <div class="hcard-actions" style="margin-top:8px">
+        <button class="btn btn-ghost" style="font-size:9px;padding:2px 7px" onclick="editPrio('${c.id}')">Priorité</button>
+        <button class="btn btn-ghost" style="font-size:9px;padding:2px 7px;color:var(--o);border-color:var(--ob)" onclick="openFiche('${c.id}')">Fiche →</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+let ficheId = null;
+
+function openFiche(id) {
+  ficheId = id;
+  const c = COMEDIANS.find(c=>c.id===id);
+  if (!c) return;
+
+  const ppL = {headliner:'Headliner',regular:'Régulier',new:'Nouveau'};
+  const pCol = c.presence>=90?'var(--g)':c.presence>=75?'var(--o)':'var(--r)';
+  const ds = DISPO_STATUS[c.id]||'none';
+  const dsL = {replied:'✓ Dispos reçues',pending:'⏳ Demande envoyée',none:'✕ Pas encore contacté'}[ds];
+  const dsCol = {replied:'var(--g)',pending:'var(--gold)',none:'var(--r)'}[ds];
+
+  // Passages de cet humoriste
+  const passages = Object.entries(assignments)
+    .filter(([,ids])=>ids.includes(id))
+    .map(([key])=>key);
+
+  // Dispos du mois
+  const dispos = Object.entries(DISPOS_DATA[id]||{}).filter(([,v])=>v.dispo);
+  const mcDispos = Object.entries(DISPOS_DATA[id]||{}).filter(([,v])=>v.mc);
+
+  document.getElementById('fiche-content').innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border2)">
+      <div style="width:44px;height:44px;border-radius:50%;background:${c.gender==='f'?'rgba(244,114,182,.15)':'rgba(59,130,246,.15)'};border:1px solid ${c.gender==='f'?'#f472b6':'#3b82f6'};display:flex;align-items:center;justify-content:center;font-family:Rajdhani,sans-serif;font-weight:700;font-size:16px;color:${c.gender==='f'?'#f472b6':'#3b82f6'};flex-shrink:0">${c.name.split(' ').map(w=>w[0]).slice(0,2).join('')}</div>
+      <div style="flex:1">
+        <div style="font-family:Rajdhani,sans-serif;font-weight:700;font-size:16px;letter-spacing:1px">${c.name}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${ppL[c.prio]} · ${c.gender==='f'?'Femme':'Homme'}</div>
+      </div>
+      <span style="font-size:11px;color:${pCol};background:var(--s3);padding:3px 8px;border-radius:3px;font-weight:600">${c.presence}% présence</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div class="fr"><label class="fl">Téléphone WhatsApp</label>
+        <input class="fi" id="fiche-phone" value="${c.phone||''}" placeholder="+33 6 xx xx xx xx"></div>
+      <div class="fr"><label class="fl">Durée de passage (min)</label>
+        <input class="fi" id="fiche-dur" type="number" value="${c.duration||10}" min="5" max="60"></div>
+      <div class="fr"><label class="fl">Priorité</label>
+        <select class="fsl" id="fiche-prio">
+          <option value="new" ${c.prio==='new'?'selected':''}>Nouveau</option>
+          <option value="regular" ${c.prio==='regular'?'selected':''}>Régulier</option>
+          <option value="headliner" ${c.prio==='headliner'?'selected':''}>Headliner</option>
+        </select></div>
+      <div class="fr"><label class="fl">Taux de présence (%)</label>
+        <input class="fi" id="fiche-pres" type="number" value="${c.presence}" min="0" max="100"></div>
+      <div class="fr" style="grid-column:1/-1"><label class="fl">Notes</label>
+        <textarea class="fta" id="fiche-notes" style="min-height:60px" placeholder="Notes perso, contraintes, préférences...">${c.notes||''}</textarea></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+      <div style="background:var(--s2);border:1px solid var(--border2);border-radius:4px;padding:10px;text-align:center">
+        <div style="font-family:Rajdhani,sans-serif;font-weight:700;font-size:22px;color:var(--o)">${passages.length}</div>
+        <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Passages assignés</div>
+      </div>
+      <div style="background:var(--s2);border:1px solid var(--border2);border-radius:4px;padding:10px;text-align:center">
+        <div style="font-family:Rajdhani,sans-serif;font-weight:700;font-size:22px;color:var(--g)">${dispos.length}</div>
+        <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Créneaux dispos</div>
+      </div>
+      <div style="background:var(--s2);border:1px solid var(--border2);border-radius:4px;padding:10px;text-align:center">
+        <div style="font-family:Rajdhani,sans-serif;font-weight:700;font-size:22px;color:var(--gold)">${mcDispos.length}</div>
+        <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Créneaux MC</div>
+      </div>
+    </div>
+
+    <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Statut dispos</div>
+    <div style="font-size:11px;color:${dsCol};margin-bottom:14px">${dsL}</div>
+
+    ${passages.length ? `
+    <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Passages cette semaine</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">
+      ${passages.slice(0,6).map(k => {
+        const parts = k.split('-');
+        return `<span style="font-size:9px;padding:2px 7px;border-radius:2px;background:var(--g2);color:var(--g);border:1px solid var(--gb)">${parts[2]}/${parts[1]} ${parts[3]?.replace('H',':')}</span>`;
+      }).join('')}
+    </div>` : ''}
+
+    <div style="display:flex;gap:6px;padding-top:10px;border-top:1px solid var(--border2)">
+      <button class="btn btn-ghost" style="font-size:9px" onclick="sendWhatsAppText('${c.phone||''}','Bonjour ${c.name.split(' ')[0]} !').then(r=>toast(r.simulated?'⚠ Simulé':'✓ Message envoyé'))">📱 Envoyer WhatsApp</button>
+      <button class="btn btn-r" style="font-size:9px" onclick="if(confirm('Retirer ${c.name} ?')){closeModal('modal-fiche');delH('${c.id}')}">Retirer du groupe</button>
+    </div>`;
+
+  openModal('modal-fiche');
+}
+
+function saveFiche() {
+  const c = COMEDIANS.find(c=>c.id===ficheId);
+  if (!c) return;
+  c.phone = document.getElementById('fiche-phone')?.value.trim() || c.phone;
+  c.duration = parseInt(document.getElementById('fiche-dur')?.value) || c.duration;
+  c.prio = document.getElementById('fiche-prio')?.value || c.prio;
+  c.presence = parseInt(document.getElementById('fiche-pres')?.value) || c.presence;
+  c.notes = document.getElementById('fiche-notes')?.value || '';
+  autoSave();
+  closeModal('modal-fiche');
+  renderHumoristes();
+  toast(`✓ Fiche ${c.name} sauvegardée`);
+}
+
+function delH(id){
+  const c=COMEDIANS.find(c=>c.id===id);
+  COMEDIANS=COMEDIANS.filter(c=>c.id!==id);
+  Object.keys(assignments).forEach(k=>{assignments[k]=assignments[k].filter(i=>i!==id);if(!assignments[k].length)delete assignments[k];});
+  renderHumoristes();toast(`✕ ${c?.name} retiré`);
+}
+function addH(){
+  const name=document.getElementById('n-name').value.trim().toUpperCase();
+  if(!name){toast('Nom requis');return;}
+  const id=name.toLowerCase().replace(/\s+/g,'_')+'_'+Date.now();
+  COMEDIANS.push({id,name,prio:document.getElementById('n-prio').value,presence:parseInt(document.getElementById('n-pres').value)||100,gender:newGender,duration:parseInt(document.getElementById('n-dur')?.value)||10,phone:document.getElementById('n-phone')?.value.trim()||''});
+  DISPO_STATUS[id]='none';
+  closeModal('modal-add-hum');document.getElementById('n-name').value='';
+  renderHumoristes();toast(`✓ ${name} ajouté`);
+}
+function editPrio(id){
+  const c=COMEDIANS.find(c=>c.id===id);if(!c) return;
+  const o=['new','regular','headliner'];
+  c.prio=o[(o.indexOf(c.prio)+1)%o.length];
+  renderHumoristes();toast(`${c.name} → ${c.prio}`);
+}
+function filterH(q){humFilter=q;renderHumoristes();}
+function setP(el,f){
+  prioFilter=f;
+  document.querySelectorAll('.pfb').forEach(b=>{b.style.color='var(--muted)';b.style.borderColor='var(--border2)';});
+  el.style.color='var(--o)';el.style.borderColor='var(--ob)';
+  renderHumoristes();
+}
+function selG(g){
+  newGender=g;
+  document.getElementById('gbtn-m').className='gbtn'+(g==='m'?' gm':'');
+  document.getElementById('gbtn-f').className='gbtn'+(g==='f'?' gf':'');
+}
+function resetH(){
+  COMEDIANS=JSON.parse(JSON.stringify(ORIG));
+  assignments={};DISPOS_DATA={};
+  COMEDIANS.forEach(c=>DISPO_STATUS[c.id]='none');
+  renderHumoristes();toast('Réinitialisé');
+}
+
+// ══════════════════════════════════════════════════
+// CHAT
+// ══════════════════════════════════════════════════
+
+let chatMessages = [
+  {sender:'BCC Admin', senderId:'admin', text:'Bienvenue dans le chat du groupe BCC 👋 Utilisez cet espace pour vous coordonner.', time:'10:00', date:'Aujourd\'hui'},
+  {sender:'PATRICK DOUGLAS', senderId:'patrick', text:'Salut tout le monde ! Rappel : je suis dispo tous les samedis de mai.', time:'10:14', date:'Aujourd\'hui'},
+  {sender:'ALICIA THE QUEEN', senderId:'alicia', text:'Top ! Moi pareil pour les vendredis 💪', time:'10:22', date:'Aujourd\'hui'},
+  {sender:'MH', senderId:'mh', text:'Question : est-ce que le créneau 23h00 le samedi sera maintenu en juin ?', time:'11:05', date:'Aujourd\'hui'},
+];
+
+function renderChat() {
+  // Sender select
+  const sel = document.getElementById('chat-sender');
+  if (sel) {
+    sel.innerHTML = `<option value="admin">BCC Admin (moi)</option>` +
+      COMEDIANS.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  }
+
+  // Members count
+  document.getElementById('chat-members-count').textContent = `${COMEDIANS.length + 1} membres`;
+  document.getElementById('chat-group-name').textContent = `${document.getElementById('s-club')?.value || 'BCC'} — Groupe général`;
+
+  // Messages
+  const container = document.getElementById('chat-messages');
+  let html = '';
+  let prevDate = null;
+
+  chatMessages.forEach(msg => {
+    if (msg.date !== prevDate) {
+      html += `<div style="text-align:center;font-size:9px;color:var(--muted);padding:4px 0">${msg.date}</div>`;
+      prevDate = msg.date;
+    }
+    const isAdmin = msg.senderId === 'admin';
+    const c = COMEDIANS.find(c => c.id === msg.senderId);
+    const dotColor = isAdmin ? 'var(--o)' : c?.gender === 'f' ? '#f472b6' : '#3b82f6';
+    const isMe = msg.senderId === 'admin';
+
+    html += `<div style="display:flex;flex-direction:column;align-items:${isMe?'flex-end':'flex-start'};gap:2px">
+      <div style="display:flex;align-items:center;gap:5px;${isMe?'flex-direction:row-reverse':''}">
+        <span style="width:7px;height:7px;border-radius:50%;background:${dotColor};flex-shrink:0"></span>
+        <span style="font-size:9px;color:var(--muted);font-weight:500">${msg.sender}</span>
+        <span style="font-size:9px;color:var(--muted2)">${msg.time}</span>
+      </div>
+      <div style="max-width:72%;background:${isMe?'var(--o)':'var(--s3)'};color:${isMe?'#000':'var(--text)'};padding:8px 11px;border-radius:${isMe?'8px 2px 8px 8px':'2px 8px 8px 8px'};font-size:11px;line-height:1.5;border:1px solid ${isMe?'transparent':'var(--border2)'}">${msg.text}</div>
+    </div>`;
+  });
+
+  container.innerHTML = html;
+  container.scrollTop = container.scrollHeight;
+
+  // Members modal list
+  const ml = document.getElementById('chat-members-list');
+  if (ml) {
+    ml.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="width:7px;height:7px;border-radius:50%;background:var(--o);flex-shrink:0"></span>
+      <span style="font-size:11px;font-weight:500;flex:1">BCC Admin</span>
+      <span style="font-size:9px;color:var(--o);background:var(--o2);padding:1px 6px;border-radius:2px">Admin</span>
+    </div>` +
+    COMEDIANS.map(c => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="width:7px;height:7px;border-radius:50%;background:${c.gender==='f'?'#f472b6':'#3b82f6'};flex-shrink:0"></span>
+      <span style="font-size:11px;flex:1">${c.name}</span>
+      <span style="font-size:9px;color:var(--muted)">${{headliner:'Headliner',regular:'Régulier',new:'Nouveau'}[c.prio]}</span>
+    </div>`).join('');
+  }
+}
+
+function sendChatMsg() {
+  const input = document.getElementById('chat-input');
+  const text = input?.value.trim();
+  if (!text) return;
+
+  const senderId = document.getElementById('chat-sender')?.value || 'admin';
+  const c = COMEDIANS.find(c => c.id === senderId);
+  const senderName = senderId === 'admin' ? 'BCC Admin' : c?.name || 'Inconnu';
+
+  const now = new Date();
+  const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+  chatMessages.push({ sender: senderName, senderId, text, time, date: 'Aujourd\'hui' });
+  input.value = '';
+  input.style.height = 'auto';
+  renderChat();
+
+  // Badge si pas sur la vue chat
+  const chatView = document.getElementById('view-chat');
+  if (!chatView?.classList.contains('on')) {
+    const badge = document.getElementById('bdg-chat');
+    if (badge) {
+      badge.style.display = 'inline';
+      badge.textContent = parseInt(badge.textContent || 0) + 1;
+    }
+  }
+}
+
+function chatKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendChatMsg();
+  }
+}
+
+// ── ANNULATION DE SÉANCE ──
+async function cancelSlot(key, slot, dateLabel) {
+  const asgnIds = (assignments[key]||[]).filter(id => COMEDIANS.find(c=>c.id===id));
+  const timeStr = slot.replace('H',':');
+
+  if (!confirm(`Annuler la séance ${dateLabel} à ${timeStr} ?\n\n${asgnIds.length ? `${asgnIds.length} humoriste(s) assigné(s) seront notifiés.` : 'Aucun humoriste assigné.'}`)) return;
+
+  // Notifier les humoristes assignés
+  for (const humId of asgnIds) {
+    const c = COMEDIANS.find(c=>c.id===humId);
+    if (!c) continue;
+    const prenom = c.name.split(' ')[0];
+    const msg = `Bonjour ${prenom},\n\n❌ La séance du ${dateLabel} à ${timeStr} au BCC est annulée.\n\nNous t'informerons dès que de nouveaux créneaux seront disponibles. Désolé pour la gêne occasionnée.`;
+    if (c.phone) await sendWhatsAppText(c.phone, msg);
+    showAppNotif(`❌ ${c.name} notifié — séance ${timeStr} annulée`, 'var(--r)');
+    logAction('notification', { humId, name: c.name, message: msg, type: 'cancellation' });
+  }
+
+  // Supprimer les assignations
+  delete assignments[key];
+
+  // Marquer la séance comme annulée dans cancelledSlots
+  if (!cancelledSlots) cancelledSlots = {};
+  cancelledSlots[key] = { slot, dateLabel, cancelledAt: new Date().toISOString() };
+
+  logAction('slot_cancel', { key, slot, dateLabel, notified: asgnIds.length });
+  autoSave();
+  renderPlanning();
+
+  const msg = asgnIds.length
+    ? `❌ Séance annulée · ${asgnIds.length} humoriste(s) notifié(s)`
+    : '❌ Séance annulée';
+  toast(msg);
+}
+
+let dragData = null;
+
+function dragStart(e, humId, fromKey) {
+  dragData = { humId, fromKey };
+  e.dataTransfer.effectAllowed = 'move';
+  e.target.style.opacity = '.4';
+}
+function dragEnd(e) {
+  e.target.style.opacity = '1';
+  dragData = null;
+}
+function dropOnSlot(e, toKey) {
+  e.preventDefault();
+  if (!dragData) return;
+  const { humId, fromKey } = dragData;
+  if (fromKey === toKey) return;
+  const MAX = parseInt(document.getElementById('s-max')?.value)||4;
+  if ((assignments[toKey]||[]).length >= MAX) { toast('Créneau plein'); return; }
+  // Retirer de l'ancien slot
+  assignments[fromKey] = (assignments[fromKey]||[]).filter(id => id !== humId);
+  if (!assignments[fromKey].length) delete assignments[fromKey];
+  // Ajouter au nouveau
+  if (!assignments[toKey]) assignments[toKey] = [];
+  if (!assignments[toKey].includes(humId)) assignments[toKey].push(humId);
+  const c = COMEDIANS.find(c=>c.id===humId);
+  logAction('assignment', { humId, name: c?.name, key: toKey, from: fromKey });
+  autoSave();
+  renderPlanning();
+  toast(`↕ ${c?.name} déplacé`);
+}
+
+// ── RECHERCHE GLOBALE ──
+// 3h avant → rappel individuel à chaque humoriste
+// 3min avant → line-up complet dans l'ordre
+// ══════════════════════════════════════════════════
+
+let reminderTimers = []; // stocke les setTimeout actifs
+
+function cancelAllReminders() {
+  reminderTimers.forEach(t => clearTimeout(t));
+  reminderTimers = [];
+}
+
+function scheduleReminders() {
+  cancelAllReminders();
+  const now = new Date();
+  const weekStart = getWeekStart();
+  let scheduled = 0;
+
+  DAYS_CONFIG.forEach((day, di) => {
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + di + 1);
+
+    day.slots.forEach(slot => {
+      const key = dateKey(date, slot);
+      const asgnIds = (assignments[key] || []).filter(id => COMEDIANS.find(c => c.id === id));
+      if (!asgnIds.length) return;
+
+      // Parse l'heure du créneau
+      const [h, m] = slot.split('H').map(Number);
+      const showTime = new Date(date);
+      showTime.setHours(h, m, 0, 0);
+
+      // 1h avant — admin + humoristes
+      const remind1h = new Date(showTime.getTime() - 60 * 60 * 1000);
+      const ms1h = remind1h.getTime() - now.getTime();
+      if (ms1h > 0) {
+        const t = setTimeout(() => send1hReminders(key, asgnIds, showTime, slot), ms1h);
+        reminderTimers.push(t);
+        scheduled++;
+      }
+
+      // 3h avant
+      const remind3h = new Date(showTime.getTime() - 3 * 60 * 60 * 1000);
+      const ms3h = remind3h.getTime() - now.getTime();
+      if (ms3h > 0) {
+        const t = setTimeout(() => send3hReminders(key, asgnIds, showTime, slot), ms3h);
+        reminderTimers.push(t);
+        scheduled++;
+      }
+
+      // 3 min avant
+      const remind3m = new Date(showTime.getTime() - 3 * 60 * 1000);
+      const ms3m = remind3m.getTime() - now.getTime();
+      if (ms3m > 0) {
+        const t = setTimeout(() => sendLineupReminder(key, asgnIds, showTime, slot), ms3m);
+        reminderTimers.push(t);
+        scheduled++;
+      }
+    });
+  });
+
+  if (scheduled > 0) {
+    logAction('reminders_scheduled', { count: scheduled });
+    toast(`⏰ ${scheduled} rappels programmés pour cette semaine`);
+  }
+  return scheduled;
+}
+
+async function send1hReminders(key, humIds, showTime, slot) {
+  const timeStr = slot.replace('H', ':');
+
+  // Notif admin dans l'app
+  const names = humIds.map(id => COMEDIANS.find(c => c.id === id)?.name.split(' ')[0]).filter(Boolean);
+  showAppNotif(`🎤 Show dans 1h — ${timeStr} · ${names.join(', ')}`, 'var(--o)');
+  logAction('notification', { type: '1h_admin', slot: timeStr, comedians: names });
+
+  // Message WhatsApp aux humoristes
+  for (const humId of humIds) {
+    const c = COMEDIANS.find(c => c.id === humId);
+    if (!c) continue;
+    const prenom = c.name.split(' ')[0];
+    const msg = `Salut ${prenom} ! 🎤\n\nC'est dans 1h — tu passes au BCC à ${timeStr}.\n\nDépêche-toi si t'es pas encore en chemin ! 🚀`;
+    if (c.phone) await sendWhatsAppText(c.phone, msg);
+    showAppNotif(`📱 Rappel 1h envoyé à ${c.name}`, 'var(--o)');
+    logAction('notification', { humId, name: c.name, message: msg, type: '1h_reminder' });
+  }
+}
+
+async function send3hReminders(key, humIds, showTime, slot) {
+  const timeStr = slot.replace('H', ':');
+  const dateStr = showTime.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
+
+  for (const humId of humIds) {
+    const c = COMEDIANS.find(c => c.id === humId);
+    if (!c) continue;
+
+    const prenom = c.name.split(' ')[0];
+    const msg = `Salut ${prenom} 👋\n\nRappel : tu passes ce soir au BCC à ${timeStr}.\n\nPrépare-toi, on compte sur toi ! 🎤`;
+
+    if (c.phone) {
+      await sendWhatsAppText(c.phone, msg);
+    }
+
+    // Notif dans l'app aussi
+    showAppNotif(`⏰ Rappel envoyé à ${c.name} (${timeStr})`, 'var(--b)');
+    logAction('notification', { humId, name: c.name, message: msg, type: '3h_reminder' });
+  }
+}
+
+async function sendLineupReminder(key, humIds, showTime, slot) {
+  const timeStr = slot.replace('H', ':');
+
+  // Construire le line-up dans l'ordre
+  let lineupText = `🎤 LINE-UP BCC — ce soir à ${timeStr}\n\n`;
+  humIds.forEach((humId, idx) => {
+    const c = COMEDIANS.find(c => c.id === humId);
+    if (!c) return;
+    const role = idx === 0 ? 'MC' : `Passage ${idx}`;
+    const duree = c.duration || 10;
+    lineupText += `${idx + 1}. ${c.name} — ${role} (${duree})\n`;
+  });
+  lineupText += `\nBonne soirée à tous ! 🔥`;
+
+  for (const humId of humIds) {
+    const c = COMEDIANS.find(c => c.id === humId);
+    if (!c) continue;
+    if (c.phone) {
+      await sendWhatsAppText(c.phone, lineupText);
+    }
+    showAppNotif(`📋 Line-up envoyé à ${c.name} (${timeStr})`, 'var(--g)');
+    logAction('notification', { humId, name: c.name, message: lineupText, type: 'lineup_3min' });
+  }
+}
+
+function showAppNotif(msg, color = 'var(--o)') {
+  const notif = document.createElement('div');
+  notif.style.cssText = `position:fixed;top:60px;right:16px;background:var(--s1);border:1px solid ${color};border-radius:5px;padding:10px 14px;font-size:11px;color:var(--text);z-index:998;max-width:280px;box-shadow:0 4px 20px rgba(0,0,0,.4);transform:translateX(120%);transition:transform .3s`;
+  notif.innerHTML = `<div style="display:flex;align-items:flex-start;gap:8px"><span style="color:${color};flex-shrink:0">●</span><span>${msg}</span></div>`;
+  document.body.appendChild(notif);
+  setTimeout(() => notif.style.transform = 'translateX(0)', 50);
+  setTimeout(() => {
+    notif.style.transform = 'translateX(120%)';
+    setTimeout(() => notif.remove(), 300);
+  }, 5000);
+}
+
+// Tester les rappels manuellement (pour démo)
+function testReminders() {
+  const weekStart = getWeekStart();
+  const day = DAYS_CONFIG.find(d => d.slots.length > 0);
+  if (!day) return;
+  const date = new Date(weekStart);
+  date.setDate(weekStart.getDate() + 1);
+  const slot = day.slots[0];
+  const key = dateKey(date, slot);
+  const asgnIds = (assignments[key] || []).filter(id => COMEDIANS.find(c => c.id === id));
+  if (!asgnIds.length) { toast('Aucun humoriste assigné sur ce créneau'); return; }
+  send3hReminders(key, asgnIds, date, slot);
+  toast('⏰ Rappel 3h simulé — vérifie les notifications');
+}
+
+function regenCode(){
+  const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code='';for(let i=0;i<5;i++) code+=chars[Math.floor(Math.random()*chars.length)];
+  currentCode=code;
+  document.getElementById('club-code').textContent=code;
+  updateShareWidget(code);
+  toast('✓ Nouveau code généré');
+}
+
+function updateShareWidget(code) {
+  const link = `stagely.io/portal?code=${code}`;
+  const el = document.getElementById('share-link-val');
+  if (el) el.textContent = link;
+  generateQR(link);
+}
+
+function copyShareLink() {
+  const code = document.getElementById('club-code')?.textContent || currentCode;
+  const link = `https://stagely.io/portal?code=${code}`;
+  navigator.clipboard?.writeText(link).catch(()=>{});
+  toast('✓ Lien copié');
+}
+
+// QR code generation — thème sombre
+function generateQR(text) {
+  const wrap = document.getElementById('qr-wrap');
+  if (!wrap) return;
+  const isDark = !document.documentElement.classList.contains('light');
+  const bgColor = isDark ? '#0f0f0f' : '#ffffff';
+  const fgColor = isDark ? '#f97316' : '#000000';
+  const size = 120;
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0,0,size,size);
+  const cells = 21;
+  const cell = Math.floor(size / cells);
+  const seed = text.split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+  function rng(i) { const x = Math.sin(seed + i) * 10000; return x - Math.floor(x); }
+  function drawFinder(ox, oy) {
+    ctx.fillStyle = fgColor;
+    ctx.fillRect(ox*cell, oy*cell, 7*cell, 7*cell);
+    ctx.fillStyle = bgColor;
+    ctx.fillRect((ox+1)*cell, (oy+1)*cell, 5*cell, 5*cell);
+    ctx.fillStyle = fgColor;
+    ctx.fillRect((ox+2)*cell, (oy+2)*cell, 3*cell, 3*cell);
+  }
+  drawFinder(0,0); drawFinder(14,0); drawFinder(0,14);
+  for (let r = 0; r < cells; r++) {
+    for (let c = 0; c < cells; c++) {
+      if ((r<9&&c<9)||(r<9&&c>12)||(r>12&&c<9)) continue;
+      if (rng(r*cells+c) > 0.5) {
+        ctx.fillStyle = fgColor;
+        ctx.fillRect(c*cell, r*cell, cell, cell);
+      }
+    }
+  }
+  wrap.style.background = bgColor;
+  wrap.style.padding = '10px';
+  wrap.style.borderRadius = '5px';
+  wrap.style.border = `1px solid ${isDark?'var(--border2)':'#ddd'}`;
+  wrap.innerHTML = '';
+  wrap.appendChild(canvas);
+}
+
+function toggleTheme(btn) {
+  btn.classList.toggle('on');
+  const isLight = btn.classList.contains('on');
+  document.documentElement.classList.toggle('light', isLight);
+  localStorage.setItem('stagely_theme', isLight ? 'light' : 'dark');
+  // Re-générer le QR avec les bonnes couleurs
+  updateShareWidget(currentCode);
+  toast(isLight ? '☀️ Mode clair activé' : '🌙 Mode sombre activé');
+}
+
+function downloadQR() {
+  const canvas = document.querySelector('#qr-wrap canvas');
+  if (!canvas) return;
+  const a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = `stagely-qr-${currentCode}.png`;
+  a.click();
+  toast('↓ QR code téléchargé');
+}
+
+function renderSlotsCfg(){
+  const el=document.getElementById('slots-cfg');if(!el) return;
+  el.innerHTML=DAYS_CONFIG.map((day,di)=>`
+    <div class="sc-r">
+      <span class="sc-d">${day.name}</span>
+      <div class="sc-ts" id="sct-${di}">
+        ${day.slots.map((s,si)=>`<span class="sc-chip">${s.replace('H',':')} <button class="sc-del" onclick="rmSlot(${di},${si})">✕</button></span>`).join('')}
+        <button class="asbtn" onclick="showAddSlot(${di})">+ séance</button>
+      </div>
+    </div>`).join('');
+}
+function rmSlot(di,si){
+  delete assignments[`${DAYS_CONFIG[di].name}-${DAYS_CONFIG[di].slots[si]}`];
+  DAYS_CONFIG[di].slots.splice(si,1);
+  renderSlotsCfg();toast(`✕ Séance supprimée`);
+}
+function showAddSlot(di){
+  const el=document.getElementById(`sct-${di}`);
+  const btn=el.querySelector('.asbtn');btn.style.display='none';
+  const inp=document.createElement('input');
+  inp.className='st-inp';inp.placeholder='20:00';inp.maxLength=5;
+  el.appendChild(inp);inp.focus();
+  inp.onkeydown=e=>{if(e.key==='Enter')confirmSlot(di,inp);if(e.key==='Escape')renderSlotsCfg();};
+  inp.onblur=()=>setTimeout(()=>{if(document.activeElement!==inp)renderSlotsCfg();},200);
+}
+function restoreSlot(key) {
+  delete cancelledSlots[key];
+  autoSave();
+  renderPlanning();
+  toast('✓ Séance rétablie');
+}
+
+function confirmSlot(di,inp){
+  let v=inp.value.trim().replace(':','H').toUpperCase();
+  if(!v.match(/^\d{1,2}H\d{2}$/)){toast('Format : 20:00');return;}
+  const[h,m]=v.split('H');v=`${h}H${m.padStart(2,'0')}`;
+  if(DAYS_CONFIG[di].slots.includes(v)){toast('Déjà existant');return;}
+  DAYS_CONFIG[di].slots.push(v);DAYS_CONFIG[di].slots.sort();
+  autoSave(); // Sauvegarde pour que le portail humoriste voit le nouveau créneau
+  renderSlotsCfg();
+  toast(`✓ Séance ${DAYS_CONFIG[di].name} ${v.replace('H',':')} ajoutée — disponible sur le portail`);
+}
+
+// ══════════════════════════════════════════════════
+// ENVOI PLANNING + GESTION DATES
+// ══════════════════════════════════════════════════
+
+// Collecte les passages assignés par humoriste sur le mois en cours
+function getAssignmentsByComedian() {
+  const byComedian = {};
+  Object.entries(assignments).forEach(([key, ids]) => {
+    if (cancelledSlots[key]) return;
+    ids.forEach(id => {
+      if (!byComedian[id]) byComedian[id] = [];
+      byComedian[id].push(key);
+    });
+  });
+  return byComedian;
+}
+
+function buildPlanningMessage(comedianId, keys) {
+  const c = COMEDIANS.find(c=>c.id===comedianId);
+  if (!c) return '';
+  const prenom = c.name.split(' ')[0];
+  const dateLines = keys.map(key => {
+    const parts = key.split('-');
+    const date = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+    const DAY_NAMES_FR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+    const time = parts[3]?.replace('H',':');
+    const isFirst = (assignments[key]||[])[0] === comedianId;
+    return `• ${DAY_NAMES_FR[date.getDay()]} ${date.getDate()} ${MOIS[date.getMonth()]} à ${time}${isFirst?' (MC)':''}`;
+  }).join('\n');
+
+  const link = `stagely.io/portal?code=${currentCode}&manage=${comedianId}`;
+  return `Salut ${prenom} ! 🎤\n\nVoici tes dates au BCC ce mois-ci :\n\n${dateLines}\n\nSi une date ne te convient plus, signale-le ici :\n👉 ${link}\n\nMerci et à bientôt ! 🔥`;
+}
+
+function openSendPlanningModal() {
+  const byComedian = getAssignmentsByComedian();
+  const list = document.getElementById('send-planning-list');
+  const preview = document.getElementById('send-planning-preview');
+
+  if (Object.keys(byComedian).length === 0) {
+    toast('Aucun humoriste assigné dans le planning');
+    return;
+  }
+
+  let html = '';
+  let firstMsg = '';
+  Object.entries(byComedian).forEach(([id, keys], idx) => {
+    const c = COMEDIANS.find(c=>c.id===id);
+    if (!c) return;
+    const hasPhone = !!c.phone;
+    const msg = buildPlanningMessage(id, keys);
+    if (idx === 0) firstMsg = msg;
+    html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--s2);border:1px solid var(--border2);border-radius:4px">
+      <span style="width:7px;height:7px;border-radius:50%;background:${c.gender==='f'?'#f472b6':'#3b82f6'};flex-shrink:0"></span>
+      <span style="font-size:11px;font-weight:600;flex:1">${c.name}</span>
+      <span style="font-size:10px;color:var(--muted)">${keys.length} date${keys.length>1?'s':''}</span>
+      ${hasPhone
+        ? `<span style="font-size:9px;color:var(--g);background:var(--g2);padding:1px 6px;border-radius:2px;border:1px solid var(--gb)">✓ WA</span>`
+        : `<span style="font-size:9px;color:var(--r);background:var(--r2);padding:1px 6px;border-radius:2px;border:1px solid var(--rb)">Pas de n°</span>`}
+      <button onclick="previewMsg('${id}')" style="background:none;border:1px solid var(--border2);color:var(--muted);font-size:9px;padding:2px 7px;border-radius:2px;cursor:pointer">Aperçu</button>
+    </div>`;
+  });
+
+  list.innerHTML = html;
+  preview.textContent = firstMsg;
+  openModal('modal-send-planning');
+}
+
+function previewMsg(id) {
+  const byComedian = getAssignmentsByComedian();
+  const keys = byComedian[id] || [];
+  document.getElementById('send-planning-preview').textContent = buildPlanningMessage(id, keys);
+}
+
+async function sendPlanningToAll() {
+  const byComedian = getAssignmentsByComedian();
+  const list = Object.entries(byComedian);
+  if (!list.length) { toast('Aucun humoriste assigné'); return; }
+
+  const withPhone = list.filter(([id]) => COMEDIANS.find(c=>c.id===id)?.phone);
+  const withoutPhone = list.filter(([id]) => !COMEDIANS.find(c=>c.id===id)?.phone);
+
+  if (!withPhone.length) {
+    toast('Aucun humoriste n\'a de numéro WhatsApp renseigné');
+    closeModal('modal-send-planning');
+    return;
+  }
+
+  closeModal('modal-send-planning');
+
+  let progressBox = document.getElementById('wa-progress-box');
+  if (progressBox) progressBox.remove();
+  progressBox = document.createElement('div');
+  progressBox.id = 'wa-progress-box';
+  progressBox.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;display:flex;align-items:center;justify-content:center';
+  document.body.appendChild(progressBox);
+
+  let currentIdx = 0;
+  let copied = false;
+
+  function showNext() {
+    copied = false;
+    if (currentIdx >= withPhone.length) {
+      progressBox.remove();
+      const skippedMsg = withoutPhone.length ? ` · ${withoutPhone.length} sans numéro` : '';
+      toast(`✓ Planning envoyé à ${withPhone.length} humoriste${withPhone.length>1?'s':''}${skippedMsg}`);
+      withPhone.forEach(([id]) => {
+        const c = COMEDIANS.find(c=>c.id===id);
+        logAction('notification', {humId:id, name:c?.name, type:'planning_wa'});
+      });
+      autoSave();
+      return;
+    }
+
+    const [id, keys] = withPhone[currentIdx];
+    const c = COMEDIANS.find(c=>c.id===id);
+    const msg = buildPlanningMessage(id, keys);
+    const phone = c.phone.replace(/[\s\-\(\)]/g,'');
+
+    progressBox.innerHTML = `
+      <div style="background:var(--s1);border:1px solid var(--border2);border-radius:10px;padding:28px;max-width:440px;width:92%">
+        
+        <!-- Header -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+          <div style="width:36px;height:36px;border-radius:50%;background:${c.gender==='f'?'rgba(244,114,182,.15)':'rgba(59,130,246,.15)'};border:1px solid ${c.gender==='f'?'#f472b6':'#3b82f6'};display:flex;align-items:center;justify-content:center;font-family:Rajdhani,sans-serif;font-weight:700;font-size:13px;color:${c.gender==='f'?'#f472b6':'#3b82f6'}">
+            ${c.name.split(' ').map(w=>w[0]).slice(0,2).join('')}
+          </div>
+          <div style="flex:1">
+            <div style="font-family:Rajdhani,sans-serif;font-weight:700;font-size:15px">${c.name}</div>
+            <div style="font-size:10px;color:var(--muted)">${c.phone} · ${keys.length} date${keys.length>1?'s':''}</div>
+          </div>
+          <div style="font-size:10px;color:var(--muted);background:var(--s3);padding:3px 8px;border-radius:3px">${currentIdx+1}/${withPhone.length}</div>
+        </div>
+
+        <!-- Message preview -->
+        <div style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:12px;margin-bottom:16px;font-size:11px;line-height:1.8;white-space:pre-wrap;max-height:160px;overflow-y:auto;color:var(--text)">${msg}</div>
+
+        <!-- Instructions -->
+        <div style="background:var(--o2);border:1px solid var(--ob);border-radius:5px;padding:10px 12px;margin-bottom:16px;font-size:10px;color:var(--o);line-height:1.6">
+          <strong>Comment faire :</strong><br>
+          1. Copie le message ci-dessous<br>
+          2. Ouvre WhatsApp et cherche <strong>${c.name.split(' ')[0]}</strong><br>
+          3. Colle et envoie, puis reviens ici
+        </div>
+
+        <!-- Actions -->
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button id="copy-btn-${currentIdx}" onclick="
+            navigator.clipboard.writeText(${JSON.stringify(msg)}).then(()=>{
+              this.textContent='✓ Message copié !';
+              this.style.background='var(--g)';
+              this.style.color='#fff';
+            }).catch(()=>{
+              const ta=document.createElement('textarea');
+              ta.value=${JSON.stringify(msg)};
+              document.body.appendChild(ta);ta.select();
+              document.execCommand('copy');ta.remove();
+              this.textContent='✓ Message copié !';
+              this.style.background='var(--g)';
+            })"
+            style="padding:12px;background:var(--o);color:#000;border:none;border-radius:5px;font-family:Rajdhani,sans-serif;font-weight:700;font-size:13px;letter-spacing:.5px;cursor:pointer">
+            📋 Copier le message de ${c.name.split(' ')[0]}
+          </button>
+          <div style="display:flex;gap:8px">
+            <button onclick="currentIdx++;showNext()"
+              style="flex:1;padding:10px;background:var(--s2);border:1px solid var(--border2);border-radius:4px;color:var(--text);font-family:Rajdhani,sans-serif;font-weight:600;font-size:12px;cursor:pointer">
+              Suivant → ${currentIdx+1 < withPhone.length ? COMEDIANS.find(c=>c.id===withPhone[currentIdx+1]?.[0])?.name.split(' ')[0]||'' : '(Terminer)'}
+            </button>
+            <button onclick="progressBox.remove();toast('Envoi interrompu')"
+              style="padding:10px 14px;background:var(--r2);border:1px solid var(--rb);border-radius:4px;color:var(--r);font-family:Rajdhani,sans-serif;font-size:11px;cursor:pointer">
+              Arrêter
+            </button>
+          </div>
+        </div>
+
+        ${withoutPhone.length ? `<div style="margin-top:12px;font-size:9px;color:var(--muted);text-align:center">⚠ ${withoutPhone.map(([id])=>COMEDIANS.find(c=>c.id===id)?.name.split(' ')[0]).join(', ')} — pas de numéro</div>` : ''}
+      </div>`;
+  }
+
+  showNext();
+}
+
+// ── GESTION DATES (portail) ──
+
+let manageUserId = null;
+let manageDates = {}; // key -> true/false
+
+function showManageDates(userId) {
+  manageUserId = userId;
+  const c = COMEDIANS.find(c=>c.id===userId);
+  const myKeys = Object.entries(assignments)
+    .filter(([key, ids]) => ids.includes(userId) && !cancelledSlots[key])
+    .map(([key]) => key);
+
+  document.getElementById('manage-uname').textContent = c?.name || userId;
+
+  const DAY_NAMES_FR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  manageDates = {};
+  myKeys.forEach(k => manageDates[k] = true);
+
+  let html = '';
+  myKeys.forEach(key => {
+    const parts = key.split('-');
+    const date = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+    const time = parts[3]?.replace('H',':');
+    const dateStr = `${DAY_NAMES_FR[date.getDay()]} ${date.getDate()} ${MOIS[date.getMonth()]}`;
+    const uid = key.replace(/[-H]/g,'_');
+    html += `<tr>
+      <td style="padding:8px 10px;font-size:11px">${dateStr}</td>
+      <td style="padding:8px 10px;font-size:11px;color:var(--muted)">${time}</td>
+      <td style="text-align:center;padding:8px 10px">
+        <div class="tcheck">
+          <input type="checkbox" id="mg-${uid}" checked onchange="manageDates['${key}']=this.checked">
+          <label for="mg-${uid}">✓</label>
+        </div>
+      </td>
+    </tr>`;
+  });
+
+  document.getElementById('manage-tbody').innerHTML = html || '<tr><td colspan="3" style="padding:20px;color:var(--muted);text-align:center">Aucune date assignée ce mois-ci</td></tr>';
+  document.getElementById('hv-login').style.display = 'none';
+  document.getElementById('hv-dispos').style.display = 'none';
+  document.getElementById('hv-manage').style.display = 'block';
+  document.getElementById('manage-ok').style.display = 'none';
+}
+
+function submitManageDates() {
+  const removed = [];
+  Object.entries(manageDates).forEach(([key, ok]) => {
+    if (!ok) {
+      // Retirer cet humoriste du créneau
+      if (assignments[key]) {
+        assignments[key] = assignments[key].filter(id => id !== manageUserId);
+        if (!assignments[key].length) delete assignments[key];
+        removed.push(key);
+      }
+    }
+  });
+
+  if (removed.length) {
+    const c = COMEDIANS.find(c=>c.id===manageUserId);
+    logAction('date_removed', {humId:manageUserId, name:c?.name, keys:removed});
+    // Notif admin
+    showAppNotif(`⚠ ${c?.name} s'est retiré de ${removed.length} créneau${removed.length>1?'x':''}`, 'var(--r)');
+    autoSave();
+  }
+
+  document.getElementById('manage-ok').style.display = 'block';
+  document.querySelector('#hv-manage .submit-btn').disabled = true;
+  document.querySelector('#hv-manage .submit-btn').style.opacity = '.4';
+}
+
+// Check URL pour mode manage
+function checkRoute() {
+  const hash = window.location.hash;
+  if (hash.startsWith('#/portal')) {
+    document.getElementById('admin-screen').style.display = 'none';
+    document.getElementById('hv-screen').style.display = 'flex';
+    // Vérifier si mode manage
+    const params = new URLSearchParams(hash.replace('#/portal?','').replace('#/portal',''));
+    const manageId = params.get('manage');
+    const code = params.get('code');
+    if (code) document.getElementById('l-code').value = code;
+    if (manageId) {
+      // Accès direct gestion dates
+      setTimeout(() => showManageDates(manageId), 100);
+    }
+  }
+}
+
+const LS_KEY = 'stagely_bcc_v1';
+
+function saveAll() {
+  try {
+    const data = {
+      COMEDIANS,
+      DISPOS_DATA,
+      DISPO_STATUS,
+      assignments: Object.fromEntries(Object.entries(assignments).map(([k,v])=>[k,v])),
+      cancelledSlots,
+      chatMessages,
+      DAYS_CONFIG,
+      currentCode,
+      historique,
+      lastSaved: new Date().toISOString()
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+  } catch(e) { console.warn('Save failed:', e); }
+}
+
+function loadAll() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (data.COMEDIANS) COMEDIANS.splice(0, COMEDIANS.length, ...data.COMEDIANS);
+    if (data.DISPOS_DATA) Object.assign(DISPOS_DATA, data.DISPOS_DATA);
+    if (data.DISPO_STATUS) Object.assign(DISPO_STATUS, data.DISPO_STATUS);
+    if (data.assignments) Object.assign(assignments, data.assignments);
+    if (data.chatMessages) chatMessages.splice(0, chatMessages.length, ...data.chatMessages);
+    if (data.DAYS_CONFIG) DAYS_CONFIG.splice(0, DAYS_CONFIG.length, ...data.DAYS_CONFIG);
+    if (data.currentCode) currentCode = data.currentCode;
+    if (data.cancelledSlots) Object.assign(cancelledSlots, data.cancelledSlots);
+    return true;
+  } catch(e) { console.warn('Load failed:', e); return false; }
+}
+
+// Auto-save après chaque action importante
+function autoSave() {
+  saveAll();
+  showSaveIndicator();
+}
+
+function showSaveIndicator() {
+  let ind = document.getElementById('save-ind');
+  if (!ind) {
+    ind = document.createElement('div');
+    ind.id = 'save-ind';
+    ind.style.cssText = 'position:fixed;bottom:50px;right:16px;background:var(--s3);border:1px solid var(--border2);border-radius:3px;padding:4px 10px;font-size:9px;color:var(--muted);z-index:998;transition:opacity .3s';
+    document.body.appendChild(ind);
+  }
+  ind.textContent = '✓ Sauvegardé';
+  ind.style.opacity = '1';
+  clearTimeout(ind._t);
+  ind._t = setTimeout(() => ind.style.opacity = '0', 2000);
+}
+
+// ══════════════════════════════════════════════════
+// HISTORIQUE DES PASSAGES
+// ══════════════════════════════════════════════════
+
+let historique = [];
+
+function logAction(type, data) {
+  const now = new Date();
+  historique.unshift({
+    id: Date.now(),
+    type,
+    data,
+    date: now.toLocaleDateString('fr-FR'),
+    time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
+  });
+  if (historique.length > 200) historique.pop();
+  autoSave();
+}
+
+// ══════════════════════════════════════════════════
+// WHATSAPP BUSINESS API
+// ══════════════════════════════════════════════════
+
+// Config WhatsApp — à remplir avec tes identifiants Meta
+const WA_CONFIG = {
+  token: '',         // Bearer token Meta
+  phoneId: '',       // Phone Number ID
+  configured: false
+};
+
+async function sendWhatsApp(to, templateName, params = []) {
+  if (!WA_CONFIG.configured || !WA_CONFIG.token) {
+    // Mode simulation
+    console.log(`[WA Simulation] → ${to}: ${templateName}`, params);
+    return { success: true, simulated: true };
+  }
+  try {
+    const res = await fetch(`https://graph.facebook.com/v18.0/${WA_CONFIG.phoneId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${WA_CONFIG.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: to.replace(/\s/g,'').replace('+',''),
+        type: 'template',
+        template: {
+          name: templateName,
+          language: { code: 'fr' },
+          components: params.length ? [{
+            type: 'body',
+            parameters: params.map(p => ({ type: 'text', text: p }))
+          }] : []
+        }
+      })
+    });
+    const data = await res.json();
+    return { success: !data.error, data };
+  } catch(e) {
+    return { success: false, error: e.message };
+  }
+}
+
+async function sendWhatsAppText(to, text) {
+  if (!WA_CONFIG.configured || !WA_CONFIG.token) {
+    console.log(`[WA Simulation] → ${to}: ${text}`);
+    return { success: true, simulated: true };
+  }
+  try {
+    const res = await fetch(`https://graph.facebook.com/v18.0/${WA_CONFIG.phoneId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${WA_CONFIG.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: to.replace(/\s/g,'').replace('+',''),
+        type: 'text',
+        text: { body: text }
+      })
+    });
+    const data = await res.json();
+    return { success: !data.error, data };
+  } catch(e) {
+    return { success: false, error: e.message };
+  }
+}
+
+async function notifyComedian(humId, messageText) {
+  const c = COMEDIANS.find(c => c.id === humId);
+  if (!c?.phone) return;
+  const result = await sendWhatsAppText(c.phone, messageText);
+  logAction('notification', { humId, name: c.name, message: messageText, result });
+  return result;
+}
+
+async function broadcastToGroup(messageText, targets = null) {
+  const list = targets || COMEDIANS.filter(c => c.phone);
+  let sent = 0;
+  const results = [];
+  for (const c of list) {
+    if (!c.phone) continue;
+    const personalMsg = messageText
+      .replace('{NOM}', c.name.split(' ')[0])
+      .replace('{CODE}', currentCode)
+      .replace('{LIEN}', `stagely.io/portal?code=${currentCode}`);
+    const r = await sendWhatsAppText(c.phone, personalMsg);
+    if (r.success) sent++;
+    results.push({ id: c.id, name: c.name, ...r });
+  }
+  logAction('broadcast', { message: messageText, sent, total: list.length });
+  return { sent, total: list.length, results };
+}
+
+// ══════════════════════════════════════════════════
+// CHAT TEMPS RÉEL — BroadcastChannel
+// (synchronise entre onglets du même navigateur)
+// ══════════════════════════════════════════════════
+
+let chatChannel = null;
+try {
+  chatChannel = new BroadcastChannel('stagely_chat');
+  chatChannel.onmessage = (e) => {
+    if (e.data?.type === 'new_message') {
+      chatMessages.push(e.data.msg);
+      saveAll();
+      // Si vue chat active, refresh
+      if (document.getElementById('view-chat')?.style.display === 'flex') {
+        renderChat();
+      } else {
+        // Badge
+        const badge = document.getElementById('bdg-chat');
+        if (badge) {
+          badge.style.display = 'inline';
+          badge.textContent = parseInt(badge.textContent || 0) + 1;
+        }
+      }
+    }
+  };
+} catch(e) { /* BroadcastChannel non supporté */ }
+
+// Override sendChatMsg pour broadcaster
+const _origSendChatMsg = sendChatMsg;
+function sendChatMsg() {
+  const input = document.getElementById('chat-input');
+  const text = input?.value.trim();
+  if (!text) return;
+  const senderId = document.getElementById('chat-sender')?.value || 'admin';
+  const c = COMEDIANS.find(c => c.id === senderId);
+  const senderName = senderId === 'admin' ? 'BCC Admin' : c?.name || 'Inconnu';
+  const now = new Date();
+  const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const msg = { sender: senderName, senderId, text, time, date: "Aujourd'hui" };
+  chatMessages.push(msg);
+  input.value = '';
+  renderChat();
+  autoSave();
+  logAction('chat', { sender: senderName, text });
+  // Broadcast aux autres onglets
+  try { chatChannel?.postMessage({ type: 'new_message', msg }); } catch(e) {}
+}
+
+// ══════════════════════════════════════════════════
+// HISTORIQUE UI
+// ══════════════════════════════════════════════════
+
+function renderHistorique() {
+  const view = document.getElementById('view-historique');
+  if (!view) return;
+
+  const typeLabel = {
+    'assignment': '✓ Assignation',
+    'notification': '📱 Notification',
+    'broadcast': '📢 Broadcast',
+    'chat': '💬 Chat',
+    'dispo': '◫ Dispo reçue',
+    'slot_add': '+ Séance ajoutée',
+    'slot_remove': '✕ Séance supprimée',
+  };
+  const typeColor = {
+    'assignment': 'var(--g)',
+    'notification': 'var(--b)',
+    'broadcast': 'var(--o)',
+    'chat': 'var(--muted)',
+    'dispo': 'var(--gold)',
+  };
+
+  // Stats par humoriste
+  const stats = {};
+  COMEDIANS.forEach(c => {
+    const passes = historique.filter(h => h.type === 'assignment' && h.data?.humId === c.id).length;
+    stats[c.id] = { passes, presence: c.presence };
+  });
+
+  view.innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Activité récente</div>
+      ${historique.length === 0 ? `<div style="font-size:11px;color:var(--muted2);padding:20px 0">Aucune activité enregistrée</div>` :
+        historique.slice(0,50).map(h => `
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+            <span style="font-size:9px;color:${typeColor[h.type]||'var(--muted)'};white-space:nowrap;padding-top:1px">${typeLabel[h.type]||h.type}</span>
+            <span style="font-size:10px;flex:1;color:var(--text)">${formatHistEntry(h)}</span>
+            <span style="font-size:9px;color:var(--muted2);white-space:nowrap">${h.date} ${h.time}</span>
+          </div>`).join('')}
+    </div>
+    <div style="margin-top:20px">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Passages par humoriste</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead><tr>
+          <th style="text-align:left;padding:6px 10px;font-size:9px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border2);background:var(--s1)">Humoriste</th>
+          <th style="text-align:left;padding:6px 10px;font-size:9px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border2);background:var(--s1)">Passages</th>
+          <th style="text-align:left;padding:6px 10px;font-size:9px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border2);background:var(--s1)">Présence</th>
+          <th style="text-align:left;padding:6px 10px;font-size:9px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border2);background:var(--s1)">Statut dispos</th>
+        </tr></thead>
+        <tbody>${COMEDIANS.map(c => {
+          const p = stats[c.id]?.passes || 0;
+          const pCol = c.presence >= 90 ? 'var(--g)' : c.presence >= 75 ? 'var(--o)' : 'var(--r)';
+          const ds = DISPO_STATUS[c.id] || 'none';
+          const dsLabel = {replied:'✓ Répondu',pending:'⏳ Envoyé',none:'—'}[ds];
+          const dsCol = {replied:'var(--g)',pending:'var(--gold)',none:'var(--muted2)'}[ds];
+          return `<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:8px 10px;display:flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:50%;background:${c.gender==='f'?'#f472b6':'#3b82f6'};flex-shrink:0"></span>${c.name}</td>
+            <td style="padding:8px 10px;color:var(--muted)">${p}</td>
+            <td style="padding:8px 10px;color:${pCol}">${c.presence}%</td>
+            <td style="padding:8px 10px;color:${dsCol}">${dsLabel}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>`;
+}
+
+function formatHistEntry(h) {
+  if (h.type === 'assignment') return `${h.data?.name || '?'} → ${h.data?.key || ''}`;
+  if (h.type === 'notification') return `${h.data?.name || '?'} — ${(h.data?.message||'').slice(0,50)}`;
+  if (h.type === 'broadcast') return `${h.data?.sent}/${h.data?.total} messages envoyés`;
+  if (h.type === 'chat') return `${h.data?.sender} : ${(h.data?.text||'').slice(0,60)}`;
+  if (h.type === 'dispo') return `${h.data?.name || '?'} a soumis ses disponibilités`;
+  return JSON.stringify(h.data).slice(0,80);
+}
+
+// ══════════════════════════════════════════════════
+// PATCH assignations pour logger + auto-save
+// ══════════════════════════════════════════════════
+
+const _origPlanAsgn = planAsgn;
+function planAsgn(id, key) {
+  if(!assignments[key]) assignments[key]=[];
+  const MAX=parseInt(document.getElementById('s-max')?.value)||4;
+  if(assignments[key].length>=MAX){toast('Créneau plein');return;}
+  if(assignments[key].includes(id)) return;
+  assignments[key].push(id);
+  const c = COMEDIANS.find(c=>c.id===id);
+  logAction('assignment', { humId: id, name: c?.name, key });
+  toast(`✓ ${c?.name} assigné`);
+  renderPlanning();
+}
+
+const _origHvSubmit = hvSubmit;
+function hvSubmit() {
+  const n = Object.values(hvSlots).filter(v => v.dispo).length;
+  if (!n) { toast('Coche au moins un créneau'); return; }
+  if (!hvUser) return;
+  DISPOS_DATA[hvUser.id] = {};
+  Object.entries(hvSlots).forEach(([k, v]) => {
+    if (v.dispo) DISPOS_DATA[hvUser.id][k] = {dispo: true, mc: v.mc || false};
+  });
+  DISPO_STATUS[hvUser.id] = 'replied';
+  logAction('dispo', { humId: hvUser.id, name: hvUser.name, count: n });
+  updateBadge();
+  document.getElementById('hv-ok').style.display = 'block';
+  document.querySelector('.submit-btn').disabled = true;
+  document.querySelector('.submit-btn').style.opacity = '.4';
+  autoSave();
+}
+
+// ══════════════════════════════════════════════════
+// CONFIG WHATSAPP UI (dans réglages)
+// ══════════════════════════════════════════════════
+
+function saveWAConfig() {
+  const token = document.getElementById('wa-token')?.value.trim();
+  const phoneId = document.getElementById('wa-phone-id')?.value.trim();
+  if (token) WA_CONFIG.token = token;
+  if (phoneId) WA_CONFIG.phoneId = phoneId;
+  WA_CONFIG.configured = !!(token && phoneId);
+  autoSave();
+  toast(WA_CONFIG.configured ? '✓ WhatsApp configuré' : 'Token ou Phone ID manquant');
+}
+
+async function testWA() {
+  const testNum = document.getElementById('wa-test-num')?.value.trim();
+  if (!testNum) { toast('Entre un numéro de test'); return; }
+  toast('Envoi en cours...');
+  const r = await sendWhatsAppText(testNum, `Test STAGELY ✓ — ${new Date().toLocaleTimeString('fr-FR')}`);
+  toast(r.simulated ? '⚠ Simulé (configure ton token)' : r.success ? '✓ Message envoyé !' : `✗ Erreur: ${r.error||'inconnue'}`);
+}
+
+// ══════════════════════════════════════════════════
+// MODAL & TOAST
+// ══════════════════════════════════════════════════
+
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
+let tt;
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2500);}
+
+// ══════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════
+
+// Restore theme — sombre par défaut, clair seulement si explicitement sauvegardé
+const savedTheme = localStorage.getItem('stagely_theme');
+if (savedTheme === 'light') {
+  document.documentElement.classList.add('light');
+  setTimeout(() => {
+    const btn = document.getElementById('tgl-light');
+    if (btn) btn.classList.add('on');
+  }, 200);
+} else {
+  // S'assurer que le mode sombre est appliqué
+  document.documentElement.classList.remove('light');
+  localStorage.setItem('stagely_theme', 'dark');
+}
+
+// Charger données sauvegardées
+const loaded = loadAll();
+if (loaded) console.log('✓ Données restaurées depuis localStorage');
+
+// Ajouter rubrique Historique dans sidebar + nav
+(function addHistoriqueSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const ctag = sidebar?.querySelector('.ctag');
+  if (!ctag) return;
+  const div = document.createElement('div');
+  div.className = 'ni';
+  div.setAttribute('onclick', "nav('historique')");
+  div.innerHTML = '<span class="ni-ico">◌</span><span class="ni-lbl">Historique</span>';
+  sidebar.insertBefore(div, ctag);
+})();
+
+// Ajouter WhatsApp config dans réglages
+(function addWASection() {
+  const danger = document.querySelector('[style*="border-color:var(--rb)"]');
+  if (!danger) return;
+  const waCard = document.createElement('div');
+  waCard.className = 'scard';
+  waCard.style.gridColumn = '1/-1';
+  waCard.innerHTML = `
+    <div class="stitle" style="display:flex;align-items:center;justify-content:space-between">
+      WhatsApp Business API
+      <span id="wa-status" style="font-size:9px;padding:2px 7px;border-radius:2px;background:var(--r2);color:var(--r);border:1px solid var(--rb)">Non configuré</span>
+    </div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:12px">Configure ton compte Meta Business pour envoyer des notifications WhatsApp réelles.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="fr"><label class="fl">Bearer Token Meta</label><input class="fi" id="wa-token" type="password" placeholder="EAABwz..." value="${WA_CONFIG.token}"></div>
+      <div class="fr"><label class="fl">Phone Number ID</label><input class="fi" id="wa-phone-id" placeholder="123456789..." value="${WA_CONFIG.phoneId}"></div>
+    </div>
+    <div class="fr"><label class="fl">Numéro de test (format +33...)</label>
+      <div style="display:flex;gap:6px"><input class="fi" id="wa-test-num" placeholder="+33612345678" style="flex:1"><button class="btn btn-ghost" onclick="testWA()" style="font-size:9px">Tester</button></div>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button class="btn btn-o" onclick="saveWAConfig()">Sauvegarder config</button>
+      <a href="https://developers.facebook.com/docs/whatsapp" target="_blank" class="btn btn-ghost" style="font-size:9px;text-decoration:none">📖 Doc Meta</a>
+    </div>`;
+  danger.parentNode.insertBefore(waCard, danger);
+})();
+
+// Patch nav pour historique
+const _origNav = nav;
+function nav(id) {
+  document.querySelectorAll('.view').forEach(v=>{
+    v.classList.remove('on');
+    if(v.id === 'view-chat') v.style.display = 'none';
+  });
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
+
+  // Historique — vue dynamique
+  if (id === 'historique') {
+    let hv = document.getElementById('view-historique');
+    if (!hv) {
+      hv = document.createElement('div');
+      hv.id = 'view-historique';
+      hv.className = 'view';
+      document.querySelector('.content').appendChild(hv);
+    }
+    hv.classList.add('on');
+    document.querySelectorAll('.ni').forEach(n=>{if(n.getAttribute('onclick')===`nav('historique')`) n.classList.add('on');});
+    document.getElementById('ptitle').textContent = 'Historique';
+    document.getElementById('tactions').innerHTML = `<button class="btn btn-ghost" onclick="historique=[];autoSave();renderHistorique()" style="font-size:9px">Vider</button>`;
+    renderHistorique();
+    return;
+  }
+
+  const v = document.getElementById('view-'+id);
+  if(v) v.classList.add('on');
+  document.querySelectorAll('.ni').forEach(n=>{if(n.getAttribute('onclick')===`nav('${id}')`) n.classList.add('on');});
+  document.getElementById('ptitle').textContent = PTITLES[id]||id;
+  document.getElementById('tactions').innerHTML = PACTIONS[id]||'';
+  if(id==='dashboard') renderDashboard();
+  if(id==='planning') { renderPlanning(); scheduleReminders(); }
+  if(id==='dispos') renderDispos();
+  if(id==='humoristes') renderHumoristes();
+  if(id==='reglages') { renderSlotsCfg(); updateShareWidget(currentCode); }
+  if(id==='chat') {
+    const cv = document.getElementById('view-chat');
+    if(cv) cv.style.display = 'flex';
+    renderChat();
+    const badge = document.getElementById('bdg-chat');
+    if(badge) { badge.style.display='none'; badge.textContent='0'; }
+  }
+}
+
+// Raccourci clavier Cmd/Ctrl+K → recherche
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    toggleSearch();
+  }
+});
+
+// ── SERVICE WORKER (rappels en arrière-plan) ──
+if ('serviceWorker' in navigator) {
+  // Inline SW via blob URL
+  const swCode = `
+    self.addEventListener('install', e => self.skipWaiting());
+    self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+
+    // Reçoit les rappels à programmer
+    self.addEventListener('message', e => {
+      if (e.data?.type === 'schedule_reminder') {
+        const { delay, payload } = e.data;
+        setTimeout(() => {
+          self.clients.matchAll().then(clients => {
+            clients.forEach(c => c.postMessage({ type: 'reminder_fire', payload }));
+          });
+          // Notification push
+          self.registration.showNotification('STAGELY — ' + payload.title, {
+            body: payload.body,
+            icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🎤</text></svg>',
+            tag: payload.key,
+            requireInteraction: true
+          });
+        }, delay);
+      }
+    });
+  `;
+  const swBlob = new Blob([swCode], {type:'application/javascript'});
+  const swUrl = URL.createObjectURL(swBlob);
+  navigator.serviceWorker.register(swUrl).then(reg => {
+    console.log('✓ Service Worker actif');
+    // Écoute les messages du SW
+    navigator.serviceWorker.addEventListener('message', e => {
+      if (e.data?.type === 'reminder_fire') {
+        showAppNotif(e.data.payload.body, 'var(--o)');
+      }
+    });
+  }).catch(e => console.warn('SW non disponible (file://):', e.message));
+}
+
+// Demander permission notifications navigateur
+if ('Notification' in window && Notification.permission === 'default') {
+  Notification.requestPermission();
+}
+
+// Auto-save périodique toutes les 30s
+setInterval(saveAll, 30000);
+
+// Dashboard live — refresh quand la page redevient visible
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    const dash = document.getElementById('view-dashboard');
+    if (dash?.classList.contains('on')) renderDashboard();
+  }
+});
+
+checkRoute();
+</script>
+</body>
+</html>
