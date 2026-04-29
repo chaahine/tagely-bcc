@@ -42,6 +42,18 @@ html.light .cd { color: var(--text); }
   .cd-name { font-size: 9px !important; }
   .board { height: calc(100vh - 130px) !important; }
   .content { padding: 12px !important; }
+  /* Portail mobile */
+  .hv-center { padding: 20px 12px 40px !important; }
+  .login-box { max-width: 100% !important; }
+  .login-card { padding: 16px !important; border-radius: 6px !important; }
+  .dispo-wrap { max-width: 100% !important; }
+  .dispo-table th, .dispo-table td { padding: 6px 8px !important; }
+  .dispo-actions { gap: 4px !important; }
+  .dispo-actions .qa { padding: 5px 10px !important; font-size: 9px !important; }
+  .submit-btn { width: 100% !important; padding: 14px !important; font-size: 13px !important; }
+  .tcheck label, .mc-check label { width: 32px !important; height: 32px !important; font-size: 16px !important; }
+  .dispo-name { font-size: 16px !important; }
+  .day-sep-label { font-size: 11px !important; padding: 6px 10px !important; }
 }
 @media (max-width: 480px) {
   .kpi-row { grid-template-columns: 1fr 1fr !important; }
@@ -732,21 +744,21 @@ const MOIS=['jan','fév','mar','avr','mai','juin','juil','aoû','sep','oct','nov
 const MOIS_FULL=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
 
 let COMEDIANS = [
-  {id:'lotfi',    name:'LOTFI ABDELLI',     prio:'headliner',presence:95, gender:'m', duration:20, phone:''},
-  {id:'david',    name:'DAVID AZRIA',        prio:'headliner',presence:91, gender:'m', duration:20, phone:''},
-  {id:'patrick',  name:'PATRICK DOUGLAS',    prio:'regular',  presence:98, gender:'m', duration:15, phone:''},
-  {id:'tony',     name:'TONY SAINT LAURENT', prio:'regular',  presence:96, gender:'m', duration:15, phone:''},
-  {id:'leongomes',name:'LÉON GOMES',         prio:'regular',  presence:82, gender:'m', duration:10, phone:''},
-  {id:'guillaume',name:'GUILLAUME DOLLE',    prio:'regular',  presence:88, gender:'m', duration:15, phone:''},
-  {id:'mh',       name:'MH',                 prio:'regular',  presence:90, gender:'f', duration:15, phone:''},
-  {id:'alicia',   name:'ALICIA THE QUEEN',   prio:'regular',  presence:85, gender:'f', duration:10, phone:''},
-  {id:'anne',     name:'ANNE',               prio:'new',      presence:100,gender:'f', duration:10, phone:''},
-  {id:'merlin',   name:'MERLIN',             prio:'new',      presence:80, gender:'m', duration:10, phone:''},
-  {id:'sara',     name:'SARA NMOR',          prio:'new',      presence:100,gender:'f', duration:10, phone:''},
-  {id:'karim',    name:'KARIM BRIMO',        prio:'regular',  presence:78, gender:'m', duration:10, phone:''},
-  {id:'nadia',    name:'NADIA B.',            prio:'regular',  presence:87, gender:'f', duration:10, phone:''},
-  {id:'thomas',   name:'THOMAS K.',           prio:'new',     presence:100,gender:'m', duration:10, phone:''},
-  {id:'sof',      name:'SOFIA A.',            prio:'regular', presence:92, gender:'f', duration:10, phone:''},
+  {id:'lotfi',    name:'LOTFI ABDELLI',     prio:'headliner',presence:95, gender:'m', duration:20, phone:'', email:'lotfi@example.com'},
+  {id:'david',    name:'DAVID AZRIA',        prio:'headliner',presence:91, gender:'m', duration:20, phone:'', email:'david@example.com'},
+  {id:'patrick',  name:'PATRICK DOUGLAS',    prio:'regular',  presence:98, gender:'m', duration:15, phone:'', email:'patrick@example.com'},
+  {id:'tony',     name:'TONY SAINT LAURENT', prio:'regular',  presence:96, gender:'m', duration:15, phone:'', email:'tony@example.com'},
+  {id:'leongomes',name:'LÉON GOMES',         prio:'regular',  presence:82, gender:'m', duration:10, phone:'', email:''},
+  {id:'guillaume',name:'GUILLAUME DOLLE',    prio:'regular',  presence:88, gender:'m', duration:15, phone:'', email:''},
+  {id:'mh',       name:'MH',                 prio:'regular',  presence:90, gender:'f', duration:15, phone:'', email:'mh@example.com'},
+  {id:'alicia',   name:'ALICIA THE QUEEN',   prio:'regular',  presence:85, gender:'f', duration:10, phone:'', email:'alicia@example.com'},
+  {id:'anne',     name:'ANNE',               prio:'new',      presence:100,gender:'f', duration:10, phone:'', email:''},
+  {id:'merlin',   name:'MERLIN',             prio:'new',      presence:80, gender:'m', duration:10, phone:'', email:''},
+  {id:'sara',     name:'SARA NMOR',          prio:'new',      presence:100,gender:'f', duration:10, phone:'', email:''},
+  {id:'karim',    name:'KARIM BRIMO',        prio:'regular',  presence:78, gender:'m', duration:10, phone:'', email:''},
+  {id:'nadia',    name:'NADIA B.',            prio:'regular',  presence:87, gender:'f', duration:10, phone:'', email:''},
+  {id:'thomas',   name:'THOMAS K.',           prio:'new',     presence:100,gender:'m', duration:10, phone:'', email:''},
+  {id:'sof',      name:'SOFIA A.',            prio:'regular', presence:92, gender:'f', duration:10, phone:'', email:''},
 ];
 const ORIG = JSON.parse(JSON.stringify(COMEDIANS));
 
@@ -1479,6 +1491,10 @@ function renderHumoristes(){
         <span class="drd ${drdC}"></span>
         <span style="font-size:8px;color:var(--muted)">${drdL}</span>
       </div>
+      <div style="display:flex;gap:4px;margin-bottom:4px">
+        ${c.email?`<span style="font-size:8px;color:var(--g);background:var(--g2);padding:1px 5px;border-radius:2px;border:1px solid var(--gb)">✉ Email</span>`:`<span style="font-size:8px;color:var(--muted2);background:var(--s3);padding:1px 5px;border-radius:2px">✉ Pas d'email</span>`}
+        ${c.phone?`<span style="font-size:8px;color:var(--b);background:var(--b2);padding:1px 5px;border-radius:2px;border:1px solid var(--bb)">📱 WA</span>`:''}
+      </div>
       <div class="pres-row">
         <span style="font-size:9px;color:var(--muted)">Présence</span>
         <div class="pbar"><div class="pbar-f" style="width:${c.presence}%;background:${pCol}"></div></div>
@@ -1527,6 +1543,8 @@ function openFiche(id) {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
       <div class="fr"><label class="fl">Téléphone WhatsApp</label>
         <input class="fi" id="fiche-phone" value="${c.phone||''}" placeholder="+33 6 xx xx xx xx"></div>
+      <div class="fr"><label class="fl">Email</label>
+        <input class="fi" id="fiche-email" type="email" value="${c.email||''}" placeholder="prenom@email.com"></div>
       <div class="fr"><label class="fl">Durée de passage (min)</label>
         <input class="fi" id="fiche-dur" type="number" value="${c.duration||10}" min="5" max="60"></div>
       <div class="fr"><label class="fl">Priorité</label>
@@ -1580,6 +1598,7 @@ function saveFiche() {
   const c = COMEDIANS.find(c=>c.id===ficheId);
   if (!c) return;
   c.phone = document.getElementById('fiche-phone')?.value.trim() || c.phone;
+  c.email = document.getElementById('fiche-email')?.value.trim() || c.email || '';
   c.duration = parseInt(document.getElementById('fiche-dur')?.value) || c.duration;
   c.prio = document.getElementById('fiche-prio')?.value || c.prio;
   c.presence = parseInt(document.getElementById('fiche-pres')?.value) || c.presence;
@@ -1893,41 +1912,39 @@ async function send3hReminders(key, humIds, showTime, slot) {
   for (const humId of humIds) {
     const c = COMEDIANS.find(c => c.id === humId);
     if (!c) continue;
-
     const prenom = c.name.split(' ')[0];
     const msg = `Salut ${prenom} 👋\n\nRappel : tu passes ce soir au BCC à ${timeStr}.\n\nPrépare-toi, on compte sur toi ! 🎤`;
 
-    if (c.phone) {
+    if (c.phone && WA_CONFIG.configured) {
       await sendWhatsAppText(c.phone, msg);
+    } else if (c.email && EMAIL_CONFIG.configured) {
+      await sendEmail(c.email, `⏰ Rappel BCC — ce soir à ${timeStr}`, msg);
     }
-
-    // Notif dans l'app aussi
-    showAppNotif(`⏰ Rappel envoyé à ${c.name} (${timeStr})`, 'var(--b)');
+    showAppNotif(`⏰ Rappel 3h envoyé à ${c.name}`, 'var(--b)');
     logAction('notification', { humId, name: c.name, message: msg, type: '3h_reminder' });
   }
 }
 
 async function sendLineupReminder(key, humIds, showTime, slot) {
   const timeStr = slot.replace('H', ':');
-
-  // Construire le line-up dans l'ordre
   let lineupText = `🎤 LINE-UP BCC — ce soir à ${timeStr}\n\n`;
   humIds.forEach((humId, idx) => {
     const c = COMEDIANS.find(c => c.id === humId);
     if (!c) return;
     const role = idx === 0 ? 'MC' : `Passage ${idx}`;
-    const duree = c.duration || 10;
-    lineupText += `${idx + 1}. ${c.name} — ${role} (${duree})\n`;
+    lineupText += `${idx + 1}. ${c.name} — ${role} (${c.duration||10}min)\n`;
   });
   lineupText += `\nBonne soirée à tous ! 🔥`;
 
   for (const humId of humIds) {
     const c = COMEDIANS.find(c => c.id === humId);
     if (!c) continue;
-    if (c.phone) {
+    if (c.phone && WA_CONFIG.configured) {
       await sendWhatsAppText(c.phone, lineupText);
+    } else if (c.email && EMAIL_CONFIG.configured) {
+      await sendEmail(c.email, `📋 Line-up BCC — ${timeStr}`, lineupText);
     }
-    showAppNotif(`📋 Line-up envoyé à ${c.name} (${timeStr})`, 'var(--g)');
+    showAppNotif(`📋 Line-up envoyé à ${c.name}`, 'var(--g)');
     logAction('notification', { humId, name: c.name, message: lineupText, type: 'lineup_3min' });
   }
 }
