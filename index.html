@@ -2374,6 +2374,8 @@ function checkRoute() {
     // Reset toujours — l'humoriste doit se connecter à chaque fois
     hvUser = null;
     hvSlots = {};
+    document.getElementById('hv-dispos').style.display = 'none';
+    document.getElementById('hv-manage').style.display = 'none';
 
     const code = codeFromUrl || new URLSearchParams(hash.replace('#/portal?','').replace('#/portal','')).get('code');
     const manageId = manageFromUrl || new URLSearchParams(hash.replace('#/portal?','').replace('#/portal','')).get('manage');
