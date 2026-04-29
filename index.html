@@ -2927,69 +2927,7 @@ if (loaded) console.log('✓ Données restaurées depuis localStorage');
 
   danger.parentNode.insertBefore(card, danger);
 })();
-    <div class="stitle" style="display:flex;align-items:center;justify-content:space-between">
-      📱 WhatsApp Business API
-      <span id="wa-status" style="font-size:9px;padding:2px 9px;border-radius:10px;font-weight:600;
-        background:${isConfigured?'var(--g2)':'var(--r2)'};
-        color:${isConfigured?'var(--g)':'var(--r)'};
-        border:1px solid ${isConfigured?'var(--gb)':'var(--rb)'}">
-        ${isConfigured?'✓ Configuré':'✕ Non configuré'}
-      </span>
-    </div>
 
-    ${isConfigured ? `
-    <div style="background:var(--g2);border:1px solid var(--gb);border-radius:5px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
-      <span style="font-size:18px">✅</span>
-      <div>
-        <div style="font-size:11px;font-weight:600;color:var(--g)">WhatsApp prêt à l'envoi</div>
-        <div style="font-size:9px;color:var(--muted);margin-top:2px">Token chargé · Phone ID : ${WA_CONFIG.phoneId}</div>
-      </div>
-      <button onclick="document.getElementById('wa-edit-section').style.display=document.getElementById('wa-edit-section').style.display==='none'?'block':'none'" 
-        style="margin-left:auto;background:none;border:1px solid var(--border2);color:var(--muted);padding:3px 10px;border-radius:3px;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:9px">
-        Modifier
-      </button>
-    </div>` : `
-    <div style="background:var(--o2);border:1px solid var(--ob);border-radius:5px;padding:10px 14px;margin-bottom:14px;font-size:10px;color:var(--o);line-height:1.7">
-      <strong>Comment configurer :</strong><br>
-      1. Va sur <strong>developers.facebook.com</strong> → ton app Meta<br>
-      2. WhatsApp → API Setup → copie le token temporaire<br>
-      3. Colle-le ci-dessous et clique <strong>Sauvegarder</strong>
-    </div>`}
-
-    <div id="wa-edit-section" style="display:${isConfigured?'none':'block'}">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-        <div class="fr">
-          <label class="fl">Bearer Token Meta</label>
-          <div style="display:flex;gap:5px">
-            <input class="fi" id="wa-token" type="password" placeholder="EAABwz..." value="${WA_CONFIG.token}" style="flex:1">
-            <button onclick="const i=document.getElementById('wa-token');i.type=i.type==='password'?'text':'password'" 
-              style="background:var(--s3);border:1px solid var(--border2);color:var(--muted);padding:0 8px;border-radius:3px;cursor:pointer;font-size:11px">👁</button>
-          </div>
-        </div>
-        <div class="fr">
-          <label class="fl">Phone Number ID</label>
-          <input class="fi" id="wa-phone-id" placeholder="123456789..." value="${WA_CONFIG.phoneId}">
-        </div>
-      </div>
-      <button class="btn btn-o" onclick="saveWAConfig()" style="width:100%;justify-content:center;margin-bottom:14px">
-        💾 Sauvegarder la configuration
-      </button>
-    </div>
-
-    <div style="border-top:1px solid var(--border2);padding-top:14px;margin-top:4px">
-      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Test d'envoi</div>
-      <div style="display:flex;gap:6px;margin-bottom:8px">
-        <input class="fi" id="wa-test-num" placeholder="+33612345678 (ton numéro)" style="flex:1">
-        <button class="btn btn-o" id="wa-test-btn" onclick="testWA()" style="flex-shrink:0">📱 Envoyer test</button>
-      </div>
-      <div id="wa-test-result" style="display:none;padding:8px 12px;border-radius:4px;border:1px solid;font-size:10px;margin-bottom:10px"></div>
-      <div style="font-size:9px;color:var(--muted2)">
-        ⚠ Le token doit être sauvegardé avant de tester · 
-        <a href="https://developers.facebook.com/docs/whatsapp" target="_blank" style="color:var(--b)">Doc Meta →</a>
-      </div>
-    </div>`;
-  danger.parentNode.insertBefore(waCard, danger);
-})();
 
 // Patch nav pour historique
 const _origNav = nav;
