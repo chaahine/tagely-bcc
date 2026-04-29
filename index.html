@@ -955,12 +955,10 @@ function renderHvTable() {
   const slots = getNextMonthSlots();
   let html = '';
   let prevDateStr = null;
-  slots.forEach(({key, day, dayLabel, slot}) => {
+  slots.forEach(({key, day, dayLabel, slot, date}) => {
     const s = hvSlots[key] || {dispo:false, mc:false};
     const uid = key.replace(/[-H]/g,'_');
-    const now = new Date();
-    const month = (now.getMonth()+1) % 12;
-    const dateStr = `${dayLabel} ${day} ${MOIS[month]}`;
+    const dateStr = `${dayLabel} ${day} ${MOIS[date.getMonth()]}`;
     if (dateStr !== prevDateStr) {
       html += `<tr class="day-separator"><td colspan="4"><div class="day-sep-label">${dateStr}</div></td></tr>`;
       prevDateStr = dateStr;
@@ -982,6 +980,7 @@ function renderHvTable() {
       </td>
     </tr>`;
   });
+  if (!html) html = `<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--muted)">Aucun créneau disponible ce mois-ci</td></tr>`;
   document.getElementById('hv-tbody').innerHTML = html;
   updateHvCount();
 }
