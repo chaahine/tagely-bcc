@@ -2500,21 +2500,19 @@ async function sendWhatsAppText(to, text) {
     return { success: true, simulated: true };
   }
   try {
-    const res = await fetch(`https://graph.facebook.com/v18.0/${WA_CONFIG.phoneId}/messages`, {
+    // Passe par le proxy Vercel pour éviter les erreurs CORS
+    const res = await fetch('/api/whatsapp', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${WA_CONFIG.token}`,
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to: to.replace(/\s/g,'').replace('+',''),
-        type: 'text',
-        text: { body: text }
+        to,
+        text,
+        token: WA_CONFIG.token,
+        phoneId: WA_CONFIG.phoneId
       })
     });
     const data = await res.json();
-    return { success: !data.error, data };
+    return { success: data.success, data, error: data.error };
   } catch(e) {
     return { success: false, error: e.message };
   }
@@ -2818,7 +2816,7 @@ if (loaded) console.log('✓ Données restaurées depuis localStorage');
 
 // Ajouter WhatsApp config dans réglages
 (function addWASection() {
-  const danger = document.getElementById("danger-zone");
+  const danger = document.getElementById('danger-zone');
   if (!danger) return;
   const isConfigured = WA_CONFIG.configured;
   const waCard = document.createElement('div');
