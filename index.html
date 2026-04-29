@@ -2365,18 +2365,19 @@ function checkRoute() {
   const codeFromUrl = urlParams.get('code');
   const manageFromUrl = urlParams.get('manage');
 
-  // Si URL contient ?code= → portail humoriste direct
   if (codeFromUrl || hash.startsWith('#/portal')) {
     document.getElementById('admin-screen').style.display = 'none';
     document.getElementById('hv-screen').style.display = 'flex';
 
-    // Pré-remplir le code
     const code = codeFromUrl || new URLSearchParams(hash.replace('#/portal?','').replace('#/portal','')).get('code');
-    if (code) document.getElementById('l-code').value = code;
-
     const manageId = manageFromUrl || new URLSearchParams(hash.replace('#/portal?','').replace('#/portal','')).get('manage');
+
     if (manageId) {
       setTimeout(() => showManageDates(manageId), 100);
+    } else {
+      // Afficher directement le formulaire de login pour les dispos
+      showLoginFor('dispos');
+      if (code) document.getElementById('l-code').value = code;
     }
   }
 }
