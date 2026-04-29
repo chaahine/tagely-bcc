@@ -538,10 +538,10 @@ html.light .cd { color: var(--text); }
           <div class="stitle">Code d'accès humoristes</div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:10px">Communique ce code aux humoristes pour qu'ils accèdent à leur portail de disponibilités.</div>
           <div class="code-display">
-            <div class="code-val" id="club-code">BCC24</div>
+            <div class="code-val" id="club-code">BCCD25</div>
             <button class="btn btn-ghost" onclick="regenCode()" style="font-size:9px">↻ Régénérer</button>
           </div>
-          <div style="font-size:9px;color:var(--muted);margin-top:8px;margin-bottom:14px">Lien portail : <span style="color:var(--b)">tagely-bcc-git-main-chaahines-projects.vercel.app/portal</span></div>
+          <div style="font-size:9px;color:var(--muted);margin-top:8px;margin-bottom:14px">Lien portail : <span style="color:var(--b)">tagely-bcc.vercel.app/portal</span></div>
 
           <!-- Partage rapide -->
           <div style="height:1px;background:var(--border2);margin-bottom:14px"></div>
@@ -550,7 +550,7 @@ html.light .cd { color: var(--text); }
           <!-- Lien avec code pré-rempli -->
           <div style="font-size:9px;color:var(--muted);margin-bottom:6px">Lien direct — le code est déjà inclus</div>
           <div style="display:flex;gap:6px;margin-bottom:14px;align-items:center">
-            <div id="share-link-val" style="flex:1;background:var(--s3);border:1px solid var(--border2);border-radius:3px;padding:7px 10px;font-size:10px;color:var(--b);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">tagely-bcc-git-main-chaahines-projects.vercel.app/portal?code=BCC24</div>
+            <div id="share-link-val" style="flex:1;background:var(--s3);border:1px solid var(--border2);border-radius:3px;padding:7px 10px;font-size:10px;color:var(--b);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">tagely-bcc.vercel.app/portal?code=BCCD25</div>
             <button class="btn btn-ghost" onclick="copyShareLink()" style="font-size:9px;flex-shrink:0">Copier</button>
           </div>
 
@@ -735,8 +735,8 @@ BCC</textarea></div>
 // DATA
 // ══════════════════════════════════════════════════
 
-const CLUB_CODE = 'BCC24';
-let currentCode = CLUB_CODE;
+const CLUB_CODE = 'BCCD25';
+let currentCode = localStorage.getItem('stagely_club_code') || CLUB_CODE;
 
 let DAYS_CONFIG = [
   {name:'MAR',label:'Mardi',   slots:['20H15','21H30']},
@@ -1443,7 +1443,7 @@ function renderDispos(){
       <td style="font-size:12px;font-weight:600;color:var(--g)">${dSlots.length ? dSlots.length : '<span style="color:var(--muted2)">—</span>'}</td>
       <td><div class="dchips">${mcSlots.length?mcSlots.map(k=>`<span class="dchip" style="background:var(--gold2);color:var(--gold);border-color:rgba(245,158,11,.35)">${k.split('-')[0]} ${k.split('-')[1].replace('H',':')}</span>`).join(''):'<span style="color:var(--muted2);font-size:9px">—</span>'}</div></td>
       <td><div class="lnk-row">
-        <span class="lnk-v">tagely-bcc-git-main-chaahines-projects.vercel.app/portal</span>
+        <span class="lnk-v">tagely-bcc.vercel.app/portal</span>
         <button class="cbtn" onclick="toast('✓ Lien copié')">Copier</button>
       </div></td>
       <td>${st!=='replied'?`<button class="btn btn-ghost" style="font-size:9px;padding:2px 7px" onclick="sendRem('${c.id}')">⏰</button>`:''}</td>
@@ -2036,13 +2036,14 @@ function regenCode(){
   const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code='';for(let i=0;i<5;i++) code+=chars[Math.floor(Math.random()*chars.length)];
   currentCode=code;
+  localStorage.setItem('stagely_club_code', code);
   document.getElementById('club-code').textContent=code;
   updateShareWidget(code);
   toast('✓ Nouveau code généré');
 }
 
 function updateShareWidget(code) {
-  const link = `tagely-bcc-git-main-chaahines-projects.vercel.app/portal?code=${code}`;
+  const link = `tagely-bcc.vercel.app/portal?code=${code}`;
   const el = document.getElementById('share-link-val');
   if (el) el.textContent = link;
   generateQR(link);
@@ -2050,7 +2051,7 @@ function updateShareWidget(code) {
 
 function copyShareLink() {
   const code = document.getElementById('club-code')?.textContent || currentCode;
-  const link = `https://tagely-bcc-git-main-chaahines-projects.vercel.app/portal?code=${code}`;
+  const link = `https://tagely-bcc.vercel.app/portal?code=${code}`;
   navigator.clipboard?.writeText(link).catch(()=>{});
   toast('✓ Lien copié');
 }
@@ -2191,7 +2192,7 @@ function buildPlanningMessage(comedianId, keys) {
     return `• ${DAY_NAMES_FR[date.getDay()]} ${date.getDate()} ${MOIS[date.getMonth()]} à ${time}${isFirst?' (MC)':''}`;
   }).join('\n');
 
-  const link = `tagely-bcc-git-main-chaahines-projects.vercel.app/portal?code=${currentCode}&manage=${comedianId}`;
+  const link = `tagely-bcc.vercel.app/portal?code=${currentCode}&manage=${comedianId}`;
   return `Salut ${prenom} ! 🎤\n\nVoici tes dates au BCC ce mois-ci :\n\n${dateLines}\n\nSi une date ne te convient plus, signale-le ici :\n👉 ${link}\n\nMerci et à bientôt ! 🔥`;
 }
 
@@ -2685,7 +2686,7 @@ async function broadcastToGroup(messageText, targets = null) {
     const personalMsg = messageText
       .replace('{NOM}', c.name.split(' ')[0])
       .replace('{CODE}', currentCode)
-      .replace('{LIEN}', `tagely-bcc-git-main-chaahines-projects.vercel.app/portal?code=${currentCode}`);
+      .replace('{LIEN}', `tagely-bcc.vercel.app/portal?code=${currentCode}`);
     const r = await sendWhatsAppText(c.phone, personalMsg);
     if (r.success) sent++;
     results.push({ id: c.id, name: c.name, ...r });
