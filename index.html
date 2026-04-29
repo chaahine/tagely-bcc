@@ -496,10 +496,6 @@ html.light .cd { color: var(--text); }
     <div id="view-dispos" class="view">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
         <span style="font-size:11px;color:var(--muted)">Dispos — <strong style="color:var(--text)" id="d-month">juin 2025</strong></span>
-        <div style="margin-left:auto;display:flex;gap:5px">
-          <button class="btn btn-b" onclick="relancerTous()">⏰ Relancer</button>
-          <button class="btn btn-o" onclick="openModal('modal-dispo')">✉ Envoyer demandes</button>
-        </div>
       </div>
       <table class="dtbl"><thead><tr>
         <th>Humoriste</th><th>Statut</th><th>Dispos</th><th>MC</th><th>Lien</th><th></th>
@@ -2586,7 +2582,7 @@ const WA_CONFIG = {
 // Config Email Brevo
 const EMAIL_CONFIG = {
   apiKey: localStorage.getItem('stagely_resend_key') || '',
-  configured: !!localStorage.getItem('stagely_resend_key')
+  get configured() { return !!localStorage.getItem('stagely_resend_key'); }
 };
 
 async function sendEmail(to, subject, bodyText) {
@@ -2873,9 +2869,8 @@ function hvSubmit() {
 
 function saveEmailConfig() {
   const key = document.getElementById('resend-key')?.value.trim();
-  if (!key) { toast('⚠ Clé Resend manquante'); return; }
+  if (!key) { toast('⚠ Clé Brevo manquante'); return; }
   EMAIL_CONFIG.apiKey = key;
-  EMAIL_CONFIG.configured = true;
   localStorage.setItem('stagely_resend_key', key);
   const st = document.getElementById('email-status');
   if (st) {
@@ -2884,7 +2879,7 @@ function saveEmailConfig() {
     st.style.color = 'var(--g)';
     st.style.borderColor = 'var(--gb)';
   }
-  toast('✓ Email Resend sauvegardé !');
+  toast('✓ Email Brevo sauvegardé !');
 }
 
 async function testEmail() {
