@@ -11,22 +11,22 @@ export default async function handler(req, res) {
   }
 
   try {
-    const response = await fetch('https://api.resend.com/emails', {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'api-key': apiKey,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: 'BCC Stagely <onboarding@resend.dev>',
-        to: [to],
+        sender: { name: 'BCC Stagely', email: 'chahinedjadel@gmail.com' },
+        to: [{ email: to }],
         subject,
-        html
+        htmlContent: html
       })
     });
 
     const data = await response.json();
-    if (data.error) return res.status(400).json({ success: false, error: data.error.message || data.error, data });
+    if (data.code) return res.status(400).json({ success: false, error: data.message, data });
     return res.status(200).json({ success: true, data });
   } catch(e) {
     return res.status(500).json({ success: false, error: e.message });

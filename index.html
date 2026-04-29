@@ -2513,7 +2513,7 @@ const WA_CONFIG = {
   configured: !!(localStorage.getItem('stagely_wa_token') && localStorage.getItem('stagely_wa_phone'))
 };
 
-// Config Email Resend
+// Config Email Brevo
 const EMAIL_CONFIG = {
   apiKey: localStorage.getItem('stagely_resend_key') || '',
   configured: !!localStorage.getItem('stagely_resend_key')
@@ -2966,7 +2966,7 @@ loadFromSupabase().then(ok => {
   card.innerHTML = `
     <!-- EMAIL RESEND -->
     <div class="stitle" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      📧 Email (Resend)
+      📧 Email (Brevo)
       <span id="email-status" style="font-size:9px;padding:2px 9px;border-radius:10px;font-weight:600;
         background:${isEmailConfigured?'var(--g2)':'var(--r2)'};
         color:${isEmailConfigured?'var(--g)':'var(--r)'};
@@ -2994,7 +2994,7 @@ loadFromSupabase().then(ok => {
       <div class="fr">
         <label class="fl">Clé API Resend</label>
         <div style="display:flex;gap:5px">
-          <input class="fi" id="resend-key" type="password" placeholder="re_..." value="${EMAIL_CONFIG.apiKey}" style="flex:1">
+          <input class="fi" id="resend-key" type="password" placeholder="xkeysib-..." value="${EMAIL_CONFIG.apiKey}" style="flex:1">
           <button onclick="const i=document.getElementById('resend-key');i.type=i.type==='password'?'text':'password'"
             style="background:var(--s3);border:1px solid var(--border2);color:var(--muted);padding:0 8px;border-radius:3px;cursor:pointer;font-size:11px">👁</button>
         </div>
