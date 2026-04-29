@@ -2714,6 +2714,7 @@ async function testEmail() {
     }
   }
 }
+function saveWAConfig() {
   const token = document.getElementById('wa-token')?.value.trim();
   const phoneId = document.getElementById('wa-phone-id')?.value.trim();
   if (!token) { toast('⚠ Token manquant'); return; }
@@ -2721,10 +2722,8 @@ async function testEmail() {
   WA_CONFIG.token = token;
   WA_CONFIG.phoneId = phoneId;
   WA_CONFIG.configured = true;
-  // Sauvegarde dans localStorage (jamais dans le code source)
   localStorage.setItem('stagely_wa_token', token);
   localStorage.setItem('stagely_wa_phone', phoneId);
-  // Mettre à jour le badge de statut
   const st = document.getElementById('wa-status');
   if (st) {
     st.textContent = '✓ Configuré';
