@@ -2371,13 +2371,16 @@ function checkRoute() {
     document.getElementById('admin-screen').style.display = 'none';
     document.getElementById('hv-screen').style.display = 'flex';
 
+    // Reset toujours — l'humoriste doit se connecter à chaque fois
+    hvUser = null;
+    hvSlots = {};
+
     const code = codeFromUrl || new URLSearchParams(hash.replace('#/portal?','').replace('#/portal','')).get('code');
     const manageId = manageFromUrl || new URLSearchParams(hash.replace('#/portal?','').replace('#/portal','')).get('manage');
 
     if (manageId) {
       setTimeout(() => showManageDates(manageId), 100);
     } else {
-      // Afficher directement le formulaire de login pour les dispos
       showLoginFor('dispos');
       if (code) document.getElementById('l-code').value = code;
     }
