@@ -689,10 +689,19 @@ html.light .cd { color: var(--text); }
 <!-- MODAL: demandes dispos -->
 <div class="overlay" id="modal-dispo">
   <div class="modal">
-    <div class="modal-title">Envoyer demandes de disponibilités</div>
+    <div class="modal-title">✉ Envoyer demandes de disponibilités</div>
     <div class="fr"><label class="fl">Destinataires</label><select class="fsl" id="d-dest"><option>Tous les humoristes actifs</option><option>Non-répondants uniquement</option><option>Headliners uniquement</option></select></div>
-    <div class="fr"><label class="fl">Message</label><textarea class="fta">Salut {NOM} ! Remplis tes dispos via tagely-bcc-git-main-chaahines-projects.vercel.app/portal — code : {CODE} — deadline le {DEADLINE}.</textarea></div>
-    <div style="font-size:9px;color:var(--muted)">Variables : {NOM} {CODE} {DEADLINE}</div>
+    <div class="fr"><label class="fl">Message</label><textarea class="fta" id="d-msg">Bonjour,
+
+Merci de renseigner tes disponibilités pour le mois à venir via le lien ci-dessous :
+
+👉 https://tagely-bcc.vercel.app/portal?code={CODE}
+
+Deadline : le {DEADLINE}.
+
+À très vite !
+BCC</textarea></div>
+    <div style="font-size:9px;color:var(--muted);margin-bottom:8px">Variables automatiques : {CODE} {DEADLINE} · Envoi par email si renseigné, sinon copie manuelle</div>
     <div class="ma"><button class="btn btn-ghost" onclick="closeModal('modal-dispo')">Annuler</button><button class="btn btn-o" onclick="sendDispos()">✉ Envoyer</button></div>
   </div>
 </div>
@@ -1454,14 +1463,42 @@ function relancerTous(){
   n.forEach(c=>DISPO_STATUS[c.id]='pending');
   renderDispos();toast(`⏰ ${n.length} relances envoyées`);
 }
-function sendDispos(){
-  let t=COMEDIANS;
-  const dest=document.getElementById('d-dest').value;
-  if(dest.includes('Non')) t=COMEDIANS.filter(c=>DISPO_STATUS[c.id]!=='replied');
-  if(dest.includes('Head')) t=COMEDIANS.filter(c=>c.prio==='headliner');
-  t.forEach(c=>{if(DISPO_STATUS[c.id]==='none') DISPO_STATUS[c.id]='pending';});
-  closeModal('modal-dispo');renderDispos();
-  toast(`✉ ${t.length} demandes envoyées`);
+async function sendDispos(){
+  let t = COMEDIANS;
+  const dest = document.getElementById('d-dest').value;
+  if(dest.includes('Non')) t = COMEDIANS.filter(c=>DISPO_STATUS[c.id]!=='replied');
+  if(dest.includes('Head')) t = COMEDIANS.filter(c=>c.prio==='headliner');
+
+  const msgTemplate = document.getElementById('d-msg')?.value || '';
+  const now = new Date();
+  const dl = document.getElementById('s-deadline')?.value || 15;
+  const nextM = (now.getMonth()+1) % 12;
+  const nextY = now.getMonth()===11 ? now.getFullYear()+1 : now.getFullYear();
+  const deadline = `${dl} ${MOIS_FULL[nextM]} ${nextY}`;
+
+  closeModal('modal-dispo');
+
+  let sent = 0, noEmail = 0;
+  for (const c of t) {
+    DISPO_STATUS[c.id] = 'pending';
+    const msg = msgTemplate
+      .replace(/{CODE}/g, currentCode)
+      .replace(/{DEADLINE}/g, deadline)
+      .replace(/{NOM}/g, c.name.split(' ')[0]);
+
+    if (c.email && EMAIL_CONFIG.configured) {
+      const r = await sendEmail(c.email, `🎤 BCC — Tes disponibilités ${MOIS_FULL[nextM]}`, msg);
+      if (r.success) sent++;
+    } else {
+      noEmail++;
+    }
+  }
+
+  renderDispos();
+  const msg = sent > 0
+    ? `✉ ${sent} email${sent>1?'s':''} envoyé${sent>1?'s':''}${noEmail?` · ${noEmail} sans email`:''}` 
+    : `⚠ ${noEmail} humoriste${noEmail>1?'s':''} sans email — ajoute leurs emails dans leurs fiches`;
+  toast(msg);
 }
 
 // ══════════════════════════════════════════════════
