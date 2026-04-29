@@ -1659,11 +1659,17 @@ async function saveFiche() {
   toast(`✓ Fiche ${c.name} sauvegardée`);
 }
 
-function delH(id){
+async function delH(id){
   const c=COMEDIANS.find(c=>c.id===id);
   COMEDIANS=COMEDIANS.filter(c=>c.id!==id);
   Object.keys(assignments).forEach(k=>{assignments[k]=assignments[k].filter(i=>i!==id);if(!assignments[k].length)delete assignments[k];});
-  renderHumoristes();toast(`✕ ${c?.name} retiré`);
+  // Supprimer dans Supabase
+  if (sbConnected) {
+    await sbFetch('comedians', {method:'DELETE', params:`?id=eq.${id}`});
+  }
+  autoSave();
+  renderHumoristes();
+  toast(`✕ ${c?.name} retiré`);
 }
 function addH(){
   const name=document.getElementById('n-name').value.trim().toUpperCase();
