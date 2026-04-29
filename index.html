@@ -702,6 +702,7 @@ html.light .cd { color: var(--text); }
       <div class="fr"><label class="fl">Présence estimée (%)</label><input class="fi" id="n-pres" type="number" value="100" min="0" max="100"></div>
     </div>
     <div class="fr"><label class="fl">Téléphone WhatsApp</label><input class="fi" id="n-phone" placeholder="+33612345678"></div>
+    <div class="fr"><label class="fl">Email</label><input class="fi" id="n-email" type="email" placeholder="prenom@email.com"></div>
     <div class="ma"><button class="btn btn-ghost" onclick="closeModal('modal-add-hum')">Annuler</button><button class="btn btn-o" onclick="addH()">Ajouter</button></div>
   </div>
 </div>
@@ -1599,7 +1600,7 @@ function addH(){
   const name=document.getElementById('n-name').value.trim().toUpperCase();
   if(!name){toast('Nom requis');return;}
   const id=name.toLowerCase().replace(/\s+/g,'_')+'_'+Date.now();
-  COMEDIANS.push({id,name,prio:document.getElementById('n-prio').value,presence:parseInt(document.getElementById('n-pres').value)||100,gender:newGender,duration:parseInt(document.getElementById('n-dur')?.value)||10,phone:document.getElementById('n-phone')?.value.trim()||''});
+  COMEDIANS.push({id,name,prio:document.getElementById('n-prio').value,presence:parseInt(document.getElementById('n-pres').value)||100,gender:newGender,duration:parseInt(document.getElementById('n-dur')?.value)||10,phone:document.getElementById('n-phone')?.value.trim()||'',email:document.getElementById('n-email')?.value.trim()||''});
   DISPO_STATUS[id]='none';
   closeModal('modal-add-hum');document.getElementById('n-name').value='';
   renderHumoristes();toast(`✓ ${name} ajouté`);
@@ -2136,6 +2137,7 @@ function openSendPlanningModal() {
   Object.entries(byComedian).forEach(([id, keys], idx) => {
     const c = COMEDIANS.find(c=>c.id===id);
     if (!c) return;
+    const hasEmail = !!c.email;
     const hasPhone = !!c.phone;
     const msg = buildPlanningMessage(id, keys);
     if (idx === 0) firstMsg = msg;
@@ -2143,9 +2145,10 @@ function openSendPlanningModal() {
       <span style="width:7px;height:7px;border-radius:50%;background:${c.gender==='f'?'#f472b6':'#3b82f6'};flex-shrink:0"></span>
       <span style="font-size:11px;font-weight:600;flex:1">${c.name}</span>
       <span style="font-size:10px;color:var(--muted)">${keys.length} date${keys.length>1?'s':''}</span>
-      ${hasPhone
-        ? `<span style="font-size:9px;color:var(--g);background:var(--g2);padding:1px 6px;border-radius:2px;border:1px solid var(--gb)">✓ WA</span>`
-        : `<span style="font-size:9px;color:var(--r);background:var(--r2);padding:1px 6px;border-radius:2px;border:1px solid var(--rb)">Pas de n°</span>`}
+      ${hasEmail
+        ? `<span style="font-size:9px;color:var(--g);background:var(--g2);padding:1px 6px;border-radius:2px;border:1px solid var(--gb)">✓ Email</span>`
+        : `<span style="font-size:9px;color:var(--r);background:var(--r2);padding:1px 6px;border-radius:2px;border:1px solid var(--rb)">Pas d'email</span>`}
+      ${hasPhone ? `<span style="font-size:9px;color:var(--b);background:var(--b2);padding:1px 6px;border-radius:2px;border:1px solid var(--bb)">📱 WA</span>` : ''}
       <button onclick="previewMsg('${id}')" style="background:none;border:1px solid var(--border2);color:var(--muted);font-size:9px;padding:2px 7px;border-radius:2px;cursor:pointer">Aperçu</button>
     </div>`;
   });
@@ -2166,8 +2169,33 @@ async function sendPlanningToAll() {
   const list = Object.entries(byComedian);
   if (!list.length) { toast('Aucun humoriste assigné'); return; }
 
-  const withPhone = list.filter(([id]) => COMEDIANS.find(c=>c.id===id)?.phone);
-  const withoutPhone = list.filter(([id]) => !COMEDIANS.find(c=>c.id===id)?.phone);
+  closeModal('modal-send-planning');
+
+  let sent = 0, skipped = 0;
+  for (const [id, keys] of list) {
+    const c = COMEDIANS.find(c=>c.id===id);
+    if (!c) continue;
+    const msg = buildPlanningMessage(id, keys);
+    const prenom = c.name.split(' ')[0];
+
+    if (c.email && EMAIL_CONFIG.configured) {
+      // Envoi par email
+      const r = await sendEmail(c.email, `🎤 Tes dates BCC — ${new Date().toLocaleDateString('fr-FR',{month:'long'})}`, msg);
+      if (r.success) { sent++; logAction('notification', {humId:id, name:c.name, type:'email_planning'}); }
+      else skipped++;
+    } else if (c.phone && WA_CONFIG.configured) {
+      // Fallback WhatsApp
+      const r = await sendWhatsAppText(c.phone, msg);
+      if (r.success && !r.simulated) { sent++; logAction('notification', {humId:id, name:c.name, type:'wa_planning'}); }
+      else skipped++;
+    } else {
+      skipped++;
+    }
+  }
+
+  autoSave();
+  toast(`✓ ${sent} envoyé${sent>1?'s':''}${skipped?` · ${skipped} sans contact`:''}`);
+}
 
 function fallbackCopy(text, btn) {
   const ta = document.createElement('textarea');
@@ -2460,6 +2488,41 @@ const WA_CONFIG = {
   configured: !!(localStorage.getItem('stagely_wa_token') && localStorage.getItem('stagely_wa_phone'))
 };
 
+// Config Email Resend
+const EMAIL_CONFIG = {
+  apiKey: localStorage.getItem('stagely_resend_key') || '',
+  configured: !!localStorage.getItem('stagely_resend_key')
+};
+
+async function sendEmail(to, subject, bodyText) {
+  if (!EMAIL_CONFIG.configured || !EMAIL_CONFIG.apiKey) {
+    console.log(`[Email Simulation] → ${to}: ${subject}`);
+    return { success: true, simulated: true };
+  }
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#111;color:#f0f0f0;border-radius:8px;overflow:hidden">
+      <div style="background:#f97316;padding:18px 24px">
+        <div style="font-size:20px;font-weight:700;letter-spacing:3px;color:#000">STAGELY</div>
+        <div style="font-size:11px;color:rgba(0,0,0,.6);margin-top:2px">BCC — Beer Comedy Club</div>
+      </div>
+      <div style="padding:24px;line-height:1.8;font-size:14px;white-space:pre-wrap">${bodyText.replace(/\n/g,'<br>')}</div>
+      <div style="padding:14px 24px;background:#1a1a1a;font-size:10px;color:#555;text-align:center">
+        Stagely · BCC · Ne pas répondre à cet email
+      </div>
+    </div>`;
+  try {
+    const res = await fetch('/api/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, subject, html, apiKey: EMAIL_CONFIG.apiKey })
+    });
+    const data = await res.json();
+    return { success: data.success, error: data.error };
+  } catch(e) {
+    return { success: false, error: e.message };
+  }
+}
+
 async function sendWhatsApp(to, templateName, params = []) {
   if (!WA_CONFIG.configured || !WA_CONFIG.token) {
     // Mode simulation
@@ -2709,7 +2772,47 @@ function hvSubmit() {
 // CONFIG WHATSAPP UI (dans réglages)
 // ══════════════════════════════════════════════════
 
-function saveWAConfig() {
+function saveEmailConfig() {
+  const key = document.getElementById('resend-key')?.value.trim();
+  if (!key) { toast('⚠ Clé Resend manquante'); return; }
+  EMAIL_CONFIG.apiKey = key;
+  EMAIL_CONFIG.configured = true;
+  localStorage.setItem('stagely_resend_key', key);
+  const st = document.getElementById('email-status');
+  if (st) {
+    st.textContent = '✓ Configuré';
+    st.style.background = 'var(--g2)';
+    st.style.color = 'var(--g)';
+    st.style.borderColor = 'var(--gb)';
+  }
+  toast('✓ Email Resend sauvegardé !');
+}
+
+async function testEmail() {
+  const addr = document.getElementById('email-test-addr')?.value.trim();
+  if (!addr) { toast('Entre une adresse email'); return; }
+  if (!EMAIL_CONFIG.configured) { toast('⚠ Configure la clé Resend d\'abord'); return; }
+  const btn = document.getElementById('email-test-btn');
+  if (btn) { btn.textContent = '⏳ Envoi...'; btn.disabled = true; }
+  const r = await sendEmail(addr, '🎤 Test Stagely BCC', `Bonjour !\n\nCeci est un message de test depuis Stagely BCC.\n\nHeure : ${new Date().toLocaleTimeString('fr-FR')}\n\n✓ Email opérationnel.\n\nÀ bientôt !`);
+  if (btn) { btn.textContent = '📧 Tester'; btn.disabled = false; }
+  const res = document.getElementById('email-test-result');
+  if (res) {
+    res.style.display = 'block';
+    if (r.success && !r.simulated) {
+      res.style.background = 'var(--g2)'; res.style.color = 'var(--g)'; res.style.borderColor = 'var(--gb)';
+      res.textContent = `✓ Email envoyé à ${addr} — vérifie ta boîte !`;
+      toast('✓ Email envoyé !');
+    } else if (r.simulated) {
+      res.style.background = 'var(--gold2)'; res.style.color = 'var(--gold)'; res.style.borderColor = 'rgba(245,158,11,.35)';
+      res.textContent = '⚠ Mode simulation — configure la clé Resend';
+    } else {
+      res.style.background = 'var(--r2)'; res.style.color = 'var(--r)'; res.style.borderColor = 'var(--rb)';
+      res.textContent = `✗ ${r.error || 'Erreur inconnue'}`;
+      toast(`✗ ${r.error?.slice(0,50)}`);
+    }
+  }
+}
   const token = document.getElementById('wa-token')?.value.trim();
   const phoneId = document.getElementById('wa-phone-id')?.value.trim();
   if (!token) { toast('⚠ Token manquant'); return; }
@@ -2814,15 +2917,116 @@ if (loaded) console.log('✓ Données restaurées depuis localStorage');
   sidebar.insertBefore(div, ctag);
 })();
 
-// Ajouter WhatsApp config dans réglages
+// Ajouter Email + WhatsApp config dans réglages
 (function addWASection() {
   const danger = document.getElementById('danger-zone');
   if (!danger) return;
-  const isConfigured = WA_CONFIG.configured;
-  const waCard = document.createElement('div');
-  waCard.className = 'scard';
-  waCard.style.gridColumn = '1/-1';
-  waCard.innerHTML = `
+  const isWAConfigured = WA_CONFIG.configured;
+  const isEmailConfigured = EMAIL_CONFIG.configured;
+
+  const card = document.createElement('div');
+  card.className = 'scard';
+  card.style.gridColumn = '1/-1';
+  card.innerHTML = `
+    <!-- EMAIL RESEND -->
+    <div class="stitle" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      📧 Email (Resend)
+      <span id="email-status" style="font-size:9px;padding:2px 9px;border-radius:10px;font-weight:600;
+        background:${isEmailConfigured?'var(--g2)':'var(--r2)'};
+        color:${isEmailConfigured?'var(--g)':'var(--r)'};
+        border:1px solid ${isEmailConfigured?'var(--gb)':'var(--rb)'}">
+        ${isEmailConfigured?'✓ Configuré':'✕ Non configuré'}
+      </span>
+    </div>
+    ${isEmailConfigured ? `
+    <div style="background:var(--g2);border:1px solid var(--gb);border-radius:5px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:18px">✅</span>
+      <div style="flex:1">
+        <div style="font-size:11px;font-weight:600;color:var(--g)">Email prêt à l'envoi</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:2px">Clé Resend chargée</div>
+      </div>
+      <button onclick="document.getElementById('email-edit').style.display=document.getElementById('email-edit').style.display==='none'?'block':'none'"
+        style="background:none;border:1px solid var(--border2);color:var(--muted);padding:3px 10px;border-radius:3px;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:9px">Modifier</button>
+    </div>` : `
+    <div style="background:var(--o2);border:1px solid var(--ob);border-radius:5px;padding:10px 14px;margin-bottom:12px;font-size:10px;color:var(--o);line-height:1.7">
+      <strong>Comment configurer :</strong><br>
+      1. Va sur <strong>resend.com</strong> → API Keys<br>
+      2. Copie ta clé (commence par <code>re_</code>)<br>
+      3. Colle-la ci-dessous et sauvegarde
+    </div>`}
+    <div id="email-edit" style="display:${isEmailConfigured?'none':'block'}">
+      <div class="fr">
+        <label class="fl">Clé API Resend</label>
+        <div style="display:flex;gap:5px">
+          <input class="fi" id="resend-key" type="password" placeholder="re_..." value="${EMAIL_CONFIG.apiKey}" style="flex:1">
+          <button onclick="const i=document.getElementById('resend-key');i.type=i.type==='password'?'text':'password'"
+            style="background:var(--s3);border:1px solid var(--border2);color:var(--muted);padding:0 8px;border-radius:3px;cursor:pointer;font-size:11px">👁</button>
+        </div>
+      </div>
+      <button class="btn btn-o" onclick="saveEmailConfig()" style="width:100%;justify-content:center;margin-bottom:14px">💾 Sauvegarder</button>
+    </div>
+    <div style="border-top:1px solid var(--border2);padding-top:12px;margin-bottom:20px">
+      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Test email</div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input class="fi" id="email-test-addr" placeholder="ton@email.com" style="flex:1">
+        <button class="btn btn-o" id="email-test-btn" onclick="testEmail()" style="flex-shrink:0">📧 Tester</button>
+      </div>
+      <div id="email-test-result" style="display:none;padding:8px 12px;border-radius:4px;border:1px solid;font-size:10px"></div>
+    </div>
+
+    <!-- WHATSAPP -->
+    <div style="height:1px;background:var(--border2);margin-bottom:16px"></div>
+    <div class="stitle" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      📱 WhatsApp Business API
+      <span id="wa-status" style="font-size:9px;padding:2px 9px;border-radius:10px;font-weight:600;
+        background:${isWAConfigured?'var(--g2)':'var(--r2)'};
+        color:${isWAConfigured?'var(--g)':'var(--r)'};
+        border:1px solid ${isWAConfigured?'var(--gb)':'var(--rb)'}">
+        ${isWAConfigured?'✓ Configuré':'✕ Non configuré'}
+      </span>
+    </div>
+    ${isWAConfigured ? `
+    <div style="background:var(--g2);border:1px solid var(--gb);border-radius:5px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:18px">✅</span>
+      <div style="flex:1">
+        <div style="font-size:11px;font-weight:600;color:var(--g)">WhatsApp prêt à l'envoi</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:2px">Token chargé · Phone ID : ${WA_CONFIG.phoneId}</div>
+      </div>
+      <button onclick="document.getElementById('wa-edit-section').style.display=document.getElementById('wa-edit-section').style.display==='none'?'block':'none'"
+        style="background:none;border:1px solid var(--border2);color:var(--muted);padding:3px 10px;border-radius:3px;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:9px">Modifier</button>
+    </div>` : ''}
+    <div id="wa-edit-section" style="display:${isWAConfigured?'none':'block'}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div class="fr">
+          <label class="fl">Bearer Token Meta</label>
+          <div style="display:flex;gap:5px">
+            <input class="fi" id="wa-token" type="password" placeholder="EAABwz..." value="${WA_CONFIG.token}" style="flex:1">
+            <button onclick="const i=document.getElementById('wa-token');i.type=i.type==='password'?'text':'password'"
+              style="background:var(--s3);border:1px solid var(--border2);color:var(--muted);padding:0 8px;border-radius:3px;cursor:pointer;font-size:11px">👁</button>
+          </div>
+        </div>
+        <div class="fr">
+          <label class="fl">Phone Number ID</label>
+          <input class="fi" id="wa-phone-id" placeholder="123456789..." value="${WA_CONFIG.phoneId}">
+        </div>
+      </div>
+      <button class="btn btn-o" onclick="saveWAConfig()" style="width:100%;justify-content:center;margin-bottom:14px">💾 Sauvegarder WhatsApp</button>
+    </div>
+    <div style="border-top:1px solid var(--border2);padding-top:12px">
+      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Test WhatsApp</div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input class="fi" id="wa-test-num" placeholder="33612345678" style="flex:1">
+        <button class="btn btn-o" id="wa-test-btn" onclick="testWA()" style="flex-shrink:0">📱 Tester</button>
+      </div>
+      <div id="wa-test-result" style="display:none;padding:8px 12px;border-radius:4px;border:1px solid;font-size:10px;margin-bottom:6px"></div>
+      <div style="font-size:9px;color:var(--muted2)">
+        ⚠ Nécessite vérification Meta Business · 
+        <a href="https://developers.facebook.com/docs/whatsapp" target="_blank" style="color:var(--b)">Doc Meta →</a>
+      </div>
+    </div>`;
+
+  danger.parentNode.insertBefore(card, danger);
+})();
     <div class="stitle" style="display:flex;align-items:center;justify-content:space-between">
       📱 WhatsApp Business API
       <span id="wa-status" style="font-size:9px;padding:2px 9px;border-radius:10px;font-weight:600;
