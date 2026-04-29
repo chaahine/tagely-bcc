@@ -2320,21 +2320,130 @@ function checkRoute() {
 
 const LS_KEY = 'stagely_bcc_v1';
 
+// ── SUPABASE CONFIG ──
+const SUPABASE_URL = 'https://dvdwfxytdsvwjtirxncz.supabase.co';
+const SUPABASE_KEY = localStorage.getItem('stagely_sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2ZHdmeHl0ZHN2d2p0aXJ4bmN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTY0MTMsImV4cCI6MjA5MjYzMjQxM30.7u70HAAepfCfU7T58IlN_u-b-rI5uBzqT7lISLQsrWY';
+let sbConnected = false;
+
+async function sbFetch(table, options = {}) {
+  const { method='GET', body, params='' } = options;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, {
+      method,
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': method === 'POST' ? 'resolution=merge-duplicates' : ''
+      },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    if (!res.ok) { const e = await res.text(); throw new Error(e); }
+    return method === 'GET' ? await res.json() : true;
+  } catch(e) {
+    console.warn(`Supabase ${method} ${table}:`, e.message);
+    return method === 'GET' ? null : false;
+  }
+}
+
+// Charger depuis Supabase
+async function loadFromSupabase() {
+  showSaveIndicator('⏳ Chargement...');
+  try {
+    const [comedians, asgn, dispos, statuses, msgs] = await Promise.all([
+      sbFetch('comedians', {params:'?order=name'}),
+      sbFetch('assignments'),
+      sbFetch('dispos'),
+      sbFetch('dispo_status'),
+      sbFetch('chat_messages', {params:'?order=created_at&limit=100'})
+    ]);
+    if (!comedians) return false;
+
+    // Mettre à jour les données
+    if (comedians.length > 0) {
+      COMEDIANS.splice(0, COMEDIANS.length, ...comedians);
+    }
+    // Assignments
+    Object.keys(assignments).forEach(k => delete assignments[k]);
+    asgn?.forEach(a => {
+      if (!assignments[a.slot_key]) assignments[a.slot_key] = [];
+      if (!assignments[a.slot_key].includes(a.comedian_id)) assignments[a.slot_key].push(a.comedian_id);
+    });
+    // Dispos
+    Object.keys(DISPOS_DATA).forEach(k => delete DISPOS_DATA[k]);
+    dispos?.forEach(d => {
+      if (!DISPOS_DATA[d.comedian_id]) DISPOS_DATA[d.comedian_id] = {};
+      DISPOS_DATA[d.comedian_id][d.slot_key] = {dispo: d.dispo, mc: d.mc};
+    });
+    // Statuses
+    statuses?.forEach(s => DISPO_STATUS[s.comedian_id] = s.status);
+    // Chat
+    if (msgs?.length) {
+      chatMessages.splice(0, chatMessages.length, ...msgs.map(m => ({
+        sender: m.sender, senderId: m.sender_id, text: m.text,
+        time: new Date(m.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
+        date: "Aujourd'hui"
+      })));
+    }
+    sbConnected = true;
+    showSaveIndicator('✓ Supabase connecté');
+    return true;
+  } catch(e) {
+    console.warn('Supabase load failed:', e);
+    return false;
+  }
+}
+
+// Sauvegarder dans Supabase
+async function saveToSupabase() {
+  if (!sbConnected) return;
+  try {
+    // Upsert humoristes
+    if (COMEDIANS.length) {
+      await sbFetch('comedians', {
+        method: 'POST',
+        params: '?on_conflict=id',
+        body: COMEDIANS.map(c => ({
+          id: c.id, name: c.name, prio: c.prio, presence: c.presence,
+          gender: c.gender, duration: c.duration, phone: c.phone||'',
+          email: c.email||'', notes: c.notes||'', active: c.active!==false
+        }))
+      });
+    }
+    // Assignments — delete all then insert
+    await sbFetch('assignments', {method:'DELETE', params:'?id=gte.0'});
+    const asgnRows = [];
+    Object.entries(assignments).forEach(([slot_key, ids]) => {
+      ids.forEach(comedian_id => asgnRows.push({slot_key, comedian_id}));
+    });
+    if (asgnRows.length) await sbFetch('assignments', {method:'POST', body:asgnRows});
+
+    // Dispo status
+    const statusRows = Object.entries(DISPO_STATUS).map(([comedian_id, status]) => ({comedian_id, status}));
+    if (statusRows.length) await sbFetch('dispo_status', {method:'POST', params:'?on_conflict=comedian_id', body:statusRows});
+
+    // Dispos
+    const dispoRows = [];
+    Object.entries(DISPOS_DATA).forEach(([comedian_id, slots]) => {
+      Object.entries(slots).forEach(([slot_key, v]) => {
+        dispoRows.push({comedian_id, slot_key, dispo:v.dispo||false, mc:v.mc||false});
+      });
+    });
+    if (dispoRows.length) await sbFetch('dispos', {method:'POST', params:'?on_conflict=comedian_id,slot_key', body:dispoRows});
+  } catch(e) { console.warn('Supabase save failed:', e); }
+}
+
 function saveAll() {
   try {
     const data = {
-      COMEDIANS,
-      DISPOS_DATA,
-      DISPO_STATUS,
+      COMEDIANS, DISPOS_DATA, DISPO_STATUS,
       assignments: Object.fromEntries(Object.entries(assignments).map(([k,v])=>[k,v])),
-      cancelledSlots,
-      chatMessages,
-      DAYS_CONFIG,
-      currentCode,
-      historique,
+      cancelledSlots, chatMessages, DAYS_CONFIG, currentCode, historique,
       lastSaved: new Date().toISOString()
     };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
+    // Sync Supabase en arrière-plan
+    saveToSupabase().catch(()=>{});
   } catch(e) { console.warn('Save failed:', e); }
 }
 
@@ -2355,13 +2464,12 @@ function loadAll() {
   } catch(e) { console.warn('Load failed:', e); return false; }
 }
 
-// Auto-save après chaque action importante
 function autoSave() {
   saveAll();
   showSaveIndicator();
 }
 
-function showSaveIndicator() {
+function showSaveIndicator(msg = '✓ Sauvegardé') {
   let ind = document.getElementById('save-ind');
   if (!ind) {
     ind = document.createElement('div');
@@ -2568,6 +2676,10 @@ function sendChatMsg() {
   renderChat();
   autoSave();
   logAction('chat', { sender: senderName, text });
+  // Sauvegarder message dans Supabase
+  if (sbConnected) {
+    sbFetch('chat_messages', {method:'POST', body:{sender:senderName, sender_id:senderId, text}}).catch(()=>{});
+  }
   // Broadcast aux autres onglets
   try { chatChannel?.postMessage({ type: 'new_message', msg }); } catch(e) {}
 }
@@ -2817,9 +2929,17 @@ if (savedTheme === 'light') {
   localStorage.setItem('stagely_theme', 'dark');
 }
 
-// Charger données sauvegardées
+// Charger données — localStorage d'abord, puis sync Supabase
 const loaded = loadAll();
 if (loaded) console.log('✓ Données restaurées depuis localStorage');
+
+// Charger depuis Supabase au démarrage (en arrière-plan)
+loadFromSupabase().then(ok => {
+  if (ok) {
+    renderDashboard();
+    console.log('✓ Données synchronisées depuis Supabase');
+  }
+}).catch(() => {});
 
 // Ajouter rubrique Historique dans sidebar + nav
 (function addHistoriqueSidebar() {
