@@ -1630,16 +1630,30 @@ function openFiche(id) {
   openModal('modal-fiche');
 }
 
-function saveFiche() {
+async function saveFiche() {
   const c = COMEDIANS.find(c=>c.id===ficheId);
   if (!c) return;
   c.phone = document.getElementById('fiche-phone')?.value.trim() || c.phone;
-  c.email = document.getElementById('fiche-email')?.value.trim() || c.email || '';
+  c.email = document.getElementById('fiche-email')?.value.trim() || '';
   c.duration = parseInt(document.getElementById('fiche-dur')?.value) || c.duration;
   c.prio = document.getElementById('fiche-prio')?.value || c.prio;
   c.presence = parseInt(document.getElementById('fiche-pres')?.value) || c.presence;
   c.notes = document.getElementById('fiche-notes')?.value || '';
-  autoSave();
+  // Sauvegarder en localStorage
+  saveAll();
+  // Forcer upsert immédiat dans Supabase
+  if (sbConnected) {
+    await sbFetch('comedians', {
+      method: 'POST',
+      params: '?on_conflict=id',
+      body: [{
+        id: c.id, name: c.name, prio: c.prio, presence: c.presence,
+        gender: c.gender, duration: c.duration, phone: c.phone||'',
+        email: c.email||'', notes: c.notes||'', active: c.active!==false
+      }]
+    });
+    showSaveIndicator('✓ Synchronisé');
+  }
   closeModal('modal-fiche');
   renderHumoristes();
   toast(`✓ Fiche ${c.name} sauvegardée`);
