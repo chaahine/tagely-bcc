@@ -295,7 +295,7 @@ html.light .cd { color: var(--text); }
 /* Toggle checkbox */
 .tcheck{display:flex;align-items:center;justify-content:center}
 .tcheck input[type=checkbox]{display:none}
-.tcheck label{width:28px;height:28px;border-radius:5px;border:1.5px solid var(--border3);background:var(--s2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;font-size:14px;color:transparent}
+.tcheck label{width:28px;height:28px;border-radius:5px;border:2px solid var(--o);background:var(--s2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;font-size:14px;color:transparent}
 .tcheck input:checked+label{background:var(--g2);border-color:var(--gb);color:var(--g)}
 .tcheck label:hover{border-color:var(--gb)}
 
@@ -391,6 +391,9 @@ html.light .cd { color: var(--text); }
         <div class="dispo-name" id="hv-uname">—</div>
         <div class="dispo-club" id="hv-club">BCC · Disponibilités</div>
         <div class="deadline-p">⏰ Deadline : <span id="hv-deadline">—</span></div>
+      </div>
+      <div style="background:var(--o2);border:1px solid var(--ob);border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:var(--o);line-height:1.6">
+        👆 <strong>Clique sur les cases grises</strong> pour cocher les créneaux où tu es disponible. Coche MC si tu peux animer la soirée.
       </div>
       <div class="dispo-actions">
         <button class="qa" onclick="hvAll()">✓ Tout cocher</button>
@@ -946,10 +949,11 @@ function hvLogin() {
     document.getElementById('hv-club').textContent = `${clubName} · Disponibilités ${MOIS_FULL[nextM]} ${nextY}`;
     const dl = document.getElementById('s-deadline')?.value || 15;
     document.getElementById('hv-deadline').textContent = `${dl} ${MOIS_FULL[nextM]} ${nextY}`;
-    renderHvTable();
+    // Afficher d'abord, puis render
+    document.getElementById('hv-login').style.display = 'none';
     document.getElementById('hv-dispos').style.display = 'block';
-    // Forcer un second rendu pour s'assurer que le tableau s'affiche
-    setTimeout(() => renderHvTable(), 100);
+    document.getElementById('hv-manage').style.display = 'none';
+    setTimeout(() => renderHvTable(), 50);
   }
 }
 
