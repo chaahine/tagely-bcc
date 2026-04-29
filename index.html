@@ -798,7 +798,7 @@ function getMonthSlots(year, month) {
     if (!cfg) continue;
     cfg.slots.forEach(slot => {
       const k = dateKey(date, slot);
-      if (cancelledSlots[k]) return; // séance annulée
+      if (cancelledSlots && cancelledSlots[k]) return;
       result.push({ key: k, date, day:d, dayName:cfg.name, dayLabel:cfg.label, slot });
     });
   }
@@ -948,6 +948,8 @@ function hvLogin() {
     document.getElementById('hv-deadline').textContent = `${dl} ${MOIS_FULL[nextM]} ${nextY}`;
     renderHvTable();
     document.getElementById('hv-dispos').style.display = 'block';
+    // Forcer un second rendu pour s'assurer que le tableau s'affiche
+    setTimeout(() => renderHvTable(), 100);
   }
 }
 
