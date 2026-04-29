@@ -562,7 +562,7 @@ html.light .cd { color: var(--text); }
           <div class="stitle">Séances par défaut <span style="text-transform:none;letter-spacing:0;font-size:9px;color:var(--muted);font-weight:400">✕ annuler · + ajouter</span></div>
           <div id="slots-cfg"></div>
         </div>
-        <div class="scard" style="border-color:var(--rb)">
+        <div class="scard" id="danger-zone" style="border-color:var(--rb)">
           <div class="stitle" style="color:var(--r)">Zone dangereuse</div>
           <div class="srow"><div><div class="slbl">Vider le planning</div><div class="ssub">Efface toutes les assignations</div></div><button class="btn btn-r" onclick="clearAll();toast('Planning vidé')">Vider</button></div>
           <div class="srow"><div><div class="slbl">Réinitialiser humoristes</div></div><button class="btn btn-r" onclick="resetH()">Reset</button></div>
@@ -2818,7 +2818,7 @@ if (loaded) console.log('✓ Données restaurées depuis localStorage');
 
 // Ajouter WhatsApp config dans réglages
 (function addWASection() {
-  const danger = document.querySelector('[style*="border-color:var(--rb)"]');
+  const danger = document.getElementById("danger-zone");
   if (!danger) return;
   const isConfigured = WA_CONFIG.configured;
   const waCard = document.createElement('div');
