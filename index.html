@@ -2850,20 +2850,54 @@ function planAsgn(id, key) {
 }
 
 const _origHvSubmit = hvSubmit;
-function hvSubmit() {
+async function hvSubmit() {
   const n = Object.values(hvSlots).filter(v => v.dispo).length;
   if (!n) { toast('Coche au moins un créneau'); return; }
   if (!hvUser) return;
+
   DISPOS_DATA[hvUser.id] = {};
   Object.entries(hvSlots).forEach(([k, v]) => {
     if (v.dispo) DISPOS_DATA[hvUser.id][k] = {dispo: true, mc: v.mc || false};
   });
   DISPO_STATUS[hvUser.id] = 'replied';
+
+  // Sauvegarder dans Supabase directement
+  try {
+    // S'assurer que l'humoriste existe dans Supabase
+    await sbFetch('comedians', {
+      method: 'POST',
+      params: '?on_conflict=id',
+      body: [{
+        id: hvUser.id, name: hvUser.name, prio: hvUser.prio||'new',
+        presence: hvUser.presence||100, gender: hvUser.gender||'m',
+        duration: hvUser.duration||10, phone: hvUser.phone||'',
+        email: hvUser.email||'', active: true
+      }]
+    });
+
+    // Sauvegarder les dispos
+    const dispoRows = Object.entries(DISPOS_DATA[hvUser.id]).map(([slot_key, v]) => ({
+      comedian_id: hvUser.id, slot_key, dispo: v.dispo, mc: v.mc||false
+    }));
+    if (dispoRows.length) {
+      await sbFetch('dispos', {method:'POST', params:'?on_conflict=comedian_id,slot_key', body:dispoRows});
+    }
+
+    // Sauvegarder le statut
+    await sbFetch('dispo_status', {
+      method: 'POST',
+      params: '?on_conflict=comedian_id',
+      body: [{comedian_id: hvUser.id, status: 'replied'}]
+    });
+  } catch(e) {
+    console.warn('Supabase save dispos failed:', e);
+  }
+
   logAction('dispo', { humId: hvUser.id, name: hvUser.name, count: n });
   updateBadge();
   document.getElementById('hv-ok').style.display = 'block';
-  document.querySelector('.submit-btn').disabled = true;
-  document.querySelector('.submit-btn').style.opacity = '.4';
+  document.querySelector('#hv-dispos .submit-btn').disabled = true;
+  document.querySelector('#hv-dispos .submit-btn').style.opacity = '.4';
   autoSave();
 }
 
