@@ -2484,13 +2484,17 @@ async function saveToSupabase() {
     });
     if (asgnRows.length) await sbFetch('assignments', {method:'POST', body:asgnRows});
 
-    // Dispo status
-    const statusRows = Object.entries(DISPO_STATUS).map(([comedian_id, status]) => ({comedian_id, status}));
+    // Dispo status — seulement pour les humoristes existants
+    const existingIds = COMEDIANS.map(c => c.id);
+    const statusRows = Object.entries(DISPO_STATUS)
+      .filter(([comedian_id]) => existingIds.includes(comedian_id))
+      .map(([comedian_id, status]) => ({comedian_id, status}));
     if (statusRows.length) await sbFetch('dispo_status', {method:'POST', params:'?on_conflict=comedian_id', body:statusRows});
 
-    // Dispos
+    // Dispos — seulement pour les humoristes existants
     const dispoRows = [];
     Object.entries(DISPOS_DATA).forEach(([comedian_id, slots]) => {
+      if (!existingIds.includes(comedian_id)) return;
       Object.entries(slots).forEach(([slot_key, v]) => {
         dispoRows.push({comedian_id, slot_key, dispo:v.dispo||false, mc:v.mc||false});
       });
