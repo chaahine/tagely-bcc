@@ -2591,10 +2591,6 @@ const EMAIL_CONFIG = {
 };
 
 async function sendEmail(to, subject, bodyText) {
-  if (!EMAIL_CONFIG.configured || !EMAIL_CONFIG.apiKey) {
-    console.log(`[Email Simulation] → ${to}: ${subject}`);
-    return { success: true, simulated: true };
-  }
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#111;color:#f0f0f0;border-radius:8px;overflow:hidden">
       <div style="background:#f97316;padding:18px 24px">
@@ -2610,7 +2606,7 @@ async function sendEmail(to, subject, bodyText) {
     const res = await fetch('/api/email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, subject, html, apiKey: EMAIL_CONFIG.apiKey })
+      body: JSON.stringify({ to, subject, html })
     });
     const data = await res.json();
     return { success: data.success, error: data.error };
