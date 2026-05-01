@@ -1245,10 +1245,12 @@ function renderPlanning() {
       });
       if (asgnIds.length && available.length) html += `<div class="sc-sep"></div>`;
       available.forEach(c => {
+        const isMCok = DISPOS_DATA[c.id]?.[key]?.mc;
         html += `<div class="cd ${isFull?'full':''}" onclick="${isFull?'':` planAsgn('${c.id}','${key}')`}">
           <span class="ddot" style="background:var(--g)"></span>
           <span class="gdot g${c.gender}"></span>
           <div class="cd-name">${c.name}</div>
+          ${isMCok?`<span style="font-size:7px;font-weight:700;padding:1px 4px;border-radius:2px;background:var(--gold2);color:var(--gold);border:1px solid rgba(245,158,11,.35);flex-shrink:0">MC</span>`:''}
           ${!isFull?`<span class="add-i">+</span>`:''}
         </div>`;
       });
