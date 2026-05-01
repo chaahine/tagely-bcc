@@ -16,3 +16,20 @@ self.addEventListener('fetch', e => {
     fetch(e.request).catch(() => caches.match(e.request))
   );
 });
+
+// Notifications schedulées
+self.addEventListener('message', e => {
+  if (e.data?.type === 'SCHEDULE_NOTIF') {
+    const { delay, title, body, tag } = e.data;
+    setTimeout(() => {
+      self.registration.showNotification(title, {
+        body,
+        tag,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        vibrate: [200, 100, 200],
+        requireInteraction: true
+      });
+    }, delay);
+  }
+});

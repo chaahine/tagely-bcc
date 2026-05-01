@@ -17,6 +17,41 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   });
 }
+
+// Demander permission notifications
+async function requestNotifPermission() {
+  if (!('Notification' in window)) return false;
+  if (Notification.permission === 'granted') return true;
+  const perm = await Notification.requestPermission();
+  return perm === 'granted';
+}
+
+// Envoyer une notification locale
+async function sendNotif(title, body, delay = 0) {
+  const granted = await requestNotifPermission();
+  if (!granted) return;
+  
+  if (delay === 0) {
+    // Notification immédiate
+    const reg = await navigator.serviceWorker.ready;
+    reg.showNotification(title, {
+      body,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      vibrate: [200, 100, 200],
+      tag: title
+    });
+  } else {
+    // Notification différée via SW
+    const reg = await navigator.serviceWorker.ready;
+    reg.active?.postMessage({ type: 'SCHEDULE_NOTIF', title, body, delay, tag: title });
+  }
+}
+
+// Demander la permission au chargement
+window.addEventListener('load', () => {
+  setTimeout(() => requestNotifPermission(), 2000);
+});
 </script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap');
@@ -2150,6 +2185,7 @@ async function sendLineupReminder(key, humIds, showTime, slot) {
 }
 
 function showAppNotif(msg, color = 'var(--o)') {
+  // Notification visuelle dans l'app
   const notif = document.createElement('div');
   notif.style.cssText = `position:fixed;top:60px;right:16px;background:var(--s1);border:1px solid ${color};border-radius:5px;padding:10px 14px;font-size:11px;color:var(--text);z-index:998;max-width:280px;box-shadow:0 4px 20px rgba(0,0,0,.4);transform:translateX(120%);transition:transform .3s`;
   notif.innerHTML = `<div style="display:flex;align-items:flex-start;gap:8px"><span style="color:${color};flex-shrink:0">●</span><span>${msg}</span></div>`;
@@ -2159,6 +2195,11 @@ function showAppNotif(msg, color = 'var(--o)') {
     notif.style.transform = 'translateX(120%)';
     setTimeout(() => notif.remove(), 300);
   }, 5000);
+  
+  // Vraie notification système si permission accordée
+  if (Notification.permission === 'granted') {
+    sendNotif('🎤 Stagely BCC', msg.replace(/<[^>]*>/g,''));
+  }
 }
 
 // Tester les rappels manuellement (pour démo)
