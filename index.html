@@ -1429,26 +1429,73 @@ function closeGS(){ document.getElementById('global-search-box')?.remove(); }
 function renderDispos(){
   const now=new Date();
   document.getElementById('d-month').textContent=`${MOIS[now.getMonth()]} ${now.getFullYear()}`;
-  document.getElementById('d-tbody').innerHTML=COMEDIANS.map(c=>{
-    const st=DISPO_STATUS[c.id]||'none';
-    const dd=DISPOS_DATA[c.id]||{};
-    const dSlots=Object.entries(dd).filter(([,v])=>v.dispo).map(([k])=>k);
-    const mcSlots=Object.entries(dd).filter(([,v])=>v.mc).map(([k])=>k);
-    const stC={replied:'rs-r',pending:'rs-p',none:'rs-n'}[st];
-    const stL={replied:'✓ Répondu',pending:'⏳ Envoyé',none:'✕ Pas envoyé'}[st];
+
+  // Dédupliquer les humoristes par nom
+  const seen = new Set();
+  const uniqueComedians = COMEDIANS.filter(c => {
+    if (seen.has(c.name)) return false;
+    seen.add(c.name);
+    return true;
+  });
+
+  document.getElementById('d-tbody').innerHTML = uniqueComedians.map(c=>{
+    const st = DISPO_STATUS[c.id] || 'none';
+    const dd = DISPOS_DATA[c.id] || {};
+    const dSlots = Object.entries(dd).filter(([,v])=>v.dispo);
+    const mcCount = Object.entries(dd).filter(([,v])=>v.mc).length;
+    const stC = {replied:'rs-r', pending:'rs-p', none:'rs-n'}[st];
+    const stL = {replied:'✓ Répondu', pending:'⏳ Envoyé', none:'✕ Pas envoyé'}[st];
+
+    // Jours uniques disponibles
+    const days = [...new Set(dSlots.map(([k]) => {
+      const parts = k.split('-');
+      const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+      return `${d.getDate()} ${MOIS[d.getMonth()]}`;
+    }))];
+
     return `<tr>
-      <td><span style="display:flex;align-items:center;gap:6px"><span class="gdot g${c.gender}"></span>${c.name}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="gdot g${c.gender}"></span>
+          <span style="font-weight:500">${c.name}</span>
+        </div>
+        ${c.email ? `<div style="font-size:9px;color:var(--muted);margin-left:14px;margin-top:2px">${c.email}</div>` : ''}
+      </td>
       <td><span class="rs ${stC}">${stL}</span></td>
-      <td style="font-size:12px;font-weight:600;color:var(--g)">${dSlots.length ? dSlots.length : '<span style="color:var(--muted2)">—</span>'}</td>
-      <td><div class="dchips">${mcSlots.length?mcSlots.map(k=>`<span class="dchip" style="background:var(--gold2);color:var(--gold);border-color:rgba(245,158,11,.35)">${k.split('-')[0]} ${k.split('-')[1].replace('H',':')}</span>`).join(''):'<span style="color:var(--muted2);font-size:9px">—</span>'}</div></td>
-      <td><div class="lnk-row">
-        <span class="lnk-v">tagely-bcc.vercel.app/portal</span>
-        <button class="cbtn" onclick="toast('✓ Lien copié')">Copier</button>
-      </div></td>
-      <td>${st!=='replied'?`<button class="btn btn-ghost" style="font-size:9px;padding:2px 7px" onclick="sendRem('${c.id}')">⏰</button>`:''}</td>
+      <td style="text-align:center">
+        ${dSlots.length ? `<span style="font-size:13px;font-weight:700;color:var(--g)">${dSlots.length}</span><span style="font-size:9px;color:var(--muted);margin-left:3px">créneaux</span>` : '<span style="color:var(--muted2)">—</span>'}
+      </td>
+      <td style="text-align:center">
+        ${mcCount ? `<span style="font-size:11px;font-weight:600;color:var(--gold)">${mcCount} MC</span>` : '<span style="color:var(--muted2)">—</span>'}
+      </td>
+      <td>
+        ${days.length ? `<div style="font-size:9px;color:var(--muted);line-height:1.6">${days.slice(0,5).join(' · ')}${days.length>5?` +${days.length-5}`:''}</div>` : '<span style="color:var(--muted2);font-size:9px">—</span>'}
+      </td>
+      <td>
+        <div style="display:flex;gap:4px;align-items:center">
+          <button class="cbtn" onclick="copyPortalLink('${c.id}')">🔗 Lien</button>
+          ${st!=='replied'?`<button class="btn btn-ghost" style="font-size:9px;padding:2px 7px" onclick="sendRem('${c.id}')">⏰</button>`:''}
+        </div>
+      </td>
     </tr>`;
   }).join('');
+
+  // Mettre à jour le header du tableau
+  const thead = document.querySelector('#view-dispos .dtbl thead tr');
+  if (thead) thead.innerHTML = `
+    <th>Humoriste</th>
+    <th>Statut</th>
+    <th style="text-align:center">Dispos</th>
+    <th style="text-align:center">MC</th>
+    <th>Jours disponibles</th>
+    <th></th>`;
+
   updateBadge();
+}
+
+function copyPortalLink(comId) {
+  const link = `https://tagely-bcc.vercel.app/portal?code=${currentCode}&manage=${comId}`;
+  navigator.clipboard?.writeText(link).then(() => toast('✓ Lien copié !'));
 }
 
 function sendRem(id){
