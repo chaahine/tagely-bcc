@@ -81,8 +81,11 @@ html.light{
 
 /* ── MEDIA QUERIES ── */
 @media(max-width:768px){
-  .sidebar{width:0!important;overflow:hidden!important}
+  .sidebar{width:0!important;overflow:hidden!important;position:fixed!important;z-index:200!important;height:100vh!important;transition:width .2s!important}
+  .sidebar.mobile-open{width:180px!important;overflow:visible!important}
+  #hamburger{display:block!important}
   .sidebar .ni-lbl,.sidebar .ns,.sidebar .ctag span{opacity:0;pointer-events:none}
+  .sidebar.mobile-open .ni-lbl,.sidebar.mobile-open .ns,.sidebar.mobile-open .ctag span{opacity:1;pointer-events:auto}
   .kpi-row{grid-template-columns:1fr 1fr!important}
   .sg{grid-template-columns:1fr!important}
   .sc{width:160px!important}
@@ -94,13 +97,10 @@ html.light{
   .login-card{padding:16px!important}
   .dispo-wrap{max-width:100%!important}
   .submit-btn{width:100%!important}
-  /* Topbar mobile */
   .topbar{padding:0 10px!important}
   .ptitle{font-size:10px!important}
-  /* Table dispos mobile */
   .dtbl{font-size:10px!important}
   .dtbl th,.dtbl td{padding:6px 8px!important}
-  /* Masquer colonnes inutiles sur mobile */
   .dtbl th:nth-child(5),.dtbl td:nth-child(5){display:none!important}
 }
 @media(max-width:480px){
@@ -617,6 +617,7 @@ html.light{
 
 <div class="main">
   <div class="topbar">
+    <button id="hamburger" onclick="toggleSidebar()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:3px;display:none">☰</button>
     <div class="ptitle" id="ptitle">Dashboard</div>
     <div id="tactions" style="display:flex;gap:6px;align-items:center"></div>
   </div>
@@ -1251,6 +1252,10 @@ function nav(id) {
 }
 
 function toggleSB() { document.getElementById('sidebar').classList.toggle('col'); }
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  sb.classList.toggle('mobile-open');
+}
 
 // ══════════════════════════════════════════════════
 // DASHBOARD
@@ -3407,6 +3412,9 @@ function nav(id) {
   document.querySelectorAll('.ni').forEach(n=>{if(n.getAttribute('onclick')===`nav('${id}')`) n.classList.add('on');});
   document.getElementById('ptitle').textContent = PTITLES[id]||id;
   document.getElementById('tactions').innerHTML = PACTIONS[id]||'';
+  if (window.innerWidth <= 768) {
+    document.getElementById('sidebar').classList.remove('mobile-open');
+  }
   if(id==='dashboard') renderDashboard();
   if(id==='planning') { renderPlanning(); scheduleReminders(); }
   if(id==='dispos') renderDispos();
