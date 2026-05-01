@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>STAGELY</title>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;color:inherit}
@@ -2590,28 +2591,28 @@ const EMAIL_CONFIG = {
   get configured() { return !!localStorage.getItem('stagely_resend_key'); }
 };
 
+// EmailJS config
+const EMAILJS_SERVICE = 'service_eyt0g4q';
+const EMAILJS_TEMPLATE = 'template_322qzcp';
+const EMAILJS_PUBLIC_KEY = 'zJY_IV5DimGUNSdrQ';
+
 async function sendEmail(to, subject, bodyText) {
-  const html = `
-    <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#111;color:#f0f0f0;border-radius:8px;overflow:hidden">
-      <div style="background:#f97316;padding:18px 24px">
-        <div style="font-size:20px;font-weight:700;letter-spacing:3px;color:#000">STAGELY</div>
-        <div style="font-size:11px;color:rgba(0,0,0,.6);margin-top:2px">BCC — Beer Comedy Club</div>
-      </div>
-      <div style="padding:24px;line-height:1.8;font-size:14px;white-space:pre-wrap">${bodyText.replace(/\n/g,'<br>')}</div>
-      <div style="padding:14px 24px;background:#1a1a1a;font-size:10px;color:#555;text-align:center">
-        Stagely · BCC · Ne pas répondre à cet email
-      </div>
-    </div>`;
   try {
-    const res = await fetch('/api/email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, subject, html })
-    });
-    const data = await res.json();
-    return { success: data.success, error: data.error };
+    const result = await emailjs.send(
+      EMAILJS_SERVICE,
+      EMAILJS_TEMPLATE,
+      {
+        to_email: to,
+        subject: subject,
+        message: bodyText,
+        name: 'BCC Stagely'
+      },
+      EMAILJS_PUBLIC_KEY
+    );
+    return { success: true };
   } catch(e) {
-    return { success: false, error: e.message };
+    console.error('EmailJS error:', e);
+    return { success: false, error: e.text || e.message };
   }
 }
 
