@@ -771,6 +771,7 @@ html.light{
             <button class="btn btn-o" onclick="const n=scheduleReminders();document.getElementById('reminders-status').textContent=n+' timers actifs'">⏰ Activer rappels cette semaine</button>
             <button class="btn btn-ghost" onclick="cancelAllReminders();document.getElementById('reminders-status').textContent='Désactivé';document.getElementById('reminders-status').style.background='var(--r2)';document.getElementById('reminders-status').style.color='var(--r)';document.getElementById('reminders-status').style.borderColor='var(--rb)'">Désactiver</button>
             <button class="btn btn-ghost" onclick="testReminders()" style="font-size:9px">🧪 Tester</button>
+            <button class="btn btn-b" onclick="requestNotifPermission().then(ok=>toast(ok?'✓ Notifications activées !':'✗ Refusé — active dans Réglages iPhone'))" style="font-size:9px">🔔 Activer notifications</button>
             <span style="font-size:9px;color:var(--muted)">⚠ Nécessite WhatsApp configuré pour l'envoi réel</span>
           </div>
         </div>
