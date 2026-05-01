@@ -554,7 +554,7 @@ html.light{
   <div class="ni" onclick="nav('humoristes')"><span class="ni-ico">◉</span><span class="ni-lbl">Humoristes</span></div>
   <div class="ni" onclick="nav('reglages')"><span class="ni-ico">⚙</span><span class="ni-lbl">Réglages</span></div>
   <div class="ns">Communication</div>
-  <div class="ni" onclick="nav('chat')"><span class="ni-ico">✉</span><span class="ni-lbl">Chat groupe</span><span class="nbadge" id="bdg-chat" style="display:none">0</span></div>
+
   <div class="ctag"><strong id="club-badge">BCC</strong><span class="ni-lbl">Directeur artistique</span></div>
 </div>
 
@@ -1156,14 +1156,14 @@ function hvSubmit() {
 // NAVIGATION ADMIN
 // ══════════════════════════════════════════════════
 
-const PTITLES = {dashboard:'Dashboard',planning:'Planning',dispos:'Disponibilités',humoristes:'Humoristes',reglages:'Réglages',chat:'Chat groupe BCC'};
+const PTITLES = {dashboard:'Dashboard',planning:'Planning',dispos:'Disponibilités',humoristes:'Humoristes',reglages:'Réglages'};
 const PACTIONS = {
   planning:`<button class="btn btn-ghost" onclick="clearAll()">Réinitialiser</button><button class="btn btn-ghost" onclick="exportPDF()" style="font-size:9px">📄 PDF</button><button class="btn btn-ghost" onclick="exportLU()">↓ Exporter</button><button class="btn btn-o" onclick="openSendPlanningModal()" style="font-weight:700">📲 Envoyer le planning</button>`,
   dispos:`<button class="btn btn-b" onclick="relancerTous()">⏰ Relancer</button><button class="btn btn-o" onclick="openModal('modal-dispo')">✉ Demandes</button>`,
   humoristes:`<button class="btn btn-o" onclick="openModal('modal-add-hum')">+ Ajouter</button>`,
   reglages:`<button class="btn btn-o" onclick="toast('✓ Sauvegardé')">Sauvegarder</button>`,
   dashboard:`<button class="btn btn-ghost" style="font-size:9px" onclick="toggleSearch()">🔍</button><button class="btn btn-ghost" style="font-size:9px" onclick="goToPortal()">👁 Portail</button><button class="btn btn-ghost" style="font-size:9px" onclick="nav('planning')">Planning →</button>`,
-  chat:`<button class="btn btn-ghost" style="font-size:9px" onclick="openModal('modal-chat-members')">👥 Membres</button>`,
+  chat:'',
 };
 
 function nav(id) {
