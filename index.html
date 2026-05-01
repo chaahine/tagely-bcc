@@ -1989,66 +1989,28 @@ function scheduleReminders() {
 
 async function send1hReminders(key, humIds, showTime, slot) {
   const timeStr = slot.replace('H', ':');
-
-  // Notif admin dans l'app
   const names = humIds.map(id => COMEDIANS.find(c => c.id === id)?.name.split(' ')[0]).filter(Boolean);
-  showAppNotif(`🎤 Show dans 1h — ${timeStr} · ${names.join(', ')}`, 'var(--o)');
-  logAction('notification', { type: '1h_admin', slot: timeStr, comedians: names });
-
-  // Message WhatsApp aux humoristes
-  for (const humId of humIds) {
-    const c = COMEDIANS.find(c => c.id === humId);
-    if (!c) continue;
-    const prenom = c.name.split(' ')[0];
-    const msg = `Salut ${prenom} ! 🎤\n\nC'est dans 1h — tu passes au BCC à ${timeStr}.\n\nDépêche-toi si t'es pas encore en chemin ! 🚀`;
-    if (c.phone) await sendWhatsAppText(c.phone, msg);
-    showAppNotif(`📱 Rappel 1h envoyé à ${c.name}`, 'var(--o)');
-    logAction('notification', { humId, name: c.name, message: msg, type: '1h_reminder' });
-  }
+  showAppNotif(`🔔 Show dans 1h — ${timeStr} · ${names.join(', ')}`, 'var(--o)');
+  logAction('notification', { type: '1h_admin', slot: timeStr });
 }
 
 async function send3hReminders(key, humIds, showTime, slot) {
   const timeStr = slot.replace('H', ':');
-  const dateStr = showTime.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
-
-  for (const humId of humIds) {
-    const c = COMEDIANS.find(c => c.id === humId);
-    if (!c) continue;
-    const prenom = c.name.split(' ')[0];
-    const msg = `Salut ${prenom} 👋\n\nRappel : tu passes ce soir au BCC à ${timeStr}.\n\nPrépare-toi, on compte sur toi ! 🎤`;
-
-    if (c.phone && WA_CONFIG.configured) {
-      await sendWhatsAppText(c.phone, msg);
-    } else if (c.email && EMAIL_CONFIG.configured) {
-      await sendEmail(c.email, `⏰ Rappel BCC — ce soir à ${timeStr}`, msg);
-    }
-    showAppNotif(`⏰ Rappel 3h envoyé à ${c.name}`, 'var(--b)');
-    logAction('notification', { humId, name: c.name, message: msg, type: '3h_reminder' });
-  }
+  const names = humIds.map(id => COMEDIANS.find(c => c.id === id)?.name.split(' ')[0]).filter(Boolean);
+  showAppNotif(`⏰ Show dans 3h — ${timeStr} · ${names.join(', ')}`, 'var(--b)');
+  logAction('notification', { type: '3h_reminder', slot: timeStr });
 }
 
 async function sendLineupReminder(key, humIds, showTime, slot) {
   const timeStr = slot.replace('H', ':');
-  let lineupText = `🎤 LINE-UP BCC — ce soir à ${timeStr}\n\n`;
+  let lineupText = `🎤 LINE-UP ${timeStr} : `;
   humIds.forEach((humId, idx) => {
     const c = COMEDIANS.find(c => c.id === humId);
     if (!c) return;
-    const role = idx === 0 ? 'MC' : `Passage ${idx}`;
-    lineupText += `${idx + 1}. ${c.name} — ${role} (${c.duration||10}min)\n`;
+    lineupText += `${idx === 0 ? 'MC: ' : ''}${c.name.split(' ')[0]}${idx < humIds.length-1 ? ' · ' : ''}`;
   });
-  lineupText += `\nBonne soirée à tous ! 🔥`;
-
-  for (const humId of humIds) {
-    const c = COMEDIANS.find(c => c.id === humId);
-    if (!c) continue;
-    if (c.phone && WA_CONFIG.configured) {
-      await sendWhatsAppText(c.phone, lineupText);
-    } else if (c.email && EMAIL_CONFIG.configured) {
-      await sendEmail(c.email, `📋 Line-up BCC — ${timeStr}`, lineupText);
-    }
-    showAppNotif(`📋 Line-up envoyé à ${c.name}`, 'var(--g)');
-    logAction('notification', { humId, name: c.name, message: lineupText, type: 'lineup_3min' });
-  }
+  showAppNotif(lineupText, 'var(--g)');
+  logAction('notification', { type: 'lineup_3min', slot: timeStr });
 }
 
 function showAppNotif(msg, color = 'var(--o)') {
