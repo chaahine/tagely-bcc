@@ -2292,8 +2292,25 @@ function fallbackCopy(text, btn) {
 let manageUserId = null;
 let manageDates = {}; // key -> true/false
 
-function showManageDates(userId) {
+async function showManageDates(userId) {
   manageUserId = userId;
+
+  // Charger les assignments depuis Supabase
+  try {
+    const sbAssignments = await sbFetch('assignments', {params:`?comedian_id=eq.${userId}`});
+    if (sbAssignments && sbAssignments.length) {
+      sbAssignments.forEach(a => {
+        if (!assignments[a.slot_key]) assignments[a.slot_key] = [];
+        if (!assignments[a.slot_key].includes(a.comedian_id)) assignments[a.slot_key].push(a.comedian_id);
+      });
+    }
+    // Charger aussi le nom depuis Supabase si pas en mémoire
+    if (!COMEDIANS.find(c=>c.id===userId)) {
+      const comedians = await sbFetch('comedians', {params:`?id=eq.${userId}`});
+      if (comedians && comedians[0]) COMEDIANS.push(comedians[0]);
+    }
+  } catch(e) { console.warn('Supabase load manage:', e); }
+
   const c = COMEDIANS.find(c=>c.id===userId);
   const myKeys = Object.entries(assignments)
     .filter(([key, ids]) => ids.includes(userId) && !cancelledSlots[key])
