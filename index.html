@@ -2205,17 +2205,8 @@ function showAppNotif(msg, color = 'var(--o)') {
 
 // Tester les rappels manuellement (pour démo)
 function testReminders() {
-  const weekStart = getWeekStart();
-  const day = DAYS_CONFIG.find(d => d.slots.length > 0);
-  if (!day) return;
-  const date = new Date(weekStart);
-  date.setDate(weekStart.getDate() + 1);
-  const slot = day.slots[0];
-  const key = dateKey(date, slot);
-  const asgnIds = (assignments[key] || []).filter(id => COMEDIANS.find(c => c.id === id));
-  if (!asgnIds.length) { toast('Aucun humoriste assigné sur ce créneau'); return; }
-  send3hReminders(key, asgnIds, date, slot);
-  toast('⏰ Rappel 3h simulé — vérifie les notifications');
+  sendNotif('🎤 Stagely BCC', 'Test notification — Les rappels de soirée fonctionnent !');
+  toast('🔔 Notification test envoyée !');
 }
 
 function regenCode(){
