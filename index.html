@@ -81,24 +81,33 @@ html.light{
 
 /* ── MEDIA QUERIES ── */
 @media(max-width:768px){
-  .sidebar{width:52px!important}
+  .sidebar{width:0!important;overflow:hidden!important}
   .sidebar .ni-lbl,.sidebar .ns,.sidebar .ctag span{opacity:0;pointer-events:none}
   .kpi-row{grid-template-columns:1fr 1fr!important}
   .sg{grid-template-columns:1fr!important}
   .sc{width:160px!important}
   .ca-name,.cd-name{font-size:9px!important}
   .board{height:calc(100vh - 130px)!important}
-  .content{padding:12px!important}
+  .content{padding:10px!important}
   .hv-center{padding:20px 12px 40px!important}
   .login-box{max-width:100%!important}
   .login-card{padding:16px!important}
   .dispo-wrap{max-width:100%!important}
   .submit-btn{width:100%!important}
+  /* Topbar mobile */
+  .topbar{padding:0 10px!important}
+  .ptitle{font-size:10px!important}
+  /* Table dispos mobile */
+  .dtbl{font-size:10px!important}
+  .dtbl th,.dtbl td{padding:6px 8px!important}
+  /* Masquer colonnes inutiles sur mobile */
+  .dtbl th:nth-child(5),.dtbl td:nth-child(5){display:none!important}
 }
 @media(max-width:480px){
   .kpi-row{grid-template-columns:1fr 1fr!important}
-  .kpi-v{font-size:22px!important}
+  .kpi-v{font-size:20px!important}
   .sc{width:140px!important}
+  .dtbl th:nth-child(4),.dtbl td:nth-child(4){display:none!important}
 }
 
 /* ── SHELL ── */
@@ -1605,8 +1614,9 @@ function renderDispos(){
   // Dédupliquer les humoristes par nom
   const seen = new Set();
   const uniqueComedians = COMEDIANS.filter(c => {
-    if (seen.has(c.name)) return false;
-    seen.add(c.name);
+    const key = c.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
     return true;
   });
 
