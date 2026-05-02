@@ -498,100 +498,166 @@ html.light{
 <body>
 
 <!-- ══════════ VUE HUMORISTE ══════════ -->
-<div id="hv-screen">
-  <div class="hv-center">
+<div id="hv-screen" style="display:none;min-height:100vh;background:#0a0a0a;font-family:'Rajdhani',sans-serif">
 
-    <!-- LOGIN -->
-    <div class="login-box" id="hv-login">
-      <div class="login-logo">STAGELY</div>
-      <div class="login-sub">Portail humoristes</div>
+  <!-- HEADER -->
+  <div style="background:#111;border-bottom:1px solid #1f1f1f;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10">
+    <div style="font-size:16px;font-weight:700;color:var(--o);letter-spacing:2px">STAGELY</div>
+    <div id="hv-header-name" style="font-size:11px;color:var(--muted)"></div>
+  </div>
 
-      <!-- Choix page -->
-      <div id="hv-page-choice" class="login-card">
-        <div class="login-title" style="text-align:center;margin-bottom:16px">Que veux-tu faire ?</div>
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <button onclick="showLoginFor('dispos')" style="padding:14px 20px;background:var(--o);color:#000;border:none;border-radius:5px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;letter-spacing:.5px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px">
-            <span style="font-size:20px">📅</span>
-            <div><div>Envoyer mes disponibilités</div><div style="font-size:10px;font-weight:400;opacity:.7;margin-top:2px">Indiquer mes créneaux pour le mois à venir</div></div>
-          </button>
-          <button onclick="showLoginFor('manage')" style="padding:14px 20px;background:var(--s2);color:var(--text);border:1px solid var(--border2);border-radius:5px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;letter-spacing:.5px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px">
-            <span style="font-size:20px">✏️</span>
-            <div><div>Modifier mes dates de passage</div><div style="font-size:10px;font-weight:400;opacity:.5;margin-top:2px">Me retirer d'un créneau déjà planifié</div></div>
-          </button>
-        </div>
+  <!-- LOGIN -->
+  <div id="hv-login" style="padding:32px 20px;max-width:480px;margin:0 auto">
+    <div style="text-align:center;margin-bottom:32px">
+      <div style="font-size:40px;margin-bottom:10px">🎤</div>
+      <div style="font-size:22px;font-weight:700;color:#f0f0f0;margin-bottom:4px">Portail Humoriste</div>
+      <div style="font-size:12px;color:#4a4a4a">BCC — Beer Comedy Club</div>
+    </div>
+
+    <div id="hv-page-choice">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <button onclick="showLoginFor('dispos')" style="padding:20px;background:#161616;color:#f0f0f0;border:1px solid #252525;border-radius:12px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:14px;width:100%">
+          <div style="width:48px;height:48px;background:rgba(249,115,22,.1);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">📅</div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:700;margin-bottom:3px">Mes disponibilités</div>
+            <div style="font-size:11px;color:#4a4a4a;font-weight:400">Indiquer mes créneaux pour le mois à venir</div>
+          </div>
+          <span style="color:#4a4a4a;font-size:20px">›</span>
+        </button>
+        <button onclick="showLoginFor('manage')" style="padding:20px;background:#161616;color:#f0f0f0;border:1px solid #252525;border-radius:12px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:14px;width:100%">
+          <div style="width:48px;height:48px;background:rgba(99,102,241,.1);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🗓️</div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:700;margin-bottom:3px">Mes dates de passage</div>
+            <div style="font-size:11px;color:#4a4a4a;font-weight:400">Voir et modifier mes créneaux planifiés</div>
+          </div>
+          <span style="color:#4a4a4a;font-size:20px">›</span>
+        </button>
       </div>
+    </div>
 
-      <!-- Formulaire connexion -->
-      <div id="hv-login-form" class="login-card" style="display:none">
-        <button onclick="document.getElementById('hv-page-choice').style.display='block';document.getElementById('hv-login-form').style.display='none'" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:10px;font-family:'Rajdhani',sans-serif;margin-bottom:10px">← Retour</button>
-        <div class="login-title" id="login-form-title">Connexion</div>
-        <div class="lf"><label class="ll">Prénom</label><input class="li" id="l-prenom" placeholder="Ton prénom" oninput="clearErr()"></div>
-        <div class="lf"><label class="ll">Nom</label><input class="li" id="l-nom" placeholder="Ton nom" oninput="clearErr()"></div>
-        <div class="lf"><label class="ll">Email</label><input class="li" id="l-email" type="email" placeholder="ton@email.com" oninput="clearErr()"></div>
-        <div class="lf"><label class="ll">Téléphone WhatsApp</label><input class="li" id="l-phone" type="tel" placeholder="+33 6 xx xx xx xx" oninput="clearErr()"></div>
-        <div class="login-sep"></div>
-        <div class="lf">
-          <label class="ll">Code club</label>
-          <input class="li code-inp" id="l-code" placeholder="Code reçu par l'admin" maxlength="6" oninput="this.value=this.value.toUpperCase();clearErr()">
-        </div>
+    <div id="hv-login-form" style="display:none">
+      <button onclick="document.getElementById('hv-page-choice').style.display='block';document.getElementById('hv-login-form').style.display='none'" style="background:none;border:none;color:#4a4a4a;cursor:pointer;font-size:12px;font-family:'Rajdhani',sans-serif;margin-bottom:20px">← Retour</button>
+      <div style="font-size:18px;font-weight:700;color:#f0f0f0;margin-bottom:20px" id="login-form-title">Connexion</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div><label style="font-size:10px;color:#4a4a4a;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Prénom</label><input class="li" id="l-prenom" placeholder="Ton prénom" oninput="clearErr()" style="border-radius:10px;padding:12px 14px;font-size:13px"></div>
+        <div><label style="font-size:10px;color:#4a4a4a;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Nom</label><input class="li" id="l-nom" placeholder="Ton nom" oninput="clearErr()" style="border-radius:10px;padding:12px 14px;font-size:13px"></div>
+        <div><label style="font-size:10px;color:#4a4a4a;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Email</label><input class="li" id="l-email" type="email" placeholder="ton@email.com" oninput="clearErr()" style="border-radius:10px;padding:12px 14px;font-size:13px"></div>
+        <div><label style="font-size:10px;color:#4a4a4a;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Téléphone WhatsApp</label><input class="li" id="l-phone" type="tel" placeholder="+33 6 xx xx xx xx" oninput="clearErr()" style="border-radius:10px;padding:12px 14px;font-size:13px"></div>
+        <div style="height:1px;background:#1f1f1f;margin:4px 0"></div>
+        <div><label style="font-size:10px;color:#4a4a4a;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Code club</label><input class="li code-inp" id="l-code" placeholder="Code reçu par l'admin" maxlength="6" oninput="this.value=this.value.toUpperCase();clearErr()" style="border-radius:10px;padding:12px 14px"></div>
         <div class="login-err" id="l-err">Code incorrect ou champs manquants</div>
-        <button class="login-btn" id="login-btn-main" onclick="hvLogin()">Continuer →</button>
+        <button class="login-btn" id="login-btn-main" onclick="hvLogin()" style="border-radius:10px;padding:14px;font-size:14px;margin-top:4px">Continuer →</button>
       </div>
     </div>
+  </div>
 
-    <!-- GÉRER MES DATES -->
-    <div class="dispo-wrap" id="hv-manage" style="display:none">
-      <div class="dispo-header">
-        <div class="dispo-name" id="manage-uname">—</div>
-        <div class="dispo-club">BCC · Mes dates de passage</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:4px">Décoche les dates qui ne te conviennent plus. On mettra à jour le planning automatiquement.</div>
-      </div>
-      <table class="dispo-table" style="margin-top:16px">
-        <thead><tr>
-          <th>Date</th><th>Créneau</th><th style="text-align:center">Toujours dispo</th>
-        </tr></thead>
-        <tbody id="manage-tbody"></tbody>
-      </table>
-      <div class="dispo-submit">
-        <button class="submit-btn" onclick="submitManageDates()">Confirmer mes disponibilités</button>
-        <div class="submit-ok" id="manage-ok" style="display:none">✓ Merci ! Le planning a été mis à jour.</div>
-      </div>
+  <!-- ESPACE HUMORISTE (après login) -->
+  <div id="hv-space" style="display:none">
+    <!-- TABS -->
+    <div style="display:flex;background:#111;border-bottom:1px solid #1f1f1f;position:sticky;top:49px;z-index:9">
+      <button onclick="hvTab('dispos')" id="tab-dispos" style="flex:1;padding:13px 8px;background:none;border:none;border-bottom:2px solid var(--o);color:var(--o);font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer">📅 DISPOS</button>
+      <button onclick="hvTab('dates')" id="tab-dates" style="flex:1;padding:13px 8px;background:none;border:none;border-bottom:2px solid transparent;color:#4a4a4a;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer">🗓 MES DATES</button>
+      <button onclick="hvTab('profil')" id="tab-profil" style="flex:1;padding:13px 8px;background:none;border:none;border-bottom:2px solid transparent;color:#4a4a4a;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer">👤 PROFIL</button>
     </div>
-    <div id="hv-dispos" class="dispo-wrap" style="display:none">
-      <div class="dispo-header">
-        <div class="dispo-name" id="hv-uname">—</div>
-        <div class="dispo-club" id="hv-club">BCC · Disponibilités</div>
-        <div class="deadline-p">⏰ Deadline : <span id="hv-deadline">—</span></div>
-      </div>
-      <div style="background:var(--o2);border:1px solid var(--ob);border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:var(--o);line-height:1.6">
-        👆 <strong>Clique sur les cases grises</strong> pour cocher les créneaux où tu es disponible. Coche MC si tu peux animer la soirée.
-      </div>
-      <div class="dispo-actions">
-        <button class="qa" onclick="hvAll()">✓ Tout cocher</button>
-        <button class="qa qa-clear" onclick="hvClear()">Tout décocher</button>
-      </div>
 
-      <table class="dispo-table">
-        <thead><tr>
-          <th>Jour</th>
-          <th>Créneau</th>
-          <th style="text-align:center">Disponible</th>
-          <th style="text-align:center">MC <span style="color:var(--muted);font-size:8px;font-weight:400">*</span></th>
-        </tr></thead>
+    <!-- TAB DISPOS -->
+    <div id="hv-tab-dispos" style="padding:20px;max-width:600px;margin:0 auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:18px;font-weight:700;color:#f0f0f0" id="hv-uname">—</div>
+          <div style="font-size:11px;color:#4a4a4a" id="hv-club">BCC · Disponibilités</div>
+        </div>
+        <div class="deadline-p">⏰ <span id="hv-deadline">—</span></div>
+      </div>
+      <div style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.25);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:11px;color:var(--o);line-height:1.6">
+        👆 Coche les créneaux où tu es disponible. Active MC si tu peux animer la soirée.
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="qa" onclick="hvAll()" style="flex:1;text-align:center;border-radius:10px;padding:10px;font-size:12px">✓ Tout cocher</button>
+        <button class="qa qa-clear" onclick="hvClear()" style="flex:1;text-align:center;border-radius:10px;padding:10px;font-size:12px">Tout décocher</button>
+      </div>
+      <table class="dispo-table" style="border-radius:12px;overflow:hidden">
+        <thead><tr><th>Jour</th><th>Créneau</th><th style="text-align:center">Dispo</th><th style="text-align:center">MC</th></tr></thead>
         <tbody id="hv-tbody"></tbody>
       </table>
-      <div style="font-size:9px;color:var(--muted);margin-top:8px;padding:0 2px">
-        * Le MC fait le chapeau lors de la clôture et le tient à la sortie
+      <div style="font-size:9px;color:#4a4a4a;margin-top:8px">* MC = animer la soirée</div>
+      <div style="margin-top:20px">
+        <button class="submit-btn" onclick="hvSubmit()" style="width:100%;border-radius:10px;padding:15px;font-size:14px">Envoyer mes disponibilités</button>
+        <div class="submit-count" id="hv-count" style="margin-top:8px;text-align:center">0 créneau coché</div>
+        <div class="submit-ok" id="hv-ok" style="border-radius:10px;margin-top:12px">✓ Disponibilités envoyées — merci !</div>
       </div>
+    </div>
 
-      <div class="dispo-submit">
-        <button class="submit-btn" onclick="hvSubmit()">Envoyer mes disponibilités</button>
-        <div class="submit-count" id="hv-count">0 créneau coché</div>
-        <div class="submit-ok" id="hv-ok">✓ Disponibilités envoyées — merci ! Tu peux fermer cette page.</div>
+    <!-- TAB MES DATES -->
+    <div id="hv-tab-dates" style="display:none;padding:20px;max-width:600px;margin:0 auto">
+      <div style="font-size:18px;font-weight:700;color:#f0f0f0;margin-bottom:4px">Mes dates ce mois-ci</div>
+      <div style="font-size:11px;color:#4a4a4a;margin-bottom:16px">Décoche les dates qui ne te conviennent plus</div>
+      <div id="hv-dates-empty" style="display:none;text-align:center;padding:40px 20px;color:#4a4a4a;font-size:13px">Aucune date planifiée ce mois-ci</div>
+      <table class="dispo-table" id="hv-dates-table" style="border-radius:12px;overflow:hidden;margin-bottom:16px">
+        <thead><tr><th>Date</th><th>Créneau</th><th style="text-align:center">Confirmé</th></tr></thead>
+        <tbody id="manage-tbody"></tbody>
+      </table>
+      <button class="submit-btn" onclick="submitManageDates()" style="width:100%;border-radius:10px;padding:15px;font-size:14px">Confirmer</button>
+      <div class="submit-ok" id="manage-ok" style="display:none;border-radius:10px;margin-top:12px">✓ Mis à jour !</div>
+    </div>
+
+    <!-- TAB PROFIL -->
+    <div id="hv-tab-profil" style="display:none;padding:20px;max-width:600px;margin:0 auto">
+      <div style="background:#161616;border:1px solid #252525;border-radius:14px;padding:20px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+          <div id="hv-avatar" style="width:58px;height:58px;border-radius:50%;background:rgba(249,115,22,.1);border:2px solid var(--o);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:var(--o);flex-shrink:0">?</div>
+          <div>
+            <div id="hv-profil-name" style="font-size:18px;font-weight:700;color:#f0f0f0">—</div>
+            <div style="font-size:11px;color:#4a4a4a;margin-top:2px">Humoriste BCC</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="background:#1e1e1e;border-radius:10px;padding:14px;text-align:center">
+            <div id="hv-stat-dispos" style="font-size:28px;font-weight:800;color:var(--o);line-height:1">0</div>
+            <div style="font-size:9px;color:#4a4a4a;text-transform:uppercase;margin-top:4px;letter-spacing:.5px">Dispos</div>
+          </div>
+          <div style="background:#1e1e1e;border-radius:10px;padding:14px;text-align:center">
+            <div id="hv-stat-dates" style="font-size:28px;font-weight:800;color:var(--g);line-height:1">0</div>
+            <div style="font-size:9px;color:#4a4a4a;text-transform:uppercase;margin-top:4px;letter-spacing:.5px">Dates planifiées</div>
+          </div>
+        </div>
       </div>
-    </div><!-- fin hv-dispos -->
-
+      <div style="background:#161616;border:1px solid #252525;border-radius:14px;padding:16px;margin-bottom:14px">
+        <div style="font-size:10px;color:#4a4a4a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;font-weight:600">Mes infos</div>
+        <div style="display:flex;flex-direction:column;gap:0">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #1f1f1f">
+            <span style="font-size:12px;color:#4a4a4a">Email</span>
+            <span style="font-size:12px;color:#f0f0f0" id="hv-profil-email">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #1f1f1f">
+            <span style="font-size:12px;color:#4a4a4a">Téléphone</span>
+            <span style="font-size:12px;color:#f0f0f0" id="hv-profil-phone">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0">
+            <span style="font-size:12px;color:#4a4a4a">Club</span>
+            <span style="font-size:12px;color:var(--o);font-weight:700">BCC</span>
+          </div>
+        </div>
+      </div>
+      <button onclick="hvLogout()" style="width:100%;padding:13px;background:rgba(239,68,68,.08);color:#ef4444;border:1px solid rgba(239,68,68,.25);border-radius:10px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;cursor:pointer;letter-spacing:.5px">Se déconnecter</button>
+    </div>
   </div>
+
+  <!-- VUE MANAGE (depuis lien email direct) -->
+  <div id="hv-manage" style="display:none;padding:20px;max-width:600px;margin:0 auto">
+    <div style="margin-bottom:20px">
+      <div style="font-size:20px;font-weight:700;color:#f0f0f0" id="manage-uname">—</div>
+      <div style="font-size:11px;color:#4a4a4a;margin-top:3px">BCC · Mes dates de passage</div>
+      <div style="font-size:11px;color:#4a4a4a;margin-top:6px">Décoche les dates qui ne te conviennent plus.</div>
+    </div>
+    <table class="dispo-table" style="border-radius:12px;overflow:hidden;margin-bottom:16px">
+      <thead><tr><th>Date</th><th>Créneau</th><th style="text-align:center">Toujours dispo</th></tr></thead>
+      <tbody id="manage-tbody-ext"></tbody>
+    </table>
+    <button class="submit-btn" onclick="submitManageDates()" style="width:100%;border-radius:10px;padding:15px;font-size:14px">Confirmer</button>
+    <div class="submit-ok" id="manage-ok" style="display:none;border-radius:10px;margin-top:12px">✓ Merci ! Le planning a été mis à jour.</div>
+  </div>
+
 </div>
 
 <!-- ══════════ VUE ADMIN ══════════ -->
@@ -1044,6 +1110,42 @@ function backToAdmin() {
 let hvUser = null;
 let hvSlots = {}; // key -> {dispo:bool, mc:bool}
 
+function hvTab(tab) {
+  ['dispos','dates','profil'].forEach(t => {
+    const el = document.getElementById(`hv-tab-${t}`);
+    const btn = document.getElementById(`tab-${t}`);
+    if (el) el.style.display = t === tab ? 'block' : 'none';
+    if (btn) {
+      btn.style.color = t === tab ? 'var(--o)' : '#4a4a4a';
+      btn.style.borderBottomColor = t === tab ? 'var(--o)' : 'transparent';
+    }
+  });
+  if (tab === 'dates' && hvUser) showManageDates(hvUser.id);
+  if (tab === 'profil' && hvUser) renderHvProfil();
+}
+
+function hvLogout() {
+  hvUser = null; hvSlots = {};
+  document.getElementById('hv-space').style.display = 'none';
+  document.getElementById('hv-login').style.display = 'block';
+  document.getElementById('hv-page-choice').style.display = 'block';
+  document.getElementById('hv-login-form').style.display = 'none';
+  document.getElementById('hv-header-name').textContent = '';
+}
+
+function renderHvProfil() {
+  if (!hvUser) return;
+  const initials = hvUser.name.split(' ').map(n=>n[0]).join('').slice(0,2);
+  document.getElementById('hv-avatar').textContent = initials;
+  document.getElementById('hv-profil-name').textContent = hvUser.name;
+  document.getElementById('hv-profil-email').textContent = hvUser.email || '—';
+  document.getElementById('hv-profil-phone').textContent = hvUser.phone || '—';
+  const dispos = Object.values(DISPOS_DATA[hvUser.id]||{}).filter(v=>v.dispo).length;
+  const dates = Object.entries(assignments).filter(([,ids])=>ids.includes(hvUser.id)).length;
+  document.getElementById('hv-stat-dispos').textContent = dispos;
+  document.getElementById('hv-stat-dates').textContent = dates;
+}
+
 function clearErr() { document.getElementById('l-err').style.display = 'none'; }
 
 let hvLoginMode = 'dispos'; // 'dispos' ou 'manage'
@@ -1107,7 +1209,6 @@ function hvLogin() {
   }
 
   document.getElementById('hv-login').style.display = 'none';
-  document.getElementById('hv-dispos').style.display = 'none';
   document.getElementById('hv-manage').style.display = 'none';
 
   if (hvLoginMode === 'manage') {
@@ -1121,10 +1222,9 @@ function hvLogin() {
     document.getElementById('hv-club').textContent = `${clubName} · Disponibilités ${MOIS_FULL[nextM]} ${nextY}`;
     const dl = document.getElementById('s-deadline')?.value || 15;
     document.getElementById('hv-deadline').textContent = `${dl} ${MOIS_FULL[nextM]} ${nextY}`;
-    // Afficher d'abord, puis render
-    document.getElementById('hv-login').style.display = 'none';
-    document.getElementById('hv-dispos').style.display = 'block';
-    document.getElementById('hv-manage').style.display = 'none';
+    document.getElementById('hv-header-name').textContent = `${prenom} ${nom}`;
+    document.getElementById('hv-space').style.display = 'block';
+    hvTab('dispos');
     setTimeout(() => renderHvTable(), 50);
   }
 }
@@ -2534,11 +2634,24 @@ async function showManageDates(userId) {
     </tr>`;
   });
 
-  document.getElementById('manage-tbody').innerHTML = html || '<tr><td colspan="3" style="padding:20px;color:var(--muted);text-align:center">Aucune date assignée ce mois-ci</td></tr>';
-  document.getElementById('hv-login').style.display = 'none';
-  document.getElementById('hv-dispos').style.display = 'none';
-  document.getElementById('hv-manage').style.display = 'block';
-  document.getElementById('manage-ok').style.display = 'none';
+  // Afficher dans le bon conteneur
+  const isInTab = hvUser && document.getElementById('hv-space')?.style.display !== 'none';
+  const tbodyId = isInTab ? 'manage-tbody' : 'manage-tbody-ext';
+  const emptyHtml = '<tr><td colspan="3" style="padding:20px;color:var(--muted);text-align:center">Aucune date assignée ce mois-ci</td></tr>';
+  
+  const tbody = document.getElementById(tbodyId) || document.getElementById('manage-tbody');
+  if (tbody) tbody.innerHTML = html || emptyHtml;
+
+  if (isInTab) {
+    // Depuis l'onglet "Mes dates"
+    document.getElementById('hv-manage').style.display = 'none';
+  } else {
+    // Depuis un lien email direct
+    document.getElementById('hv-login').style.display = 'none';
+    document.getElementById('hv-space').style.display = 'none';
+    document.getElementById('hv-manage').style.display = 'block';
+    document.getElementById('manage-ok').style.display = 'none';
+  }
 }
 
 function submitManageDates() {
