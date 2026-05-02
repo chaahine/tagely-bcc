@@ -434,7 +434,7 @@ html.light{
 /* ══════════════════════════════════════
    VUE HUMORISTE — LOGIN + DISPOS
 ══════════════════════════════════════ */
-#hv-screen{display:none;min-height:100vh;overflow-y:auto;background:#0a0a0a;position:fixed;inset:0;z-index:500}
+#hv-screen{display:none;min-height:100vh;overflow-y:auto;background:#0a0a0a;position:fixed;inset:0;z-index:500;overflow-x:hidden}
 #hv-screen::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 60% at 50% -20%,rgba(249,115,22,.04) 0%,transparent 70%);pointer-events:none;z-index:0}
 .hv-center{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:48px 16px 60px;position:relative;z-index:1;width:100%}
 .login-box{width:100%;max-width:440px}
@@ -509,7 +509,7 @@ html.light{
   </div>
 
   <!-- LOGIN -->
-  <div id="hv-login" style="padding:32px 20px;max-width:480px;margin:0 auto">
+  <div id="hv-login" style="padding:40px 20px;max-width:480px;margin:0 auto;width:100%">
     <div style="text-align:center;margin-bottom:32px">
       <div style="font-size:40px;margin-bottom:10px">🎤</div>
       <div style="font-size:22px;font-weight:700;color:#f0f0f0;margin-bottom:4px">Portail Humoriste</div>
@@ -563,7 +563,7 @@ html.light{
     </div>
 
     <!-- TAB DISPOS -->
-    <div id="hv-tab-dispos" style="padding:20px;max-width:600px;margin:0 auto">
+    <div id="hv-tab-dispos" style="padding:20px;max-width:560px;margin:0 auto;width:100%">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
         <div>
           <div style="font-size:18px;font-weight:700;color:#f0f0f0" id="hv-uname">—</div>
@@ -591,7 +591,7 @@ html.light{
     </div>
 
     <!-- TAB MES DATES -->
-    <div id="hv-tab-dates" style="display:none;padding:20px;max-width:600px;margin:0 auto">
+    <div id="hv-tab-dates" style="display:none;padding:20px;max-width:560px;margin:0 auto;width:100%">
       <div style="font-size:18px;font-weight:700;color:#f0f0f0;margin-bottom:4px">Mes dates ce mois-ci</div>
       <div style="font-size:11px;color:#4a4a4a;margin-bottom:16px">Décoche les dates qui ne te conviennent plus</div>
       <div id="hv-dates-empty" style="display:none;text-align:center;padding:40px 20px;color:#4a4a4a;font-size:13px">Aucune date planifiée ce mois-ci</div>
@@ -604,7 +604,7 @@ html.light{
     </div>
 
     <!-- TAB PROFIL -->
-    <div id="hv-tab-profil" style="display:none;padding:20px;max-width:600px;margin:0 auto">
+    <div id="hv-tab-profil" style="display:none;padding:20px;max-width:560px;margin:0 auto;width:100%">
       <div style="background:#161616;border:1px solid #252525;border-radius:14px;padding:20px;margin-bottom:14px">
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
           <div id="hv-avatar" style="width:58px;height:58px;border-radius:50%;background:rgba(249,115,22,.1);border:2px solid var(--o);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:var(--o);flex-shrink:0">?</div>
