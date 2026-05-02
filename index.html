@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>STAGELY</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#f97316">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -432,7 +434,7 @@ html.light{
 /* ══════════════════════════════════════
    VUE HUMORISTE — LOGIN + DISPOS
 ══════════════════════════════════════ */
-#hv-screen{display:none;min-height:100vh;overflow-y:auto;background:var(--bg);position:relative}
+#hv-screen{display:none;min-height:100vh;overflow-y:auto;background:#0a0a0a;position:fixed;inset:0;z-index:500}
 #hv-screen::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 60% at 50% -20%,rgba(249,115,22,.04) 0%,transparent 70%);pointer-events:none;z-index:0}
 .hv-center{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:48px 16px 60px;position:relative;z-index:1;width:100%}
 .login-box{width:100%;max-width:440px}
@@ -498,7 +500,7 @@ html.light{
 <body>
 
 <!-- ══════════ VUE HUMORISTE ══════════ -->
-<div id="hv-screen" style="display:none;min-height:100vh;background:#0a0a0a;font-family:'Rajdhani',sans-serif">
+<div id="hv-screen" style="display:none;min-height:100vh;background:#0a0a0a;font-family:'Inter',sans-serif;position:relative;z-index:1000">
 
   <!-- HEADER -->
   <div style="background:#111;border-bottom:1px solid #1f1f1f;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10">
@@ -536,7 +538,7 @@ html.light{
     </div>
 
     <div id="hv-login-form" style="display:none">
-      <button onclick="document.getElementById('hv-page-choice').style.display='block';document.getElementById('hv-login-form').style.display='none'" style="background:none;border:none;color:#4a4a4a;cursor:pointer;font-size:12px;font-family:'Rajdhani',sans-serif;margin-bottom:20px">← Retour</button>
+      <button onclick="document.getElementById('hv-page-choice').style.display='block';document.getElementById('hv-login-form').style.display='none'" style="background:none;border:none;color:#4a4a4a;cursor:pointer;font-size:12px;font-family:'Inter',sans-serif;margin-bottom:20px">← Retour</button>
       <div style="font-size:18px;font-weight:700;color:#f0f0f0;margin-bottom:20px" id="login-form-title">Connexion</div>
       <div style="display:flex;flex-direction:column;gap:12px">
         <div><label style="font-size:10px;color:#4a4a4a;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Prénom</label><input class="li" id="l-prenom" placeholder="Ton prénom" oninput="clearErr()" style="border-radius:10px;padding:12px 14px;font-size:13px"></div>
@@ -555,9 +557,9 @@ html.light{
   <div id="hv-space" style="display:none">
     <!-- TABS -->
     <div style="display:flex;background:#111;border-bottom:1px solid #1f1f1f;position:sticky;top:49px;z-index:9">
-      <button onclick="hvTab('dispos')" id="tab-dispos" style="flex:1;padding:13px 8px;background:none;border:none;border-bottom:2px solid var(--o);color:var(--o);font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer">📅 DISPOS</button>
-      <button onclick="hvTab('dates')" id="tab-dates" style="flex:1;padding:13px 8px;background:none;border:none;border-bottom:2px solid transparent;color:#4a4a4a;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer">🗓 MES DATES</button>
-      <button onclick="hvTab('profil')" id="tab-profil" style="flex:1;padding:13px 8px;background:none;border:none;border-bottom:2px solid transparent;color:#4a4a4a;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer">👤 PROFIL</button>
+      <button onclick="hvTab('dispos')" id="tab-dispos" style="flex:1;padding:13px 8px;background:none;border:none;border-bottom:2px solid var(--o);color:var(--o);font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer">📅 DISPOS</button>
+      <button onclick="hvTab('dates')" id="tab-dates" style="flex:1;padding:13px 8px;background:none;border:none;border-bottom:2px solid transparent;color:#4a4a4a;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer">🗓 MES DATES</button>
+      <button onclick="hvTab('profil')" id="tab-profil" style="flex:1;padding:13px 8px;background:none;border:none;border-bottom:2px solid transparent;color:#4a4a4a;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer">👤 PROFIL</button>
     </div>
 
     <!-- TAB DISPOS -->
@@ -639,7 +641,7 @@ html.light{
           </div>
         </div>
       </div>
-      <button onclick="hvLogout()" style="width:100%;padding:13px;background:rgba(239,68,68,.08);color:#ef4444;border:1px solid rgba(239,68,68,.25);border-radius:10px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;cursor:pointer;letter-spacing:.5px">Se déconnecter</button>
+      <button onclick="hvLogout()" style="width:100%;padding:13px;background:rgba(239,68,68,.08);color:#ef4444;border:1px solid rgba(239,68,68,.25);border-radius:10px;font-family:'Inter',sans-serif;font-weight:700;font-size:13px;cursor:pointer;letter-spacing:.5px">Se déconnecter</button>
     </div>
   </div>
 
@@ -1240,35 +1242,60 @@ function getNextMonthSlots() {
 
 function renderHvTable() {
   const slots = getNextMonthSlots();
-  let html = '';
-  let prevDateStr = null;
+  const DAY_NAMES_FR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  
+  // Grouper par jour
+  const days = {};
   slots.forEach(({key, day, dayLabel, slot, date}) => {
-    const s = hvSlots[key] || {dispo:false, mc:false};
-    const uid = key.replace(/[-H]/g,'_');
-    const dateStr = `${dayLabel} ${day} ${MOIS[date.getMonth()]}`;
-    if (dateStr !== prevDateStr) {
-      html += `<tr class="day-separator"><td colspan="4"><div class="day-sep-label">${dateStr}</div></td></tr>`;
-      prevDateStr = dateStr;
-    }
-    html += `<tr>
-      <td class="dt-day"></td>
-      <td class="dt-time">${slot.replace('H',':')}</td>
-      <td class="dt-check">
-        <div class="tcheck">
+    const dateStr = `${DAY_NAMES_FR[date.getDay()]} ${day} ${MOIS[date.getMonth()]}`;
+    if (!days[dateStr]) days[dateStr] = [];
+    days[dateStr].push({key, slot, date});
+  });
+
+  let html = '';
+  Object.entries(days).forEach(([dateStr, daySlots]) => {
+    html += `<div style="background:#111;border-radius:12px;overflow:hidden;border:1px solid #1f1f1f;margin-bottom:8px">
+      <div style="padding:10px 16px;background:#161616;border-bottom:1px solid #1f1f1f;font-size:11px;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:.8px">${dateStr}</div>`;
+    daySlots.forEach(({key, slot}) => {
+      const s = hvSlots[key] || {dispo:false, mc:false};
+      const uid = key.replace(/[-H]/g,'_');
+      const time = slot.replace('H',':');
+      html += `<div style="padding:11px 16px;display:flex;align-items:center;border-bottom:1px solid #0f0f0f">
+        <span style="font-size:13px;color:#f0f0f0;font-weight:600;width:54px;flex-shrink:0;font-variant-numeric:tabular-nums">${time}</span>
+        <span style="flex:1;font-size:11px;color:#444">Disponible</span>
+        <div class="tcheck" style="margin-right:8px">
           <input type="checkbox" id="d-${uid}" ${s.dispo?'checked':''} onchange="hvToggle('${key}','dispo',this.checked)">
           <label for="d-${uid}">✓</label>
         </div>
-      </td>
-      <td class="dt-mc">
         <div class="mc-check ${!s.dispo?'disabled':''}" id="mc-wrap-${uid}">
           <input type="checkbox" id="mc-${uid}" ${s.mc?'checked':''} ${!s.dispo?'disabled':''} onchange="hvToggle('${key}','mc',this.checked)">
-          <label for="mc-${uid}">MC</label>
+          <label for="mc-${uid}" style="font-size:9px;font-weight:700;font-family:'Inter',sans-serif">MC</label>
         </div>
-      </td>
-    </tr>`;
+      </div>`;
+    });
+    html += `</div>`;
   });
-  if (!html) html = `<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--muted)">Aucun créneau disponible ce mois-ci</td></tr>`;
-  document.getElementById('hv-tbody').innerHTML = html;
+
+  if (!html) html = `<div style="padding:40px;text-align:center;color:#444;font-size:13px">Aucun créneau disponible ce mois-ci</div>`;
+  
+  const tbody = document.getElementById('hv-tbody');
+  if (tbody) tbody.closest('table') ? (tbody.innerHTML = html) : null;
+  
+  // Remplacer le contenu du tableau par des divs
+  const table = document.querySelector('#hv-tab-dispos table');
+  const container = document.getElementById('hv-slots-container');
+  if (!container && table) {
+    const div = document.createElement('div');
+    div.id = 'hv-slots-container';
+    table.parentNode.insertBefore(div, table);
+    table.style.display = 'none';
+    div.innerHTML = html;
+  } else if (container) {
+    container.innerHTML = html;
+  } else if (tbody) {
+    tbody.innerHTML = `<tr><td colspan="4" style="padding:0;border:none"><div id="hv-slots-container">${html}</div></td></tr>`;
+  }
+  
   updateHvCount();
 }
 
