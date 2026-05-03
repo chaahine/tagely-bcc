@@ -1507,24 +1507,55 @@ function nav(id) {
     if(v.id === 'view-chat') v.style.display = 'none';
   });
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
+
+  if (window.innerWidth <= 768) {
+    document.getElementById('sidebar').classList.remove('mobile-open');
+  }
+
+  // Chapeau — vue dynamique
+  if (id === 'chapeau') {
+    let cv = document.getElementById('view-chapeau');
+    if (!cv) {
+      cv = document.createElement('div');
+      cv.id = 'view-chapeau';
+      cv.className = 'view';
+      document.querySelector('.content').appendChild(cv);
+    }
+    cv.classList.add('on');
+    document.querySelectorAll('.ni').forEach(n=>{if(n.getAttribute('onclick')===`nav('chapeau')`) n.classList.add('on');});
+    document.getElementById('ptitle').textContent = '🎩 Chapeau';
+    document.getElementById('tactions').innerHTML = `<button class="btn btn-o" onclick="nav_chapeau_open()">+ Ajouter une soirée</button>`;
+    renderChapeau();
+    return;
+  }
+
+  // Historique — vue dynamique
+  if (id === 'historique') {
+    let hv = document.getElementById('view-historique');
+    if (!hv) {
+      hv = document.createElement('div');
+      hv.id = 'view-historique';
+      hv.className = 'view';
+      document.querySelector('.content').appendChild(hv);
+    }
+    hv.classList.add('on');
+    document.querySelectorAll('.ni').forEach(n=>{if(n.getAttribute('onclick')===`nav('historique')`) n.classList.add('on');});
+    document.getElementById('ptitle').textContent = 'Historique';
+    document.getElementById('tactions').innerHTML = `<button class="btn btn-ghost" onclick="historique=[];autoSave();renderHistorique()" style="font-size:9px">Vider</button>`;
+    renderHistorique();
+    return;
+  }
+
   const v = document.getElementById('view-'+id);
   if(v) v.classList.add('on');
   document.querySelectorAll('.ni').forEach(n=>{if(n.getAttribute('onclick')===`nav('${id}')`) n.classList.add('on');});
   document.getElementById('ptitle').textContent = PTITLES[id]||id;
   document.getElementById('tactions').innerHTML = PACTIONS[id]||'';
   if(id==='dashboard') renderDashboard();
-  if(id==='planning') renderPlanning();
+  if(id==='planning') { renderPlanning(); scheduleReminders(); }
   if(id==='dispos') renderDispos();
   if(id==='humoristes') renderHumoristes();
   if(id==='reglages') { renderSlotsCfg(); updateShareWidget(currentCode); }
-  if(id==='chat') {
-    const cv = document.getElementById('view-chat');
-    if(cv) cv.style.display = 'flex';
-    renderChat();
-    // Clear badge
-    const badge = document.getElementById('bdg-chat');
-    if(badge) { badge.style.display='none'; badge.textContent='0'; }
-  }
 }
 
 function toggleSB() { document.getElementById('sidebar').classList.toggle('col'); }
@@ -3690,71 +3721,6 @@ loadFromSupabase().then(ok => {
   danger.parentNode.insertBefore(card, danger);
 })();
 
-
-// Patch nav pour historique
-const _origNav = nav;
-function nav(id) {
-  document.querySelectorAll('.view').forEach(v=>{
-    v.classList.remove('on');
-    if(v.id === 'view-chat') v.style.display = 'none';
-  });
-  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
-
-  // Chapeau — vue dynamique
-  if (id === 'chapeau') {
-    let cv = document.getElementById('view-chapeau');
-    if (!cv) {
-      cv = document.createElement('div');
-      cv.id = 'view-chapeau';
-      cv.className = 'view';
-      document.querySelector('.content').appendChild(cv);
-    }
-    cv.classList.add('on');
-    document.querySelectorAll('.ni').forEach(n=>{if(n.getAttribute('onclick')===`nav('chapeau')`) n.classList.add('on');});
-    document.getElementById('ptitle').textContent = '🎩 Chapeau';
-    document.getElementById('tactions').innerHTML = `<button class="btn btn-o" onclick="openModal('modal-chapeau')">+ Ajouter une soirée</button>`;
-    renderChapeau();
-    return;
-  }
-
-  // Historique — vue dynamique
-  if (id === 'historique') {
-    let hv = document.getElementById('view-historique');
-    if (!hv) {
-      hv = document.createElement('div');
-      hv.id = 'view-historique';
-      hv.className = 'view';
-      document.querySelector('.content').appendChild(hv);
-    }
-    hv.classList.add('on');
-    document.querySelectorAll('.ni').forEach(n=>{if(n.getAttribute('onclick')===`nav('historique')`) n.classList.add('on');});
-    document.getElementById('ptitle').textContent = 'Historique';
-    document.getElementById('tactions').innerHTML = `<button class="btn btn-ghost" onclick="historique=[];autoSave();renderHistorique()" style="font-size:9px">Vider</button>`;
-    renderHistorique();
-    return;
-  }
-
-  const v = document.getElementById('view-'+id);
-  if(v) v.classList.add('on');
-  document.querySelectorAll('.ni').forEach(n=>{if(n.getAttribute('onclick')===`nav('${id}')`) n.classList.add('on');});
-  document.getElementById('ptitle').textContent = PTITLES[id]||id;
-  document.getElementById('tactions').innerHTML = PACTIONS[id]||'';
-  if (window.innerWidth <= 768) {
-    document.getElementById('sidebar').classList.remove('mobile-open');
-  }
-  if(id==='dashboard') renderDashboard();
-  if(id==='planning') { renderPlanning(); scheduleReminders(); }
-  if(id==='dispos') renderDispos();
-  if(id==='humoristes') renderHumoristes();
-  if(id==='reglages') { renderSlotsCfg(); updateShareWidget(currentCode); }
-  if(id==='chat') {
-    const cv = document.getElementById('view-chat');
-    if(cv) cv.style.display = 'flex';
-    renderChat();
-    const badge = document.getElementById('bdg-chat');
-    if(badge) { badge.style.display='none'; badge.textContent='0'; }
-  }
-}
 
 // Raccourci clavier Cmd/Ctrl+K → recherche
 document.addEventListener('keydown', e => {
