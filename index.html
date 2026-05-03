@@ -443,7 +443,7 @@ html.light{
    VUE HUMORISTE — LOGIN + DISPOS
 ══════════════════════════════════════ */
 #hv-screen{display:none;position:fixed;inset:0;z-index:500;background:#0a0a0a;overflow:hidden}
-#hv-screen>div{height:100%;display:flex;flex-direction:column}
+#hv-screen>div{height:100%;display:flex;flex-direction:column;overflow:hidden}
 .hv-center{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:48px 16px 60px;position:relative;z-index:1;width:100%}
 .login-box{width:100%;max-width:440px}
 .login-logo{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:18px;color:var(--o);letter-spacing:3px;margin-bottom:4px;text-align:center;text-transform:uppercase}
@@ -517,8 +517,8 @@ html.light{
   </div>
 
   <!-- LOGIN PAGE -->
-  <div id="hv-login" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;overflow-y:auto">
-    <div style="width:100%;max-width:400px;margin:0 auto">
+  <div id="hv-login" style="flex:1;overflow-y:auto;display:flex;align-items:center;justify-content:center;padding:20px">
+    <div style="width:100%;max-width:400px">
       <div style="text-align:center;margin-bottom:32px">
         <div style="font-size:44px;margin-bottom:12px">🎤</div>
         <div style="font-size:24px;font-weight:800;color:#f0f0f0;margin-bottom:4px;letter-spacing:-.5px">Portail Humoriste</div>
@@ -1271,6 +1271,61 @@ async function hvSaveChapeau() {
 
 function loadHvDates() {
   showManageDates(hvUser.id);
+  // Ajouter bouton calendrier après le chargement
+  setTimeout(() => {
+    const btn = document.getElementById('hv-dates-btn');
+    if (btn && !document.getElementById('hv-cal-btn')) {
+      const calBtn = document.createElement('button');
+      calBtn.id = 'hv-cal-btn';
+      calBtn.onclick = hvExportCalendar;
+      calBtn.style.cssText = 'width:100%;padding:13px;background:#1a1a1a;color:#f0f0f0;border:1px solid #252525;border-radius:10px;font-weight:600;font-size:12px;cursor:pointer;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:8px';
+      calBtn.innerHTML = '📅 Ajouter toutes mes dates au calendrier';
+      btn.parentNode.insertBefore(calBtn, btn.nextSibling);
+    }
+  }, 500);
+}
+
+function hvExportCalendar() {
+  if (!hvUser) return;
+  const myKeys = Object.entries(assignments)
+    .filter(([,ids]) => ids.includes(hvUser.id))
+    .map(([key]) => key);
+  
+  if (!myKeys.length) { 
+    alert('Aucune date planifiée à exporter');
+    return;
+  }
+
+  let ics = 'BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Stagely BCC//FR\nCALSCALE:GREGORIAN\n';
+  
+  myKeys.forEach(key => {
+    const parts = key.split('-');
+    const year = parts[0];
+    const month = parts[1];
+    const day = parts[2];
+    const timePart = parts[3]?.replace('H',':') || '20:00';
+    const [h, m] = timePart.split(':');
+    const isFirst = (assignments[key]||[])[0] === hvUser.id;
+    
+    const dtstart = `${year}${month}${day}T${String(h).padStart(2,'0')}${String(m||'00').padStart(2,'0')}00`;
+    // Fin = 1h30 après
+    const endH = parseInt(h) + 1;
+    const dtend = `${year}${month}${day}T${String(endH).padStart(2,'0')}${String(m||'00').padStart(2,'0')}00`;
+    const uid = `stagely-${key}-${hvUser.id}@bcc`;
+    const summary = isFirst ? `🎤 MC — Broadway Comedy Club ${timePart}` : `🎤 Broadway Comedy Club ${timePart}`;
+    
+    ics += `BEGIN:VEVENT\nUID:${uid}\nDTSTART:${dtstart}\nDTEND:${dtend}\nSUMMARY:${summary}\nLOCATION:Broadway Comedy Club — BCC\nDESCRIPTION:Passage au BCC. Portail: https://tagely-bcc.vercel.app?code=${currentCode}&manage=${hvUser.id}\nEND:VEVENT\n`;
+  });
+  
+  ics += 'END:VCALENDAR';
+  
+  const blob = new Blob([ics], {type: 'text/calendar;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `BCC_${hvUser.name.replace(' ','_')}_dates.ics`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function hvLogout() {
