@@ -615,6 +615,31 @@ html.light{
         <div style="font-size:20px;font-weight:800;color:#f0f0f0;margin-bottom:3px;letter-spacing:-.5px">Mes dates planifiées</div>
         <div style="font-size:11px;color:#555">Décoche les dates qui ne te conviennent plus</div>
       </div>
+
+      <!-- Line-up visible 3 min avant -->
+      <div id="hv-lineup-now" style="display:none;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:12px;padding:16px;margin-bottom:16px">
+        <div style="font-size:10px;font-weight:700;color:#22c55e;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">🎤 Line-up — Show dans quelques minutes !</div>
+        <div id="hv-lineup-content" style="font-size:12px;color:#f0f0f0;line-height:2.2"></div>
+      </div>
+
+      <!-- Chapeau pour MC -->
+      <div id="hv-chapeau-now" style="display:none;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:12px;padding:16px;margin-bottom:16px">
+        <div style="font-size:10px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">🎩 Saisir le chapeau</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <div>
+            <label style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">💵 Espèces (€)</label>
+            <input type="number" id="hv-ch-especes" placeholder="0" min="0" style="width:100%;background:#1a1a1a;border:1px solid #252525;border-radius:8px;padding:8px 10px;color:#f0f0f0;font-size:13px;box-sizing:border-box">
+          </div>
+          <div>
+            <label style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">💳 CB (€)</label>
+            <input type="number" id="hv-ch-cb" placeholder="0" min="0" style="width:100%;background:#1a1a1a;border:1px solid #252525;border-radius:8px;padding:8px 10px;color:#f0f0f0;font-size:13px;box-sizing:border-box">
+          </div>
+        </div>
+        <input type="text" id="hv-ch-notes" placeholder="Notes (facultatif)" style="width:100%;background:#1a1a1a;border:1px solid #252525;border-radius:8px;padding:8px 10px;color:#f0f0f0;font-size:12px;margin-bottom:8px;box-sizing:border-box">
+        <button onclick="hvSaveChapeau()" style="width:100%;padding:11px;background:#f59e0b;color:#000;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">Enregistrer le chapeau</button>
+        <div id="hv-chapeau-ok" style="display:none;text-align:center;font-size:11px;color:#22c55e;margin-top:8px">✓ Chapeau enregistré !</div>
+      </div>
+
       <div id="hv-dates-content" style="margin-bottom:20px"></div>
       <button class="submit-btn" id="hv-dates-btn" onclick="submitManageDates()" style="width:100%;border-radius:12px;padding:16px;font-size:14px;font-weight:700;display:none">Confirmer les changements</button>
       <div class="submit-ok" id="manage-ok" style="display:none;border-radius:12px;padding:16px;text-align:center">✓ Mis à jour !</div>
@@ -1142,8 +1167,98 @@ function hvTab(tab) {
       btn.style.borderBottomColor = t === tab ? '#f97316' : 'transparent';
     }
   });
-  if (tab === 'dates' && hvUser) loadHvDates();
+  if (tab === 'dates' && hvUser) {
+    loadHvDates();
+    checkHvLineup();
+  }
   if (tab === 'profil' && hvUser) renderHvProfil();
+}
+
+function checkHvLineup() {
+  if (!hvUser) return;
+  const now = new Date();
+  const DAY_NAMES = ['DIM','LUN','MAR','MER','JEU','VEN','SAM'];
+  const dayName = DAY_NAMES[now.getDay()];
+  const dayConfig = DAYS_CONFIG.find(d => d.name === dayName);
+  if (!dayConfig) return;
+
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  
+  let showLineup = false;
+  let showChapeau = false;
+  let lineupKey = null;
+
+  dayConfig.slots.forEach(slot => {
+    const key = `${todayStr}-${slot.replace(':','H')}`;
+    const ids = assignments[key] || [];
+    if (!ids.includes(hvUser.id)) return;
+
+    // Calculer le temps avant/après le show
+    const [h, m] = slot.split(':').map(Number);
+    const showTime = new Date(now);
+    showTime.setHours(h, m, 0, 0);
+    const diffMin = (showTime - now) / 60000;
+
+    // Line-up visible 3 min avant jusqu'à 30 min après
+    if (diffMin <= 3 && diffMin >= -30) {
+      showLineup = true;
+      lineupKey = key;
+    }
+    // Chapeau visible pour le MC après le show (0 à 60 min après)
+    if (diffMin <= 0 && diffMin >= -60 && ids[0] === hvUser.id) {
+      showChapeau = true;
+      if (document.getElementById('hv-chapeau-now')) {
+        document.getElementById('hv-chapeau-now').setAttribute('data-key', key);
+        document.getElementById('hv-chapeau-now').setAttribute('data-date', todayStr);
+        document.getElementById('hv-chapeau-now').setAttribute('data-slot', slot);
+      }
+    }
+  });
+
+  const lineupDiv = document.getElementById('hv-lineup-now');
+  const chapeauDiv = document.getElementById('hv-chapeau-now');
+
+  if (showLineup && lineupKey && lineupDiv) {
+    const ids = assignments[lineupKey] || [];
+    const DAY_NAMES_FR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+    const slot = lineupKey.split('-')[3]?.replace('H',':');
+    let lineupHtml = `<div style="font-size:13px;font-weight:700;color:#22c55e;margin-bottom:8px">Show de ${slot}</div>`;
+    ids.forEach((id, idx) => {
+      const c = COMEDIANS.find(c=>c.id===id);
+      if (!c) return;
+      const isMe = id === hvUser.id;
+      lineupHtml += `<div style="padding:6px 0;${isMe?'color:#f97316;font-weight:700':''}">${idx+1}. ${c.name}${idx===0?' 🎤 MC':''}${isMe?' ← Toi':''}</div>`;
+    });
+    document.getElementById('hv-lineup-content').innerHTML = lineupHtml;
+    lineupDiv.style.display = 'block';
+  } else if (lineupDiv) {
+    lineupDiv.style.display = 'none';
+  }
+
+  if (chapeauDiv) chapeauDiv.style.display = showChapeau ? 'block' : 'none';
+}
+
+async function hvSaveChapeau() {
+  const chapeauDiv = document.getElementById('hv-chapeau-now');
+  if (!chapeauDiv || !hvUser) return;
+  const date = chapeauDiv.getAttribute('data-date');
+  const slot = chapeauDiv.getAttribute('data-slot');
+  const key = chapeauDiv.getAttribute('data-key');
+  const especes = parseFloat(document.getElementById('hv-ch-especes').value) || 0;
+  const cb = parseFloat(document.getElementById('hv-ch-cb').value) || 0;
+  const notes = document.getElementById('hv-ch-notes').value.trim();
+  const montant = especes + cb;
+  if (!montant) { return; }
+  const ids = assignments[key] || [];
+  const share = ids.length ? Math.round(montant/ids.length*100)/100 : 0;
+  const repartition = {};
+  ids.forEach(id => repartition[id] = share);
+  chapeauData.unshift({id:Date.now(), date, slot, mc:hvUser.name, mcId:hvUser.id, montant, especes, cb, spectateurs:0, notes, repartition});
+  localStorage.setItem('stagely_chapeau', JSON.stringify(chapeauData));
+  document.getElementById('hv-chapeau-ok').style.display = 'block';
+  document.getElementById('hv-ch-especes').value = '';
+  document.getElementById('hv-ch-cb').value = '';
+  document.getElementById('hv-ch-notes').value = '';
 }
 
 function loadHvDates() {
@@ -2536,17 +2651,34 @@ function buildPlanningMessage(comedianId, keys) {
   const c = COMEDIANS.find(c=>c.id===comedianId);
   if (!c) return '';
   const prenom = c.name.split(' ')[0];
-  const dateLines = keys.map(key => {
+  const DAY_NAMES_FR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  
+  // Trier les dates chronologiquement
+  const sortedKeys = [...keys].sort();
+  
+  const dateLines = sortedKeys.map(key => {
     const parts = key.split('-');
     const date = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-    const DAY_NAMES_FR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
     const time = parts[3]?.replace('H',':');
     const isFirst = (assignments[key]||[])[0] === comedianId;
-    return `• ${DAY_NAMES_FR[date.getDay()]} ${date.getDate()} ${MOIS[date.getMonth()]} à ${time}${isFirst?' (MC)':''}`;
+    const dateStr = `${DAY_NAMES_FR[date.getDay()]} ${date.getDate()} ${MOIS[date.getMonth()]}`;
+    return `📍 ${dateStr} à ${time}${isFirst?' 🎤 (MC)':''}`;
   }).join('\n');
 
-  const link = `tagely-bcc.vercel.app/portal?code=${currentCode}&manage=${comedianId}`;
-  return `Salut ${prenom} ! 🎤\n\nVoici tes dates au BCC ce mois-ci :\n\n${dateLines}\n\nSi une date ne te convient plus, signale-le ici :\n👉 ${link}\n\nMerci et à bientôt ! 🔥`;
+  const link = `https://tagely-bcc.vercel.app?code=${currentCode}&manage=${comedianId}`;
+  const mois = new Date().toLocaleDateString('fr-FR',{month:'long'});
+  
+  return `Bonjour ${prenom} ! 🎤
+
+Voici tes passages au BCC pour ${mois} :
+
+${dateLines}
+
+📱 Pour modifier ou annuler une date :
+${link}
+
+À très vite sur scène !
+L'équipe BCC 🍺`;
 }
 
 function openSendPlanningModal() {
