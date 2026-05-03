@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>STAGELY</title>
+<script>
+// Fonction nav disponible globalement dès le chargement
+function nav(id) {
+  if (window._navReady) { window._navReady(id); return; }
+  // Si pas encore prête, attendre
+  window._navQueue = id;
+}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="manifest" href="/manifest.json">
@@ -1557,6 +1565,9 @@ function nav(id) {
   if(id==='humoristes') renderHumoristes();
   if(id==='reglages') { renderSlotsCfg(); updateShareWidget(currentCode); }
 }
+// Connecter la vraie nav au proxy temporaire
+window._navReady = nav;
+if (window._navQueue) { nav(window._navQueue); window._navQueue = null; }
 
 function toggleSB() { document.getElementById('sidebar').classList.toggle('col'); }
 function toggleSidebar() {
@@ -3869,6 +3880,8 @@ function saveChapeau() {
   renderChapeau();
   toast(`✓ Chapeau enregistré — ${montant}€`);
 }
+
+function deleteChapeau(id) {
   if (!confirm('Supprimer cette entrée ?')) return;
   chapeauData = chapeauData.filter(e => e.id !== id);
   localStorage.setItem('stagely_chapeau', JSON.stringify(chapeauData));
