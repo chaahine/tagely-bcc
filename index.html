@@ -3694,11 +3694,50 @@ checkRoute();
 // ══════════════════════════════════════════════════
 let chapeauData = JSON.parse(localStorage.getItem('stagely_chapeau') || '[]');
 
+function updateChapeauTotal() {
+  const especes = parseFloat(document.getElementById('ch-especes').value) || 0;
+  const cb = parseFloat(document.getElementById('ch-cb').value) || 0;
+  document.getElementById('ch-total').textContent = (especes + cb) + '€';
+}
+
 function nav_chapeau_open() {
   document.getElementById('ch-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('ch-especes').value = '';
+  document.getElementById('ch-cb').value = '';
+  document.getElementById('ch-total').textContent = '0€';
+  document.getElementById('ch-artistes').innerHTML = '';
   const sel = document.getElementById('ch-mc');
   sel.innerHTML = '<option value="">— Sélectionner —</option>' +
     COMEDIANS.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  openModal('modal-chapeau');
+}
+
+function openChapeauForSlot(date, slot) {
+  document.getElementById('ch-date').value = date;
+  document.getElementById('ch-especes').value = '';
+  document.getElementById('ch-cb').value = '';
+  document.getElementById('ch-total').textContent = '0€';
+  const slotSel = document.getElementById('ch-slot');
+  for (let i=0; i<slotSel.options.length; i++) {
+    if (slotSel.options[i].value === slot) { slotSel.selectedIndex = i; break; }
+  }
+  // Artistes assignés à ce créneau
+  const key = `${date}-${slot.replace(':','H')}`;
+  const ids = assignments[key] || [];
+  const mcSel = document.getElementById('ch-mc');
+  mcSel.innerHTML = '<option value="">— Sélectionner —</option>' +
+    COMEDIANS.map(c => `<option value="${c.id}" ${ids[0]===c.id?'selected':''}>${c.name}</option>`).join('');
+  // Champs répartition par artiste
+  const artistesDiv = document.getElementById('ch-artistes');
+  artistesDiv.innerHTML = ids.map(id => {
+    const c = COMEDIANS.find(c=>c.id===id);
+    if (!c) return '';
+    return `<div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:11px;flex:1;color:var(--text)">${c.name}</span>
+      <input type="number" id="ch-art-${id}" placeholder="0" min="0" style="width:80px;background:var(--s2);border:1px solid var(--border2);border-radius:3px;padding:5px 8px;color:var(--text);font-size:11px;font-family:'Rajdhani',sans-serif">
+      <span style="font-size:11px;color:var(--muted)">€</span>
+    </div>`;
+  }).join('');
   openModal('modal-chapeau');
 }
 
@@ -3706,140 +3745,181 @@ function saveChapeau() {
   const date = document.getElementById('ch-date').value;
   const slot = document.getElementById('ch-slot').value;
   const mcId = document.getElementById('ch-mc').value;
-  const montant = parseFloat(document.getElementById('ch-montant').value) || 0;
+  const especes = parseFloat(document.getElementById('ch-especes').value) || 0;
+  const cb = parseFloat(document.getElementById('ch-cb').value) || 0;
+  const montant = especes + cb;
   const spectateurs = parseInt(document.getElementById('ch-spectateurs').value) || 0;
   const notes = document.getElementById('ch-notes').value.trim();
   if (!date) { toast('⚠ Ajoute une date'); return; }
   const mc = COMEDIANS.find(c => c.id === mcId);
-  chapeauData.unshift({id:Date.now(), date, slot, mc:mc?.name||'—', mcId, montant, spectateurs, notes});
+  // Répartition par artiste
+  const key = `${date}-${slot.replace(':','H')}`;
+  const ids = assignments[key] || [];
+  const repartition = {};
+  ids.forEach(id => {
+    const val = parseFloat(document.getElementById(`ch-art-${id}`)?.value) || 0;
+    if (val > 0) repartition[id] = val;
+  });
+  // Si pas de répartition manuelle, calculer égale
+  if (!Object.keys(repartition).length && ids.length && montant > 0) {
+    const share = Math.round(montant / ids.length * 100) / 100;
+    ids.forEach(id => repartition[id] = share);
+  }
+  chapeauData.unshift({id:Date.now(), date, slot, mc:mc?.name||'—', mcId, montant, especes, cb, spectateurs, notes, repartition});
   localStorage.setItem('stagely_chapeau', JSON.stringify(chapeauData));
   closeModal('modal-chapeau');
   renderChapeau();
   toast(`✓ Chapeau enregistré — ${montant}€`);
 }
-
-function deleteChapeau(id) {
   if (!confirm('Supprimer cette entrée ?')) return;
   chapeauData = chapeauData.filter(e => e.id !== id);
   localStorage.setItem('stagely_chapeau', JSON.stringify(chapeauData));
   renderChapeau();
 }
 
-function renderChapeau() {
+function renderChapeau(periode = 'jour') {
   const view = document.getElementById('view-chapeau');
   if (!view) return;
 
-  const totalMontant = chapeauData.reduce((s,e)=>s+(e.montant||0),0);
-  const avg = chapeauData.length ? Math.round(totalMontant/chapeauData.length) : 0;
-
-  // Séances du jour
   const today = new Date();
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  const DAY_NAMES = ['DIM','LUN','MAR','MER','JEU','VEN','SAM'];
-  const dayName = DAY_NAMES[today.getDay()];
-  const dayConfig = DAYS_CONFIG.find(d => d.name === dayName);
-  const todaySlots = dayConfig ? dayConfig.slots : [];
-  
-  // Trouver les humoristes assignés aujourd'hui
-  const todayAssignments = {};
-  todaySlots.forEach(slot => {
-    const key = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}-${slot.replace(':','H')}`;
-    const ids = assignments[key] || [];
-    if (ids.length) todayAssignments[slot] = ids;
-  });
+  const todayStr = today.toISOString().split('T')[0];
 
-  let html = '';
-
-  // Séances du jour
-  if (todaySlots.length) {
-    html += `<div style="margin-bottom:20px">
-      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;font-weight:600">
-        Séances d'aujourd'hui — ${today.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">`;
-    
-    todaySlots.forEach(slot => {
-      const ids = todayAssignments[slot] || [];
-      const key = `${todayKey}-${slot.replace(':','H')}`;
-      const existingEntry = chapeauData.find(e => e.date === todayKey && e.slot === slot);
-      const mc = ids[0] ? COMEDIANS.find(c=>c.id===ids[0])?.name.split(' ')[0] : '—';
-      
-      html += `<div style="background:var(--s1);border:1px solid ${existingEntry?'var(--gb)':'var(--border2)'};border-radius:8px;padding:14px;cursor:pointer" onclick="openChapeauForSlot('${todayKey}','${slot}')">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <div style="font-size:16px;font-weight:800;color:var(--text);font-family:monospace">${slot}</div>
-          ${existingEntry ? `<div style="font-size:13px;font-weight:700;color:var(--gold)">${existingEntry.montant}€</div>` : `<div style="font-size:10px;color:var(--muted)">Non saisi</div>`}
-        </div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">MC : ${mc}</div>
-        <div style="font-size:10px;color:var(--muted)">${ids.length} humoriste${ids.length>1?'s':''}</div>
-        ${existingEntry ? `<div style="margin-top:8px;font-size:9px;color:var(--g)">✓ Chapeau enregistré</div>` : `<div style="margin-top:8px;font-size:9px;color:var(--o)">+ Saisir le chapeau</div>`}
-      </div>`;
+  // Filtrer selon la période
+  let filteredData = chapeauData;
+  if (periode === 'jour') {
+    filteredData = chapeauData.filter(e => e.date === todayStr);
+  } else if (periode === 'semaine') {
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - ((today.getDay()+6)%7));
+    monday.setHours(0,0,0,0);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    filteredData = chapeauData.filter(e => {
+      const d = new Date(e.date+'T12:00:00');
+      return d >= monday && d <= sunday;
     });
-    html += `</div></div>`;
+  } else if (periode === 'mois') {
+    filteredData = chapeauData.filter(e => e.date.startsWith(`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`));
   }
 
-  // KPIs
-  html += `<div class="kpi-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
-    <div class="kpi"><div class="kpi-v" style="color:var(--gold)">${totalMontant}€</div><div class="kpi-l">Total collecté</div></div>
-    <div class="kpi"><div class="kpi-v">${chapeauData.length}</div><div class="kpi-l">Soirées</div></div>
-    <div class="kpi"><div class="kpi-v" style="color:var(--g)">${avg}€</div><div class="kpi-l">Moyenne</div></div>
+  const totalMontant = filteredData.reduce((s,e)=>s+(e.montant||0),0);
+  const totalEspeces = filteredData.reduce((s,e)=>s+(e.especes||0),0);
+  const totalCB = filteredData.reduce((s,e)=>s+(e.cb||0),0);
+  const avg = filteredData.length ? Math.round(totalMontant/filteredData.length) : 0;
+
+  // Filtres
+  let html = `<div style="display:flex;gap:6px;margin-bottom:16px">
+    ${['jour','semaine','mois','tout'].map(p => `
+      <button onclick="renderChapeau('${p}')" style="padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${periode===p?'var(--o)':'var(--border2)'};background:${periode===p?'var(--o2)':'transparent'};color:${periode===p?'var(--o)':'var(--muted)'};font-family:'Rajdhani',sans-serif">
+        ${{jour:'Aujourd\'hui',semaine:'Cette semaine',mois:'Ce mois',tout:'Tout'}[p]}
+      </button>`).join('')}
   </div>`;
 
-  // Historique
-  if (chapeauData.length) {
-    html += `<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;font-weight:600">Historique</div>
-    <div style="background:var(--s1);border:1px solid var(--border2);border-radius:5px;overflow:hidden"><table class="dtbl">
-      <thead><tr><th>Date</th><th>Créneau</th><th>MC</th><th style="text-align:right">Montant</th><th style="text-align:center">Spectateurs</th><th>Notes</th><th></th></tr></thead>
-      <tbody>`;
-    chapeauData.forEach(e => {
+  // KPIs
+  html += `<div class="kpi-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+    <div class="kpi"><div class="kpi-v" style="color:var(--gold)">${totalMontant}€</div><div class="kpi-l">Total collecté</div></div>
+    <div class="kpi"><div class="kpi-v">${filteredData.length}</div><div class="kpi-l">Soirées</div></div>
+    <div class="kpi"><div class="kpi-v" style="color:var(--g)">${totalEspeces}€</div><div class="kpi-l">💵 Espèces</div></div>
+    <div class="kpi"><div class="kpi-v" style="color:var(--b)">${totalCB}€</div><div class="kpi-l">💳 CB</div></div>
+  </div>`;
+
+  // Séances du jour (seulement en mode "jour")
+  if (periode === 'jour') {
+    const DAY_NAMES = ['DIM','LUN','MAR','MER','JEU','VEN','SAM'];
+    const dayName = DAY_NAMES[today.getDay()];
+    const dayConfig = DAYS_CONFIG.find(d => d.name === dayName);
+    const todaySlots = dayConfig ? dayConfig.slots : [];
+
+    if (todaySlots.length) {
+      html += `<div style="margin-bottom:20px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;font-weight:600">
+          Séances — ${today.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">`;
+      todaySlots.forEach(slot => {
+        const key = `${todayStr}-${slot.replace(':','H')}`;
+        const ids = assignments[key] || [];
+        const existingEntry = chapeauData.find(e => e.date === todayStr && e.slot === slot);
+        const mc = ids[0] ? COMEDIANS.find(c=>c.id===ids[0])?.name.split(' ')[0] : '—';
+        html += `<div style="background:var(--s1);border:1px solid ${existingEntry?'var(--gb)':'var(--border2)'};border-radius:8px;padding:14px;cursor:pointer" onclick="openChapeauForSlot('${todayStr}','${slot}')">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div style="font-size:16px;font-weight:800;color:var(--text);font-family:monospace">${slot}</div>
+            ${existingEntry ? `<div style="font-size:13px;font-weight:700;color:var(--gold)">${existingEntry.montant}€</div>` : `<div style="font-size:10px;color:var(--muted)">Non saisi</div>`}
+          </div>
+          <div style="font-size:10px;color:var(--muted)">MC: ${mc} · ${ids.length} artiste${ids.length>1?'s':''}</div>
+          <div style="margin-top:8px;font-size:9px;color:${existingEntry?'var(--g)':'var(--o)'}">
+            ${existingEntry ? '✓ Enregistré' : '+ Saisir le chapeau'}
+          </div>
+        </div>`;
+      });
+      html += `</div></div>`;
+    }
+  }
+
+  // Historique filtré
+  if (filteredData.length) {
+    html += `<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;font-weight:600">
+      ${periode==='jour'?'Détail':'Historique'}
+    </div><div style="display:flex;flex-direction:column;gap:8px">`;
+    filteredData.forEach(e => {
       const d = new Date(e.date+'T12:00:00');
-      const ds = d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
-      html += `<tr>
-        <td style="font-weight:500">${ds}</td>
-        <td style="color:var(--muted)">${e.slot}</td>
-        <td>${e.mc}</td>
-        <td style="text-align:right;font-weight:700;color:var(--gold)">${e.montant}€</td>
-        <td style="text-align:center;color:var(--muted)">${e.spectateurs||'—'}</td>
-        <td style="font-size:10px;color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.notes||'—'}</td>
-        <td><button onclick="deleteChapeau(${e.id})" style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:11px" onmouseover="this.style.color='var(--r)'" onmouseout="this.style.color='var(--muted2)'">✕</button></td>
-      </tr>`;
+      const ds = d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+      const repartHtml = e.repartition && Object.keys(e.repartition).length
+        ? Object.entries(e.repartition).map(([id,v]) => {
+            const c = COMEDIANS.find(c=>c.id===id);
+            return `<span style="font-size:9px;padding:2px 6px;background:var(--s3);border-radius:2px;color:var(--text)">${c?.name.split(' ')[0]||'?'}: ${v}€</span>`;
+          }).join(' ') : '';
+      html += `<div style="background:var(--s1);border:1px solid var(--border2);border-radius:5px;padding:12px 14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div>
+            <span style="font-weight:600;font-size:12px">${ds}</span>
+            <span style="color:var(--muted);font-size:11px;margin-left:8px">${e.slot}</span>
+            ${e.mc&&e.mc!=='—'?`<span style="font-size:10px;color:var(--gold);margin-left:8px">MC: ${e.mc}</span>`:''}
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:18px;font-weight:800;color:var(--gold)">${e.montant}€</div>
+            <div style="font-size:9px;color:var(--muted)">${e.especes?`💵${e.especes}€`:''}${e.especes&&e.cb?' · ':''}${e.cb?`💳${e.cb}€`:''}</div>
+          </div>
+        </div>
+        ${repartHtml?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px">${repartHtml}</div>`:''}
+        ${e.spectateurs?`<div style="font-size:10px;color:var(--muted)">👥 ${e.spectateurs} spectateurs</div>`:''}
+        ${e.notes?`<div style="font-size:10px;color:var(--muted);margin-top:4px">📝 ${e.notes}</div>`:''}
+        <button onclick="deleteChapeau(${e.id})" style="margin-top:6px;background:none;border:none;color:var(--muted2);cursor:pointer;font-size:10px" onmouseover="this.style.color='var(--r)'" onmouseout="this.style.color='var(--muted2)'">✕ Supprimer</button>
+      </div>`;
     });
-    html += `</tbody></table></div>`;
-  } else if (!todaySlots.length) {
-    html += `<div style="text-align:center;padding:60px;color:var(--muted)"><div style="font-size:40px;margin-bottom:12px">🎩</div>Aucune collecte enregistrée.</div>`;
+    html += `</div>`;
+  } else if (periode !== 'jour') {
+    html += `<div style="text-align:center;padding:40px;color:var(--muted)">Aucune collecte sur cette période</div>`;
   }
 
   view.innerHTML = html;
-}
-
-function openChapeauForSlot(date, slot) {
-  document.getElementById('ch-date').value = date;
-  // Sélectionner le bon slot
-  const sel = document.getElementById('ch-slot');
-  for (let i=0; i<sel.options.length; i++) {
-    if (sel.options[i].value === slot) { sel.selectedIndex = i; break; }
-  }
-  // Pré-remplir le MC depuis le planning
-  const key = `${date}-${slot.replace(':','H')}`;
-  const ids = assignments[key] || [];
-  const mcSel = document.getElementById('ch-mc');
-  mcSel.innerHTML = '<option value="">— Sélectionner —</option>' +
-    COMEDIANS.map(c => `<option value="${c.id}" ${ids[0]===c.id?'selected':''}>${c.name}</option>`).join('');
-  openModal('modal-chapeau');
 }
 </script>
 
 <!-- MODAL CHAPEAU -->
 <div class="overlay" id="modal-chapeau">
-  <div class="modal" style="width:420px">
-    <div class="modal-title">🎩 Ajouter une collecte chapeau</div>
-    <div class="fr"><label class="fl">Date de la soirée</label><input class="fi" id="ch-date" type="date"></div>
+  <div class="modal" style="width:460px">
+    <div class="modal-title">🎩 Saisir le chapeau</div>
+    <div class="fr"><label class="fl">Date</label><input class="fi" id="ch-date" type="date"></div>
     <div class="fr"><label class="fl">Créneau</label>
       <select class="fsl" id="ch-slot">
         <option>20:15</option><option>21:30</option><option>19:00</option><option>20:30</option><option>21:45</option><option>23:00</option>
       </select>
     </div>
     <div class="fr"><label class="fl">MC (collecteur)</label><select class="fsl" id="ch-mc"><option value="">— Sélectionner —</option></select></div>
-    <div class="fr"><label class="fl">Montant collecté (€)</label><input class="fi" id="ch-montant" type="number" placeholder="0" min="0"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div><label class="fl">💵 Espèces (€)</label><input class="fi" id="ch-especes" type="number" placeholder="0" min="0" oninput="updateChapeauTotal()"></div>
+      <div><label class="fl">💳 CB (€)</label><input class="fi" id="ch-cb" type="number" placeholder="0" min="0" oninput="updateChapeauTotal()"></div>
+    </div>
+    <div style="background:var(--s2);border:1px solid var(--border2);border-radius:3px;padding:8px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:11px;color:var(--muted)">Total collecté</span>
+      <span style="font-size:16px;font-weight:700;color:var(--gold)" id="ch-total">0€</span>
+    </div>
+    <div class="fr">
+      <label class="fl">Répartition par artiste (€)</label>
+      <div id="ch-artistes" style="display:flex;flex-direction:column;gap:6px"></div>
+      <div style="font-size:9px;color:var(--muted);margin-top:4px">Laisser vide = répartition égale automatique</div>
+    </div>
     <div class="fr"><label class="fl">Nombre de spectateurs</label><input class="fi" id="ch-spectateurs" type="number" placeholder="0" min="0"></div>
     <div class="fr"><label class="fl">Notes</label><textarea class="fta" id="ch-notes" placeholder="Observations, ambiance..."></textarea></div>
     <div class="ma">
