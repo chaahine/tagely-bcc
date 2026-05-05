@@ -3971,30 +3971,12 @@ function openChapeauForSlot(date, slot) {
   document.getElementById('ch-date').value = date;
   document.getElementById('ch-especes').value = '';
   document.getElementById('ch-cb').value = '';
+  document.getElementById('ch-par-personne').value = '';
   document.getElementById('ch-total').textContent = '0€';
   const slotSel = document.getElementById('ch-slot');
   for (let i=0; i<slotSel.options.length; i++) {
     if (slotSel.options[i].value === slot) { slotSel.selectedIndex = i; break; }
   }
-  // Afficher TOUS les humoristes actifs avec un champ montant
-  const key = `${date}-${slot.replace(':','H')}`;
-  const assignedIds = assignments[key] || [];
-  const artistesDiv = document.getElementById('ch-artistes');
-  // D'abord les assignés, puis les autres
-  const sorted = [...COMEDIANS].sort((a,b) => {
-    const aIn = assignedIds.includes(a.id) ? 0 : 1;
-    const bIn = assignedIds.includes(b.id) ? 0 : 1;
-    return aIn - bIn;
-  });
-  artistesDiv.innerHTML = sorted.map(c => {
-    const isAssigned = assignedIds.includes(c.id);
-    return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;${isAssigned?'':'opacity:.5'}">
-      <span style="font-size:11px;flex:1;color:var(--text)">${c.name}${isAssigned?' ★':''}</span>
-      <input type="number" id="ch-art-${c.id}" placeholder="0" min="0"
-        style="width:80px;background:var(--s2);border:1px solid var(--border2);border-radius:3px;padding:6px 8px;color:var(--text);font-size:12px;font-weight:600">
-      <span style="font-size:11px;color:var(--muted)">€</span>
-    </div>`;
-  }).join('');
   openModal('modal-chapeau');
 }
 
