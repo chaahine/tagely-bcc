@@ -3896,10 +3896,13 @@ function nav_chapeau_open() {
   document.getElementById('ch-especes').value = '';
   document.getElementById('ch-cb').value = '';
   document.getElementById('ch-total').textContent = '0€';
-  document.getElementById('ch-artistes').innerHTML = '';
-  const sel = document.getElementById('ch-mc');
-  sel.innerHTML = '<option value="">— Sélectionner —</option>' +
-    COMEDIANS.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  document.getElementById('ch-artistes').innerHTML = COMEDIANS.map(c =>
+    `<div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:11px;flex:1;color:var(--text)">${c.name}</span>
+      <input type="number" id="ch-art-${c.id}" placeholder="0" min="0" style="width:80px;background:var(--s2);border:1px solid var(--border2);border-radius:3px;padding:5px 8px;color:var(--text);font-size:11px">
+      <span style="font-size:11px;color:var(--muted)">€</span>
+    </div>`
+  ).join('');
   openModal('modal-chapeau');
 }
 
@@ -3930,12 +3933,11 @@ function openChapeauForSlot(date, slot) {
 function saveChapeau() {
   const date = document.getElementById('ch-date').value;
   const slot = document.getElementById('ch-slot').value;
-  const mcId = document.getElementById('ch-mc').value;
   const especes = parseFloat(document.getElementById('ch-especes').value) || 0;
   const cb = parseFloat(document.getElementById('ch-cb').value) || 0;
   const montant = especes + cb;
   if (!date) { toast('⚠ Ajoute une date'); return; }
-  const mc = COMEDIANS.find(c => c.id === mcId);
+  if (!montant) { toast('⚠ Saisis un montant'); return; }
   const key = `${date}-${slot.replace(':','H')}`;
   const ids = assignments[key] || [];
   const repartition = {};
@@ -3943,11 +3945,7 @@ function saveChapeau() {
     const val = parseFloat(document.getElementById(`ch-art-${id}`)?.value) || 0;
     if (val > 0) repartition[id] = val;
   });
-  if (!Object.keys(repartition).length && ids.length && montant > 0) {
-    const share = Math.round(montant / ids.length * 100) / 100;
-    ids.forEach(id => repartition[id] = share);
-  }
-  chapeauData.unshift({id:Date.now(), date, slot, mc:mc?.name||'—', mcId, montant, especes, cb, repartition});
+  chapeauData.unshift({id:Date.now(), date, slot, montant, especes, cb, repartition});
   localStorage.setItem('stagely_chapeau', JSON.stringify(chapeauData));
   closeModal('modal-chapeau');
   renderChapeau();
