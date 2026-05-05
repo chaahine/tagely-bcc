@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Stagely — Portail Humoriste</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080810;--s1:#0f0f1a;--s2:#161625;--s3:#1e1e30;
+  --border:#1f1f35;--border2:#2a2a42;
+  --text:#f0f0f8;--muted:#5a5a7a;--muted2:#2a2a42;
+  --o:#f97316;--o2:rgba(249,115,22,.1);--ob:rgba(249,115,22,.3);
+  --g:#22c55e;--g2:rgba(34,197,94,.1);--gb:rgba(34,197,94,.3);
+  --r:#ef4444;--r2:rgba(239,68,68,.1);
+  --gold:#f59e0b;
+}
+body{
+  font-family:'DM Sans',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+/* Fond animé */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;
+  background:radial-gradient(ellipse 60% 40% at 50% 0%,rgba(249,115,22,.06) 0%,transparent 70%),
+             radial-gradient(ellipse 40% 60% at 80% 80%,rgba(99,102,241,.04) 0%,transparent 60%);
+  pointer-events:none;
+}
+
+/* WRAPPER */
+.wrap{
+  width:100%;max-width:480px;
+  min-height:100vh;
+  display:flex;flex-direction:column;
+  position:relative;z-index:1;
+}
+
+/* HEADER */
+.hdr{
+  padding:18px 24px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);
+  background:rgba(8,8,16,.8);
+  backdrop-filter:blur(12px);
+  position:sticky;top:0;z-index:10;
+}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;color:var(--o);letter-spacing:3px}
+.hdr-name{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
+
+/* TABS */
+.tabs{
+  display:flex;
+  border-bottom:1px solid var(--border);
+  background:rgba(8,8,16,.6);
+  backdrop-filter:blur(8px);
+  position:sticky;top:57px;z-index:9;
+}
+.tab{
+  flex:1;padding:14px 8px;
+  background:none;border:none;border-bottom:2px solid transparent;
+  color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.8px;
+  cursor:pointer;font-family:'Syne',sans-serif;transition:.15s;
+}
+.tab.on{color:var(--o);border-bottom-color:var(--o)}
+
+/* SCREEN */
+.screen{display:none;flex:1;flex-direction:column}
+.screen.on{display:flex}
+
+/* LOGIN */
+#scr-login{
+  flex:1;
+  align-items:center;justify-content:center;
+  padding:32px 24px;
+}
+.login-hero{text-align:center;margin-bottom:32px}
+.login-hero .mic{font-size:48px;margin-bottom:12px;display:block}
+.login-hero h1{font-family:'Syne',sans-serif;font-weight:800;font-size:26px;margin-bottom:6px;letter-spacing:-.5px}
+.login-hero p{font-size:12px;color:var(--muted)}
+
+.card{
+  background:var(--s1);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:24px;
+  width:100%;
+}
+.choice-btn{
+  width:100%;padding:18px 20px;
+  background:var(--s2);color:var(--text);
+  border:1px solid var(--border2);
+  border-radius:14px;cursor:pointer;
+  text-align:left;display:flex;align-items:center;gap:14px;
+  transition:.15s;margin-bottom:10px;
+}
+.choice-btn:hover{border-color:var(--o);background:var(--s3)}
+.choice-icon{
+  width:48px;height:48px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;
+}
+.choice-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:3px}
+.choice-sub{font-size:11px;color:var(--muted)}
+.choice-arr{margin-left:auto;color:var(--border2);font-size:20px}
+
+.back-btn{
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  font-size:12px;margin-bottom:20px;display:flex;align-items:center;gap:4px;
+  font-family:'DM Sans',sans-serif;padding:0;
+}
+.form-title{font-family:'Syne',sans-serif;font-weight:700;font-size:18px;margin-bottom:24px;letter-spacing:-.3px}
+
+.lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;font-weight:600}
+.inp{
+  width:100%;background:var(--s2);border:1px solid var(--border2);
+  border-radius:10px;padding:12px 14px;color:var(--text);
+  font-size:13px;font-family:'DM Sans',sans-serif;
+  transition:.15s;margin-bottom:14px;
+}
+.inp:focus{outline:none;border-color:var(--o);background:var(--s1)}
+.inp.code{
+  font-family:'DM Mono',monospace;font-weight:700;
+  font-size:20px;letter-spacing:8px;text-align:center;text-transform:uppercase;
+}
+.err{
+  font-size:11px;color:var(--r);padding:10px 14px;
+  background:var(--r2);border-radius:8px;
+  border:1px solid rgba(239,68,68,.2);display:none;margin-bottom:12px;
+}
+.remember{display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer}
+.remember input{width:16px;height:16px;accent-color:var(--o);cursor:pointer}
+.remember span{font-size:11px;color:var(--muted)}
+.btn-main{
+  width:100%;padding:14px;background:var(--o);color:#fff;
+  border:none;border-radius:10px;font-family:'Syne',sans-serif;
+  font-weight:700;font-size:13px;letter-spacing:.3px;cursor:pointer;transition:.15s;
+}
+.btn-main:hover{filter:brightness(1.1)}
+.divider{height:1px;background:var(--border);margin:14px 0}
+
+/* DISPOS */
+#scr-dispos{padding:24px;overflow-y:auto}
+.dispo-header{margin-bottom:20px}
+.dispo-name{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px}
+.dispo-club{font-size:11px;color:var(--muted);margin-bottom:10px}
+.deadline-badge{
+  display:inline-block;background:var(--o2);border:1px solid var(--ob);
+  color:var(--o);font-size:10px;padding:5px 14px;border-radius:20px;font-weight:600;
+}
+.help-box{
+  background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.15);
+  border-radius:12px;padding:12px 16px;margin:16px 0;
+  font-size:11px;color:var(--o);line-height:1.7;
+}
+.quick-btns{display:flex;gap:8px;margin-bottom:16px}
+.quick-btn{
+  flex:1;padding:9px 14px;border-radius:20px;font-size:11px;font-weight:600;
+  cursor:pointer;border:1px solid var(--border2);background:var(--s2);color:var(--text);
+  font-family:'DM Sans',sans-serif;transition:.12s;
+}
+.quick-btn:hover{border-color:var(--gb);color:var(--g)}
+
+/* Day cards */
+.day-card{
+  background:var(--s1);border-radius:14px;overflow:hidden;
+  border:1px solid var(--border);margin-bottom:10px;
+}
+.day-card-hdr{
+  padding:10px 16px;background:var(--s2);
+  border-bottom:1px solid var(--border);
+  font-size:10px;font-weight:700;color:var(--o);
+  text-transform:uppercase;letter-spacing:1px;
+  font-family:'Syne',sans-serif;
+}
+.slot-row{
+  padding:13px 16px;display:flex;align-items:center;
+  border-bottom:1px solid rgba(255,255,255,.03);
+}
+.slot-row:last-child{border-bottom:none}
+.slot-time{
+  font-size:15px;font-weight:600;color:var(--text);
+  width:58px;flex-shrink:0;font-family:'DM Mono',monospace;
+}
+.slot-label{flex:1;font-size:11px;color:var(--muted)}
+.tcheck{display:flex;align-items:center;justify-content:center;margin-right:10px}
+.tcheck input{display:none}
+.tcheck label{
+  width:32px;height:32px;border-radius:8px;
+  border:1.5px solid var(--border2);background:var(--s2);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:.15s;font-size:15px;color:transparent;
+}
+.tcheck input:checked+label{background:var(--g2);border-color:var(--gb);color:var(--g)}
+.tcheck label:hover{border-color:var(--gb)}
+.mc-check{display:flex;align-items:center;justify-content:center}
+.mc-check input{display:none}
+.mc-check label{
+  width:32px;height:32px;border-radius:8px;
+  border:1.5px solid var(--border2);background:var(--s2);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:.15s;font-size:9px;font-weight:700;color:transparent;
+  font-family:'DM Mono',monospace;
+}
+.mc-check input:checked+label{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4);color:var(--gold)}
+.mc-check.off label{opacity:.25;cursor:not-allowed}
+
+.submit-area{margin-top:24px;padding-bottom:32px;text-align:center}
+.submit-count{font-size:11px;color:var(--muted);margin-top:10px}
+.submit-ok{
+  background:var(--g2);border:1px solid var(--gb);border-radius:12px;
+  padding:16px;text-align:center;font-size:12px;color:var(--g);
+  margin-top:14px;display:none;font-weight:600;
+}
+
+/* MES DATES */
+#scr-dates{padding:24px;overflow-y:auto}
+.dates-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px}
+.dates-sub{font-size:11px;color:var(--muted);margin-bottom:20px}
+.cal-btn{
+  width:100%;padding:14px;background:var(--s1);
+  border:1px solid var(--border2);border-radius:12px;
+  color:var(--text);font-family:'Syne',sans-serif;font-weight:700;
+  font-size:12px;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;gap:8px;margin-bottom:20px;transition:.15s;
+}
+.cal-btn:hover{border-color:var(--o);color:var(--o)}
+.date-card{
+  background:var(--s1);border:1px solid var(--border);border-radius:14px;
+  overflow:hidden;margin-bottom:10px;
+}
+.date-card-hdr{
+  padding:10px 16px;background:var(--s2);border-bottom:1px solid var(--border);
+  font-size:10px;font-weight:700;color:var(--g);text-transform:uppercase;
+  letter-spacing:1px;font-family:'Syne',sans-serif;
+}
+.date-slot-row{
+  padding:13px 16px;display:flex;align-items:center;
+  border-bottom:1px solid rgba(255,255,255,.03);
+}
+.date-slot-row:last-child{border-bottom:none}
+.date-time{font-size:15px;font-weight:600;font-family:'DM Mono',monospace;flex:1}
+.date-mc-badge{
+  font-size:9px;font-weight:700;padding:3px 8px;border-radius:20px;
+  background:rgba(245,158,11,.1);color:var(--gold);border:1px solid rgba(245,158,11,.3);
+}
+.date-tcheck{display:flex;align-items:center;justify-content:center;margin-left:12px}
+.date-tcheck input{display:none}
+.date-tcheck label{
+  width:32px;height:32px;border-radius:8px;
+  border:1.5px solid var(--gb);background:var(--g2);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:.15s;font-size:15px;color:var(--g);
+}
+.date-tcheck input:not(:checked)+label{
+  background:var(--s2);border-color:var(--border2);color:transparent;
+}
+.empty-state{
+  text-align:center;padding:60px 20px;color:var(--muted);
+}
+.empty-icon{font-size:40px;margin-bottom:12px;display:block}
+.confirm-btn{
+  width:100%;padding:14px;background:var(--o);color:#fff;
+  border:none;border-radius:12px;font-family:'Syne',sans-serif;
+  font-weight:700;font-size:13px;cursor:pointer;margin-top:16px;
+  display:none;transition:.15s;
+}
+.confirm-ok{
+  background:var(--g2);border:1px solid var(--gb);border-radius:12px;
+  padding:14px;text-align:center;font-size:12px;color:var(--g);
+  margin-top:14px;display:none;font-weight:600;
+}
+
+/* PROFIL */
+#scr-profil{padding:24px;overflow-y:auto}
+.profil-card{
+  background:var(--s1);border:1px solid var(--border);
+  border-radius:16px;padding:20px;margin-bottom:14px;
+}
+.profil-avatar{
+  width:64px;height:64px;border-radius:50%;
+  background:var(--o2);border:2px solid var(--o);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;font-weight:800;color:var(--o);
+  flex-shrink:0;font-family:'Syne',sans-serif;
+}
+.profil-info{flex:1}
+.profil-name{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;letter-spacing:-.5px;margin-bottom:3px}
+.profil-role{font-size:11px;color:var(--muted)}
+.stat-box{
+  background:var(--s2);border-radius:12px;padding:16px;
+  text-align:center;flex:1;
+}
+.stat-val{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;line-height:1;letter-spacing:-1px}
+.stat-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;margin-top:5px;letter-spacing:.6px;font-weight:600}
+.info-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:13px 0;border-bottom:1px solid var(--border);font-size:12px;
+}
+.info-row:last-child{border-bottom:none}
+.info-key{color:var(--muted)}
+.logout-btn{
+  width:100%;padding:14px;background:rgba(239,68,68,.06);color:var(--r);
+  border:1px solid rgba(239,68,68,.2);border-radius:12px;
+  font-family:'Syne',sans-serif;font-weight:700;font-size:12px;
+  cursor:pointer;letter-spacing:.3px;margin-top:4px;transition:.15s;
+}
+
+/* SUPABASE */
+.sb-url='https://dvdwfxytdsvwjtirxncz.supabase.co';
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- HEADER -->
+  <div class="hdr">
+    <span class="logo">STAGELY</span>
+    <span class="hdr-name" id="hdr-name"></span>
+  </div>
+
+  <!-- LOGIN -->
+  <div class="screen on" id="scr-login" style="align-items:center;justify-content:center;padding:24px">
+    <div style="width:100%">
+      <div class="login-hero">
+        <span class="mic">🎤</span>
+        <h1>Portail Humoriste</h1>
+        <p>Broadway Comedy Club</p>
+      </div>
+
+      <!-- Choix -->
+      <div id="choice-screen">
+        <button class="choice-btn" onclick="showForm('dispos')">
+          <div class="choice-icon" style="background:rgba(249,115,22,.1)">📅</div>
+          <div>
+            <div class="choice-title">Mes disponibilités</div>
+            <div class="choice-sub">Indiquer mes créneaux pour le mois à venir</div>
+          </div>
+          <span class="choice-arr">›</span>
+        </button>
+        <button class="choice-btn" onclick="showForm('dates')">
+          <div class="choice-icon" style="background:rgba(99,102,241,.1)">🗓️</div>
+          <div>
+            <div class="choice-title">Mes dates de passage</div>
+            <div class="choice-sub">Voir et modifier mes créneaux planifiés</div>
+          </div>
+          <span class="choice-arr">›</span>
+        </button>
+      </div>
+
+      <!-- Formulaire -->
+      <div id="form-screen" style="display:none">
+        <button class="back-btn" onclick="document.getElementById('choice-screen').style.display='block';document.getElementById('form-screen').style.display='none'">← Retour</button>
+        <div class="form-title" id="form-title">Connexion</div>
+        <div class="card">
+          <label class="lbl">Prénom</label>
+          <input class="inp" id="f-prenom" placeholder="Ton prénom" oninput="clearErr()">
+          <label class="lbl">Nom</label>
+          <input class="inp" id="f-nom" placeholder="Ton nom" oninput="clearErr()">
+          <label class="lbl">Email</label>
+          <input class="inp" id="f-email" type="email" placeholder="ton@email.com" oninput="clearErr()">
+          <label class="lbl">Téléphone WhatsApp</label>
+          <input class="inp" id="f-phone" type="tel" placeholder="+33 6 xx xx xx xx" oninput="clearErr()">
+          <div class="divider"></div>
+          <label class="lbl">Code club</label>
+          <input class="inp code" id="f-code" placeholder="CODE" maxlength="6" oninput="this.value=this.value.toUpperCase();clearErr()">
+          <div class="err" id="f-err">⚠ Code incorrect ou champs manquants</div>
+          <label class="remember">
+            <input type="checkbox" id="f-remember">
+            <span>Se souvenir de moi</span>
+          </label>
+          <button class="btn-main" onclick="doLogin()">Accéder →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS (cachés jusqu'au login) -->
+  <div class="tabs" id="tabs" style="display:none">
+    <button class="tab on" id="tab-dispos" onclick="switchTab('dispos')">📅 DISPOS</button>
+    <button class="tab" id="tab-dates" onclick="switchTab('dates')">🗓 DATES</button>
+    <button class="tab" id="tab-profil" onclick="switchTab('profil')">👤 PROFIL</button>
+  </div>
+
+  <!-- DISPOS -->
+  <div class="screen" id="scr-dispos">
+    <div style="padding:24px">
+      <div class="dispo-header">
+        <div class="dispo-name" id="d-name">—</div>
+        <div class="dispo-club" id="d-club">Broadway Comedy Club · Disponibilités</div>
+        <div class="deadline-badge">⏰ Deadline : <span id="d-deadline">—</span></div>
+      </div>
+      <div class="help-box">👆 Coche ✓ les créneaux où tu es disponible. Active <strong>MC</strong> si tu peux animer la soirée.</div>
+      <div class="quick-btns">
+        <button class="quick-btn" onclick="checkAll()">✓ Tout cocher</button>
+        <button class="quick-btn" onclick="uncheckAll()">Tout décocher</button>
+      </div>
+      <div id="slots-container"></div>
+      <div class="submit-area">
+        <button class="btn-main" onclick="doSubmit()">Envoyer mes disponibilités</button>
+        <div class="submit-count" id="d-count">0 créneau coché</div>
+        <div class="submit-ok" id="d-ok">✓ Disponibilités envoyées — merci !</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MES DATES -->
+  <div class="screen" id="scr-dates">
+    <div style="padding:24px">
+      <div class="dates-title">Mes dates planifiées</div>
+      <div class="dates-sub">Décoche les dates qui ne te conviennent plus</div>
+      <button class="cal-btn" onclick="exportCal()">📅 Ajouter toutes mes dates au calendrier</button>
+      <div id="dates-container"></div>
+      <button class="confirm-btn" id="confirm-btn" onclick="confirmDates()">Confirmer les changements</button>
+      <div class="confirm-ok" id="confirm-ok">✓ Planning mis à jour !</div>
+    </div>
+  </div>
+
+  <!-- PROFIL -->
+  <div class="screen" id="scr-profil">
+    <div style="padding:24px">
+      <div class="profil-card">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+          <div class="profil-avatar" id="p-avatar">?</div>
+          <div class="profil-info">
+            <div class="profil-name" id="p-name">—</div>
+            <div class="profil-role">Humoriste · Broadway Comedy Club</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="stat-box">
+            <div class="stat-val" id="p-stat-dispos" style="color:var(--o)">0</div>
+            <div class="stat-lbl">Dispos</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" id="p-stat-dates" style="color:var(--g)">0</div>
+            <div class="stat-lbl">Dates planifiées</div>
+          </div>
+        </div>
+      </div>
+      <div class="profil-card">
+        <div class="info-row"><span class="info-key">Email</span><span id="p-email">—</span></div>
+        <div class="info-row"><span class="info-key">Téléphone</span><span id="p-phone">—</span></div>
+        <div class="info-row"><span class="info-key">Club</span><span style="color:var(--o);font-weight:700">Broadway Comedy Club</span></div>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">Se déconnecter</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──
+const SUPABASE_URL = 'https://dvdwfxytdsvwjtirxncz.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2ZHdmeHl0ZHN2d2p0aXJ4bmN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTY0MTMsImV4cCI6MjA5MjYzMjQxM30.7u70HAAepfCfU7T58IlN_u-b-rI5uBzqT7lISLQsrWY';
+const VALID_CODES = ['BCCD25'];
+const MOIS = ['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','nov','déc'];
+const MOIS_FULL = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const DAYS = ['DIM','LUN','MAR','MER','JEU','VEN','SAM'];
+const DAYS_FR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+const DAYS_CONFIG = [
+  {name:'MAR',label:'Mardi',slots:['20:15','21:30']},
+  {name:'MER',label:'Mercredi',slots:['20:15','21:30']},
+  {name:'JEU',label:'Jeudi',slots:['20:15','21:30']},
+  {name:'VEN',label:'Vendredi',slots:['19:00','20:15','21:30']},
+  {name:'SAM',label:'Samedi',slots:['19:00','20:30','21:45','23:00']},
+  {name:'DIM',label:'Dimanche',slots:['20:15','21:30']}
+];
+
+let user = null;
+let hvSlots = {};
+let manageDates = {};
+let assignments = {};
+let comedians = [];
+let loginMode = 'dispos';
+
+// ── SUPABASE ──
+async function sb(table, opts={}) {
+  const {method='GET', params='', body} = opts;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, {
+      method, headers: {
+        'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': method==='POST' ? 'resolution=merge-duplicates' : ''
+      },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    return method==='GET' ? await r.json() : r.ok;
+  } catch(e) { return method==='GET' ? [] : false; }
+}
+
+// ── INIT ──
+const params = new URLSearchParams(location.search);
+const urlCode = params.get('code');
+const urlManage = params.get('manage');
+
+// Charger données sauvegardées
+const saved = localStorage.getItem('stagely_hv_saved');
+if (saved) {
+  try {
+    const s = JSON.parse(saved);
+    document.getElementById('f-prenom').value = s.prenom||'';
+    document.getElementById('f-nom').value = s.nom||'';
+    document.getElementById('f-email').value = s.email||'';
+    document.getElementById('f-phone').value = s.phone||'';
+    document.getElementById('f-code').value = urlCode || s.code||'BCCD25';
+    document.getElementById('f-remember').checked = true;
+  } catch(e){}
+} else if (urlCode) {
+  document.getElementById('f-code').value = urlCode;
+}
+
+// Charger assignments depuis Supabase
+async function loadAssignments() {
+  const data = await sb('assignments');
+  assignments = {};
+  (data||[]).forEach(a => {
+    if (!assignments[a.slot_key]) assignments[a.slot_key] = [];
+    assignments[a.slot_key].push(a.comedian_id);
+  });
+  comedians = await sb('comedians', {params:'?order=name'}) || [];
+}
+loadAssignments();
+
+// Si lien direct manage
+if (urlManage) {
+  showForm('dates');
+  // Sera traité après login
+}
+
+// ── LOGIN ──
+function showForm(mode) {
+  loginMode = mode;
+  document.getElementById('choice-screen').style.display = 'none';
+  document.getElementById('form-screen').style.display = 'block';
+  document.getElementById('form-title').textContent = mode==='dispos' ? 'Mes disponibilités' : 'Mes dates de passage';
+}
+
+function clearErr() { document.getElementById('f-err').style.display='none'; }
+
+async function doLogin() {
+  const prenom = document.getElementById('f-prenom').value.trim();
+  const nom = document.getElementById('f-nom').value.trim();
+  const email = document.getElementById('f-email').value.trim();
+  const phone = document.getElementById('f-phone').value.trim();
+  const code = document.getElementById('f-code').value.trim().toUpperCase();
+  const remember = document.getElementById('f-remember').checked;
+
+  if (!prenom||!nom||!email||!phone) {
+    const err = document.getElementById('f-err');
+    err.textContent = '⚠ Remplis tous les champs';
+    err.style.display='block'; return;
+  }
+  if (!VALID_CODES.includes(code) && code !== (localStorage.getItem('stagely_club_code')||'BCCD25')) {
+    const err = document.getElementById('f-err');
+    err.textContent = '⚠ Code club incorrect';
+    err.style.display='block'; return;
+  }
+
+  const name = `${prenom.toUpperCase()} ${nom.toUpperCase()}`;
+  const id = `${prenom.toLowerCase()}_${nom.toLowerCase()}_${Date.now()}`.replace(/\s/g,'_');
+
+  // Chercher si humoriste existe déjà
+  const existing = comedians.find(c => c.name.toLowerCase() === name.toLowerCase());
+  user = existing || {id, name, prio:'new', presence:100, gender:'m', duration:10, phone, email, active:true};
+
+  if (!existing) {
+    // Créer dans Supabase
+    await sb('comedians', {method:'POST', params:'?on_conflict=id', body:[{
+      id: user.id, name: user.name, prio:'new', presence:100, gender:'m',
+      duration:10, phone, email, active:true
+    }]});
+  }
+
+  if (remember) {
+    localStorage.setItem('stagely_hv_saved', JSON.stringify({prenom,nom,email,phone,code}));
+  }
+
+  // Afficher l'espace connecté
+  document.getElementById('scr-login').classList.remove('on');
+  document.getElementById('tabs').style.display = 'flex';
+  document.getElementById('hdr-name').textContent = `${prenom} ${nom}`;
+
+  // Charger les données Supabase
+  await loadAssignments();
+
+  if (loginMode === 'dates' || urlManage) {
+    switchTab('dates');
+  } else {
+    switchTab('dispos');
+  }
+}
+
+// ── TABS ──
+function switchTab(tab) {
+  ['dispos','dates','profil'].forEach(t => {
+    document.getElementById(`scr-${t}`).classList.toggle('on', t===tab);
+    const btn = document.getElementById(`tab-${t}`);
+    btn.classList.toggle('on', t===tab);
+  });
+  if (tab==='dispos') renderDispos();
+  if (tab==='dates') renderDates();
+  if (tab==='profil') renderProfil();
+}
+
+// ── DISPOS ──
+function getNextMonthSlots() {
+  const now = new Date();
+  const nextM = (now.getMonth()+1) % 12;
+  const nextY = now.getMonth()===11 ? now.getFullYear()+1 : now.getFullYear();
+  const daysInMonth = new Date(nextY, nextM+1, 0).getDate();
+  const slots = [];
+  for (let d=1; d<=daysInMonth; d++) {
+    const date = new Date(nextY, nextM, d);
+    const dayName = DAYS[date.getDay()];
+    const cfg = DAYS_CONFIG.find(dc => dc.name === dayName);
+    if (!cfg) continue;
+    cfg.slots.forEach(slot => {
+      const key = `${nextY}-${String(nextM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}-${slot.replace(':','H')}`;
+      slots.push({key, date, day:d, dayName:cfg.name, dayLabel:DAYS_FR[date.getDay()], slot});
+    });
+  }
+  return slots;
+}
+
+function renderDispos() {
+  if (!user) return;
+  const now = new Date();
+  const nextM = (now.getMonth()+1) % 12;
+  const nextY = now.getMonth()===11 ? now.getFullYear()+1 : now.getFullYear();
+  document.getElementById('d-name').textContent = user.name;
+  document.getElementById('d-club').textContent = `Broadway Comedy Club · Disponibilités ${MOIS_FULL[nextM]} ${nextY}`;
+  document.getElementById('d-deadline').textContent = `15 ${MOIS_FULL[nextM]} ${nextY}`;
+
+  const slots = getNextMonthSlots();
+  const days = {};
+  const dayOrder = [];
+  slots.forEach(s => {
+    const ds = `${s.dayLabel} ${s.day} ${MOIS[s.date.getMonth()]}`;
+    if (!days[ds]) { days[ds] = []; dayOrder.push(ds); }
+    days[ds].push(s);
+  });
+
+  let html = '';
+  dayOrder.forEach(ds => {
+    html += `<div class="day-card"><div class="day-card-hdr">${ds}</div>`;
+    days[ds].forEach(({key, slot}) => {
+      const sv = hvSlots[key]||{dispo:false,mc:false};
+      const uid = key.replace(/[-H]/g,'_');
+      html += `<div class="slot-row">
+        <span class="slot-time">${slot}</span>
+        <span class="slot-label">Disponible</span>
+        <div class="tcheck">
+          <input type="checkbox" id="d_${uid}" ${sv.dispo?'checked':''} onchange="toggle('${key}','dispo',this.checked)">
+          <label for="d_${uid}">✓</label>
+        </div>
+        <div class="mc-check ${!sv.dispo?'off':''}">
+          <input type="checkbox" id="mc_${uid}" ${sv.mc?'checked':''} ${!sv.dispo?'disabled':''} onchange="toggle('${key}','mc',this.checked)">
+          <label for="mc_${uid}">MC</label>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+  document.getElementById('slots-container').innerHTML = html || '<div style="text-align:center;padding:40px;color:var(--muted)">Aucun créneau ce mois-ci</div>';
+  updateCount();
+}
+
+function toggle(key, type, val) {
+  if (!hvSlots[key]) hvSlots[key] = {dispo:false,mc:false};
+  hvSlots[key][type] = val;
+  if (type==='dispo' && !val) hvSlots[key].mc = false;
+  const uid = key.replace(/[-H]/g,'_');
+  const mcEl = document.querySelector(`#mc_${uid}`);
+  const mcWrap = mcEl?.closest('.mc-check');
+  if (mcWrap) {
+    mcWrap.classList.toggle('off', !hvSlots[key].dispo);
+    if (mcEl) { mcEl.disabled = !hvSlots[key].dispo; if (!hvSlots[key].dispo) { mcEl.checked=false; hvSlots[key].mc=false; } }
+  }
+  updateCount();
+}
+
+function updateCount() {
+  const n = Object.values(hvSlots).filter(v=>v.dispo).length;
+  document.getElementById('d-count').textContent = `${n} créneau${n>1?'x':''} coché${n>1?'s':''}`;
+}
+
+function checkAll() {
+  document.querySelectorAll('.tcheck input').forEach(el => {
+    el.checked = true; el.dispatchEvent(new Event('change'));
+  });
+}
+function uncheckAll() {
+  document.querySelectorAll('.tcheck input').forEach(el => {
+    el.checked = false; el.dispatchEvent(new Event('change'));
+  });
+}
+
+async function doSubmit() {
+  const n = Object.values(hvSlots).filter(v=>v.dispo).length;
+  if (!n) { alert('Coche au moins un créneau'); return; }
+  const dispoRows = Object.entries(hvSlots)
+    .filter(([,v])=>v.dispo)
+    .map(([slot_key,v])=>({comedian_id:user.id,slot_key,dispo:true,mc:v.mc||false}));
+  await sb('dispos',{method:'POST',params:'?on_conflict=comedian_id,slot_key',body:dispoRows});
+  await sb('dispo_status',{method:'POST',params:'?on_conflict=comedian_id',body:[{comedian_id:user.id,status:'replied'}]});
+  document.getElementById('d-ok').style.display='block';
+  document.querySelector('#scr-dispos .btn-main').disabled=true;
+  document.querySelector('#scr-dispos .btn-main').style.opacity='.4';
+}
+
+// ── MES DATES ──
+async function renderDates() {
+  if (!user) return;
+  const myKeys = Object.entries(assignments)
+    .filter(([,ids])=>ids.includes(user.id))
+    .map(([k])=>k);
+
+  manageDates = {};
+  myKeys.forEach(k => manageDates[k]=true);
+
+  const btn = document.getElementById('confirm-btn');
+  const container = document.getElementById('dates-container');
+
+  if (!myKeys.length) {
+    container.innerHTML = `<div class="empty-state"><span class="empty-icon">📭</span><div>Aucune date planifiée ce mois-ci</div></div>`;
+    btn.style.display='none'; return;
+  }
+
+  // Grouper par jour
+  const days = {};
+  const dayOrder = [];
+  myKeys.sort().forEach(key => {
+    const parts = key.split('-');
+    const date = new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+    const ds = `${DAYS_FR[date.getDay()]} ${date.getDate()} ${MOIS[date.getMonth()]}`;
+    if (!days[ds]) { days[ds]=[]; dayOrder.push(ds); }
+    const time = parts[3]?.replace('H',':');
+    const isMC = (assignments[key]||[])[0]===user.id;
+    days[ds].push({key,time,isMC});
+  });
+
+  let html='';
+  dayOrder.forEach(ds => {
+    html+=`<div class="date-card"><div class="date-card-hdr">📌 ${ds}</div>`;
+    days[ds].forEach(({key,time,isMC}) => {
+      const uid=key.replace(/[-H]/g,'_');
+      html+=`<div class="date-slot-row">
+        <span class="date-time">${time}</span>
+        ${isMC?'<span class="date-mc-badge">🎤 MC</span>':''}
+        <div class="date-tcheck">
+          <input type="checkbox" id="mg_${uid}" checked onchange="manageDates['${key}']=this.checked;document.getElementById('confirm-btn').style.display='block'">
+          <label for="mg_${uid}">✓</label>
+        </div>
+      </div>`;
+    });
+    html+='</div>';
+  });
+  container.innerHTML=html;
+  btn.style.display='block';
+}
+
+async function confirmDates() {
+  // Supprimer les assignments décochés
+  const toRemove = Object.entries(manageDates).filter(([,v])=>!v).map(([k])=>k);
+  for (const key of toRemove) {
+    await sb('assignments',{method:'DELETE',params:`?slot_key=eq.${key}&comedian_id=eq.${user.id}`});
+  }
+  document.getElementById('confirm-ok').style.display='block';
+  document.getElementById('confirm-btn').style.display='none';
+  await renderDates();
+}
+
+function exportCal() {
+  const myKeys = Object.entries(assignments)
+    .filter(([,ids])=>ids.includes(user.id))
+    .map(([k])=>k);
+  if (!myKeys.length) { alert('Aucune date à exporter'); return; }
+
+  let ics='BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Stagely BCC//FR\nCALSCALE:GREGORIAN\n';
+  myKeys.sort().forEach(key => {
+    const parts=key.split('-');
+    const y=parts[0],mo=parts[1],d=parts[2];
+    const t=parts[3]?.replace('H',':')||'20:00';
+    const [h,m]=t.split(':');
+    const isFirst=(assignments[key]||[])[0]===user.id;
+    const endH=parseInt(h)+1;
+    const dt=`${y}${mo}${d}T${String(h).padStart(2,'0')}${String(m||'00').padStart(2,'0')}00`;
+    const dtend=`${y}${mo}${d}T${String(endH).padStart(2,'0')}${String(m||'00').padStart(2,'0')}00`;
+    ics+=`BEGIN:VEVENT\nUID:stagely-${key}-${user.id}@bcc\nDTSTART:${dt}\nDTEND:${dtend}\nSUMMARY:${isFirst?'🎤 MC — ':' '}Broadway Comedy Club ${t}\nLOCATION:Broadway Comedy Club\nEND:VEVENT\n`;
+  });
+  ics+='END:VCALENDAR';
+  const blob=new Blob([ics],{type:'text/calendar'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`BCC_${user.name.replace(' ','_')}.ics`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── PROFIL ──
+async function renderProfil() {
+  if (!user) return;
+  const initials = user.name.split(' ').map(n=>n[0]).join('').slice(0,2);
+  document.getElementById('p-avatar').textContent = initials;
+  document.getElementById('p-name').textContent = user.name;
+  document.getElementById('p-email').textContent = user.email||'—';
+  document.getElementById('p-phone').textContent = user.phone||'—';
+  const dispos = await sb('dispos',{params:`?comedian_id=eq.${user.id}&dispo=eq.true`});
+  const dates = Object.entries(assignments).filter(([,ids])=>ids.includes(user.id)).length;
+  document.getElementById('p-stat-dispos').textContent = dispos?.length||0;
+  document.getElementById('p-stat-dates').textContent = dates;
+}
+
+function doLogout() {
+  user=null; hvSlots={};
+  document.getElementById('scr-login').classList.add('on');
+  document.getElementById('tabs').style.display='none';
+  document.getElementById('hdr-name').textContent='';
+  ['dispos','dates','profil'].forEach(t=>{
+    document.getElementById(`scr-${t}`).classList.remove('on');
+    document.getElementById(`tab-${t}`).classList.remove('on');
+  });
+  document.getElementById('tab-dispos').classList.add('on');
+  document.getElementById('choice-screen').style.display='block';
+  document.getElementById('form-screen').style.display='none';
+}
+</script>
+</body>
+</html>
