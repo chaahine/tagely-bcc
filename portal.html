@@ -365,9 +365,7 @@ body::before{
           <input class="inp" id="f-email" type="email" placeholder="ton@email.com" oninput="clearErr()">
           <label class="lbl">Téléphone WhatsApp</label>
           <input class="inp" id="f-phone" type="tel" placeholder="+33 6 xx xx xx xx" oninput="clearErr()">
-          <div class="divider"></div>
-          <label class="lbl">Code club</label>
-          <input class="inp code" id="f-code" placeholder="CODE" maxlength="6" oninput="this.value=this.value.toUpperCase();clearErr()">
+
           <div class="err" id="f-err">⚠ Code incorrect ou champs manquants</div>
           <label class="remember">
             <input type="checkbox" id="f-remember">
@@ -537,9 +535,7 @@ if (saved) {
     document.getElementById('f-code').value = urlCode || s.code||'BCCD25';
     document.getElementById('f-remember').checked = true;
   } catch(e){}
-} else if (urlCode) {
-  document.getElementById('f-code').value = urlCode;
-}
+
 
 // Charger assignments depuis Supabase
 async function loadAssignments() {
@@ -574,19 +570,14 @@ async function doLogin() {
   const nom = document.getElementById('f-nom').value.trim();
   const email = document.getElementById('f-email').value.trim();
   const phone = document.getElementById('f-phone').value.trim();
-  const code = document.getElementById('f-code').value.trim().toUpperCase();
-  const remember = document.getElementById('f-remember').checked;
+  const remember = document.getElementById('f-remember')?.checked;
 
   if (!prenom||!nom||!email||!phone) {
     const err = document.getElementById('f-err');
     err.textContent = '⚠ Remplis tous les champs';
     err.style.display='block'; return;
   }
-  if (!VALID_CODES.includes(code) && code !== (localStorage.getItem('stagely_club_code')||'BCCD25')) {
-    const err = document.getElementById('f-err');
-    err.textContent = '⚠ Code club incorrect';
-    err.style.display='block'; return;
-  }
+
 
   const name = `${prenom.toUpperCase()} ${nom.toUpperCase()}`;
   const id = `${prenom.toLowerCase()}_${nom.toLowerCase()}_${Date.now()}`.replace(/\s/g,'_');
@@ -604,7 +595,7 @@ async function doLogin() {
   }
 
   if (remember) {
-    localStorage.setItem('stagely_hv_saved', JSON.stringify({prenom,nom,email,phone,code}));
+    localStorage.setItem('stagely_hv_saved', JSON.stringify({prenom,nom,email,phone}));
   }
 
   // Afficher l'espace connecté

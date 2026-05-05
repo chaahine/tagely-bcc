@@ -730,6 +730,7 @@ html.light{
   <div class="ni" onclick="nav('chapeau')"><span class="ni-lbl">Chapeau</span></div>
   <div class="ni" onclick="nav('reglages')"><span class="ni-lbl">Réglages</span></div>
   <div class="ns">Communication</div>
+  <div class="ni" onclick="openUrgenceModal()" style="color:var(--r);border:1px solid rgba(239,68,68,.2);border-radius:4px;margin:4px 8px"><span class="ni-lbl">🚨 Remplacement urgent</span></div>
 
   <div class="ctag"><strong id="club-badge">BCC</strong><span class="ni-lbl">Directeur artistique</span></div>
 </div>
@@ -2551,14 +2552,18 @@ function scheduleReminders() {
 async function send1hReminders(key, humIds, showTime, slot) {
   const timeStr = slot.replace('H', ':');
   const names = humIds.map(id => COMEDIANS.find(c => c.id === id)?.name.split(' ')[0]).filter(Boolean);
-  showAppNotif(`🔔 Show dans 1h — ${timeStr} · ${names.join(', ')}`, 'var(--o)');
+  const msg = `🔔 Show dans 1h — ${timeStr} · ${names.join(', ')}`;
+  showAppNotif(msg, 'var(--o)');
+  sendNotif('🔔 Show dans 1h — BCC', `${timeStr} · ${names.join(', ')}`);
   logAction('notification', { type: '1h_admin', slot: timeStr });
 }
 
 async function send3hReminders(key, humIds, showTime, slot) {
   const timeStr = slot.replace('H', ':');
   const names = humIds.map(id => COMEDIANS.find(c => c.id === id)?.name.split(' ')[0]).filter(Boolean);
-  showAppNotif(`⏰ Show dans 3h — ${timeStr} · ${names.join(', ')}`, 'var(--b)');
+  const msg = `⏰ Show dans 3h — ${timeStr} · ${names.join(', ')}`;
+  showAppNotif(msg, 'var(--b)');
+  sendNotif('⏰ Show dans 3h — BCC', `${timeStr} · ${names.join(', ')}`);
   logAction('notification', { type: '3h_reminder', slot: timeStr });
 }
 
@@ -3885,7 +3890,54 @@ setInterval(checkCancellations, 30000);
 // ══════════════════════════════════════════════════
 let chapeauData = JSON.parse(localStorage.getItem('stagely_chapeau') || '[]');
 
-function updateChapeauTotal() {
+function openUrgenceModal() {
+  // Remplir les créneaux de la semaine
+  const weekStart = getWeekStart();
+  const sel = document.getElementById('urg-slot-select');
+  sel.innerHTML = '<option value="">— Sélectionner —</option>';
+  DAYS_CONFIG.forEach((day, di) => {
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + di + 1);
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+    day.slots.forEach(slot => {
+      const key = `${dateStr}-${slot}`;
+      const ids = assignments[key] || [];
+      if (!ids.length) return;
+      const label = `${day.label} ${date.getDate()} ${MOIS[date.getMonth()]} à ${slot.replace('H',':')}`;
+      sel.innerHTML += `<option value="${key}">${label}</option>`;
+    });
+  });
+  // Remplir les humoristes
+  const csel = document.getElementById('urg-comedian');
+  csel.innerHTML = '<option value="">— Sélectionner —</option>' +
+    COMEDIANS.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  openModal('modal-urgence');
+}
+
+async function sendUrgenceAlert() {
+  const slotKey = document.getElementById('urg-slot-select').value;
+  const comedianId = document.getElementById('urg-comedian').value;
+  const message = document.getElementById('urg-message').value.trim();
+  if (!slotKey) { toast('⚠ Sélectionne un créneau'); return; }
+  const parts = slotKey.split('-');
+  const date = new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+  const slot = parts[3]?.replace('H',':');
+  const dateStr = date.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  const absent = COMEDIANS.find(c => c.id === comedianId);
+  const alertMsg = `🚨 REMPLACEMENT URGENT — ${dateStr} à ${slot}${absent?' ('+absent.name.split(' ')[0]+' absent)':''}${message?' : '+message:''}`;
+
+  // Notification push admin
+  sendNotif('🚨 Remplacement urgent BCC', `${dateStr} à ${slot}${absent?' — '+absent.name.split(' ')[0]+' absent':''}`);
+  showAppNotif(alertMsg, 'var(--r)');
+
+  // Sauvegarder dans chat_messages pour que les humoristes voient via portail
+  await sbFetch('chat_messages', {method:'POST', body:{
+    sender:'ADMIN', sender_id:'admin', text: alertMsg
+  }});
+
+  closeModal('modal-urgence');
+  toast(`✓ Alerte envoyée`);
+}
   const especes = parseFloat(document.getElementById('ch-especes').value) || 0;
   const cb = parseFloat(document.getElementById('ch-cb').value) || 0;
   document.getElementById('ch-total').textContent = (especes + cb) + '€';
@@ -4087,7 +4139,33 @@ function renderChapeau(periode = 'semaine') {
 }
 </script>
 
-<!-- MODAL CHAPEAU -->
+<!-- MODAL URGENCE REMPLACEMENT -->
+<div class="overlay" id="modal-urgence">
+  <div class="modal" style="width:420px">
+    <div class="modal-title" style="color:var(--r)">🚨 Remplacement urgent</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px">Un email va être envoyé à tous tes humoristes pour demander un remplacement.</div>
+    <div class="fr">
+      <label class="fl">Créneau annulé</label>
+      <select class="fsl" id="urg-slot-select">
+        <option value="">— Sélectionner —</option>
+      </select>
+    </div>
+    <div class="fr">
+      <label class="fl">Humoriste absent</label>
+      <select class="fsl" id="urg-comedian">
+        <option value="">— Sélectionner —</option>
+      </select>
+    </div>
+    <div class="fr">
+      <label class="fl">Message (facultatif)</label>
+      <textarea class="fta" id="urg-message" placeholder="Ex: Lotfi annule pour raison médicale..."></textarea>
+    </div>
+    <div class="ma">
+      <button class="btn btn-ghost" onclick="closeModal('modal-urgence')">Annuler</button>
+      <button class="btn" style="background:var(--r);color:#fff" onclick="sendUrgenceAlert()">🚨 Envoyer l'alerte</button>
+    </div>
+  </div>
+</div>
 <div class="overlay" id="modal-chapeau">
   <div class="modal" style="width:400px">
     <div class="modal-title">🎩 Saisir le chapeau</div>
