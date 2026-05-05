@@ -412,11 +412,38 @@ body::before{
   <div class="screen" id="scr-dates">
     <div style="padding:24px">
       <div class="dates-title">Mes dates planifiées</div>
-      <div class="dates-sub">Décoche les dates qui ne te conviennent plus</div>
-      <button class="cal-btn" onclick="exportCal()">📅 Ajouter toutes mes dates au calendrier</button>
+      <div class="dates-sub">Clique sur une date pour la gérer</div>
+      
+      <!-- Bouton calendrier -->
+      <button class="cal-btn" onclick="exportCal()">
+        📅 Ajouter toutes mes dates à mon calendrier
+      </button>
+
+      <!-- Bouton annulation urgente -->
+      <button onclick="showCancelModal()" style="width:100%;padding:13px;background:rgba(239,68,68,.06);color:var(--r);border:1px solid rgba(239,68,68,.2);border-radius:12px;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:20px;transition:.15s">
+        🚨 Signaler une annulation
+      </button>
+
       <div id="dates-container"></div>
       <button class="confirm-btn" id="confirm-btn" onclick="confirmDates()">Confirmer les changements</button>
       <div class="confirm-ok" id="confirm-ok">✓ Planning mis à jour !</div>
+    </div>
+  </div>
+
+  <!-- MODAL ANNULATION -->
+  <div id="cancel-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:100;align-items:center;justify-content:center;padding:24px">
+    <div style="background:var(--s1);border:1px solid var(--border2);border-radius:16px;padding:24px;width:100%;max-width:400px">
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:16px;color:var(--r)">🚨 Signaler une annulation</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">Quel créneau ne peux-tu plus assurer ?</div>
+      <select id="cancel-slot-select" style="width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:10px;padding:12px 14px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;margin-bottom:12px">
+        <option value="">— Sélectionner le créneau —</option>
+      </select>
+      <textarea id="cancel-reason" placeholder="Raison (facultatif)..." style="width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:10px;padding:12px 14px;color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;resize:none;height:80px;margin-bottom:16px"></textarea>
+      <div style="display:flex;gap:8px">
+        <button onclick="hideCancelModal()" style="flex:1;padding:12px;background:var(--s2);border:1px solid var(--border2);border-radius:10px;color:var(--muted);font-family:'Syne',sans-serif;font-weight:600;font-size:12px;cursor:pointer">Annuler</button>
+        <button onclick="sendCancelAlert()" style="flex:1;padding:12px;background:var(--r);border:none;border-radius:10px;color:#fff;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;cursor:pointer">Envoyer l'alerte</button>
+      </div>
+      <div id="cancel-ok" style="display:none;text-align:center;font-size:11px;color:var(--g);margin-top:12px;padding:10px;background:var(--g2);border-radius:8px">✓ Alerte envoyée à l'admin !</div>
     </div>
   </div>
 
@@ -815,7 +842,58 @@ async function renderProfil() {
   document.getElementById('p-stat-dates').textContent = dates;
 }
 
-function doLogout() {
+function showCancelModal() {
+  const myKeys = Object.entries(assignments)
+    .filter(([,ids])=>ids.includes(user.id))
+    .map(([k])=>k);
+  
+  const sel = document.getElementById('cancel-slot-select');
+  sel.innerHTML = '<option value="">— Sélectionner le créneau —</option>';
+  myKeys.sort().forEach(key => {
+    const parts = key.split('-');
+    const date = new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+    const time = parts[3]?.replace('H',':');
+    const ds = `${DAYS_FR[date.getDay()]} ${date.getDate()} ${MOIS[date.getMonth()]} à ${time}`;
+    sel.innerHTML += `<option value="${key}">${ds}</option>`;
+  });
+  
+  document.getElementById('cancel-modal').style.display = 'flex';
+}
+
+function hideCancelModal() {
+  document.getElementById('cancel-modal').style.display = 'none';
+  document.getElementById('cancel-ok').style.display = 'none';
+  document.getElementById('cancel-reason').value = '';
+}
+
+async function sendCancelAlert() {
+  const key = document.getElementById('cancel-slot-select').value;
+  const reason = document.getElementById('cancel-reason').value.trim();
+  if (!key) { alert('Sélectionne un créneau'); return; }
+  
+  const parts = key.split('-');
+  const date = new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+  const time = parts[3]?.replace('H',':');
+  const ds = `${DAYS_FR[date.getDay()]} ${date.getDate()} ${MOIS[date.getMonth()]} à ${time}`;
+  
+  // Sauvegarder l'annulation dans Supabase
+  await sb('chat_messages', {method:'POST', body:{
+    sender: user.name,
+    sender_id: user.id,
+    text: `🚨 ANNULATION — ${user.name} ne peut plus assurer le ${ds}${reason?' : '+reason:''} — Qui peut remplacer ?`
+  }});
+  
+  // Supprimer l'assignment
+  await sb('assignments', {method:'DELETE', params:`?slot_key=eq.${key}&comedian_id=eq.${user.id}`});
+  
+  document.getElementById('cancel-ok').style.display = 'block';
+  setTimeout(() => {
+    hideCancelModal();
+    renderDates();
+  }, 2000);
+}
+
+
   user=null; hvSlots={};
   document.getElementById('scr-login').classList.add('on');
   document.getElementById('tabs').style.display='none';

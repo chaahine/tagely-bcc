@@ -3857,8 +3857,28 @@ document.addEventListener('visibilitychange', () => {
 
 checkRoute();
 
-// ══════════════════════════════════════════════════
-// CHAPEAU
+// Surveiller les annulations des humoristes (toutes les 30s)
+let lastChatCheck = Date.now();
+async function checkCancellations() {
+  if (!sbConnected) return;
+  try {
+    const msgs = await sbFetch('chat_messages', {
+      params: `?created_at=gt.${new Date(lastChatCheck).toISOString()}&order=created_at.desc&limit=5`
+    });
+    if (msgs && msgs.length) {
+      msgs.forEach(m => {
+        if (m.text && m.text.includes('🚨 ANNULATION')) {
+          showAppNotif(`${m.text}`, 'var(--r)');
+          if (Notification.permission === 'granted') {
+            sendNotif('🚨 Annulation BCC', m.text.replace(/🚨 ANNULATION — /,''));
+          }
+        }
+      });
+      lastChatCheck = Date.now();
+    }
+  } catch(e) {}
+}
+setInterval(checkCancellations, 30000);
 // ══════════════════════════════════════════════════
 let chapeauData = JSON.parse(localStorage.getItem('stagely_chapeau') || '[]');
 
