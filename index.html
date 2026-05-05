@@ -4003,26 +4003,41 @@ function renderChapeau(periode = 'semaine') {
 
   // Séances de la semaine complète
   const wkLabel = getWkLabel();
-  html += `<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;font-weight:600">Séances — ${wkLabel}</div>`;
-  html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:8px;margin-bottom:20px">`;
+  html += `<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;font-weight:600">Séances — ${wkLabel}</div>`;
+  html += `<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:24px">`;
   DAYS_CONFIG.forEach((day, di) => {
     const date = new Date(weekStart);
     date.setDate(weekStart.getDate() + di + 1);
     const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
-    const dayLabel = `${day.label} ${date.getDate()} ${MOIS[date.getMonth()]}`;
-    day.slots.forEach(slot => {
+    day.slots.forEach((slot, si) => {
       const slot2 = slot.replace('H',':');
       const key = `${dateStr}-${slot}`;
       const ids = assignments[key] || [];
       const existingEntry = chapeauData.find(e => e.date === dateStr && e.slot === slot2);
-      html += `<div style="background:var(--s1);border:1px solid ${existingEntry?'var(--gb)':'var(--border2)'};border-radius:8px;padding:12px;cursor:pointer" onclick="openChapeauForSlot('${dateStr}','${slot2}')">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <div style="font-size:15px;font-weight:800;color:var(--text);font-family:monospace">${slot2}</div>
-          ${existingEntry?`<div style="font-size:13px;font-weight:700;color:var(--gold)">${existingEntry.montant}€</div>`:''}
+      const isFirst = si === 0;
+      html += `<div onclick="openChapeauForSlot('${dateStr}','${slot2}')" style="
+        display:flex;align-items:center;
+        background:var(--s1);
+        border:1px solid ${existingEntry?'rgba(34,197,94,.3)':'var(--border2)'};
+        border-radius:8px;padding:12px 16px;
+        cursor:pointer;gap:16px;transition:.12s;
+      " onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='var(--s1)'">
+        <!-- Date -->
+        <div style="min-width:130px;flex-shrink:0">
+          ${isFirst ? `<div style="font-size:13px;font-weight:800;color:var(--text)">${day.label} ${date.getDate()} ${MOIS[date.getMonth()]}</div>` : `<div style="font-size:13px;color:var(--muted)">↳</div>`}
         </div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">${dayLabel}</div>
-        <div style="font-size:9px;color:${existingEntry?'var(--g)':'var(--o)'}">
-          ${existingEntry?'✓ Enregistré':'+ Saisir'}
+        <!-- Créneau -->
+        <div style="font-size:22px;font-weight:800;color:var(--text);font-family:monospace;min-width:70px">${slot2}</div>
+        <!-- Artistes -->
+        <div style="flex:1;font-size:11px;color:var(--muted)">
+          ${ids.length ? ids.map(id => COMEDIANS.find(c=>c.id===id)?.name.split(' ')[0]||'?').join(', ') : 'Aucun assigné'}
+        </div>
+        <!-- Montant -->
+        <div style="text-align:right;min-width:80px">
+          ${existingEntry
+            ? `<div style="font-size:18px;font-weight:800;color:var(--gold)">${existingEntry.montant}€</div>
+               <div style="font-size:9px;color:var(--g)">✓ Saisi</div>`
+            : `<div style="font-size:11px;color:var(--o);font-weight:600">+ Saisir</div>`}
         </div>
       </div>`;
     });
