@@ -3938,6 +3938,8 @@ async function sendUrgenceAlert() {
   closeModal('modal-urgence');
   toast(`✓ Alerte envoyée`);
 }
+
+function updateChapeauTotal() {
   const especes = parseFloat(document.getElementById('ch-especes').value) || 0;
   const cb = parseFloat(document.getElementById('ch-cb').value) || 0;
   document.getElementById('ch-total').textContent = (especes + cb) + '€';
