@@ -293,8 +293,8 @@ html.light{
   border-bottom:1px solid var(--border);
   display:flex;align-items:baseline;gap:6px;flex-shrink:0;
 }
-.dg-name{font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text)}
-.dg-date{font-size:10px;color:var(--muted);font-family:'Rajdhani',sans-serif}
+.dg-name{font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o)}
+.dg-date{font-size:15px;color:var(--text);font-weight:700;font-family:'Rajdhani',sans-serif}
 .sr{display:flex;flex:1;overflow-y:auto;gap:1px;background:var(--border)}
 .sc{width:190px;flex-shrink:0;display:flex;flex-direction:column;background:var(--bg)}
 .sc:last-child{}
@@ -1759,7 +1759,7 @@ function renderPlanning() {
     date.setDate(weekStart.getDate() + di + 1); // +1 car lundi=0, mardi=+1
     const key_fn = (slot) => dateKey(date, slot);
 
-    html += `<div class="dg"><div class="dg-hd"><span class="dg-name">${day.name}</span><span class="dg-date">${date.getDate()} ${MOIS[date.getMonth()]}</span></div><div class="sr">`;
+    html += `<div class="dg"><div class="dg-hd"><span class="dg-name">${day.name}</span><span class="dg-date" style="font-size:13px;font-weight:700;color:var(--text)">${date.getDate()} ${MOIS[date.getMonth()]}</span></div><div class="sr">`;
 
     day.slots.forEach(slot => {
       const key = key_fn(slot);
@@ -3098,7 +3098,7 @@ async function loadFromSupabase() {
     if (!comedians) return false;
 
     // Mettre à jour les données
-    if (comedians.length > 0) {
+    if (comedians) {
       COMEDIANS.splice(0, COMEDIANS.length, ...comedians);
     }
     // Assignments
@@ -3660,6 +3660,14 @@ if (loaded) console.log('✓ Données restaurées depuis localStorage');
 // Charger depuis Supabase au démarrage (en arrière-plan)
 loadFromSupabase().then(ok => {
   if (ok) {
+    // Si Supabase est vide, vider aussi le localStorage
+    if (COMEDIANS.length === 0) {
+      const data = JSON.parse(localStorage.getItem(LS_KEY)||'{}');
+      if (data.COMEDIANS?.length) {
+        // Supabase est vide mais localStorage a des données — ignorer localStorage
+        console.log('Supabase vide — localStorage ignoré');
+      }
+    }
     renderDashboard();
     console.log('✓ Données synchronisées depuis Supabase');
   }
