@@ -1729,19 +1729,16 @@ function renderDashboard() {
 
 // Date de début de semaine affichée (lundi)
 function getWeekStart() {
+  // Partir de la semaine actuelle (lundi de cette semaine)
   const now = new Date();
-  // Si on est en mai ou après, utiliser le mois actuel
-  // Sinon utiliser le mois prochain
-  const year = now.getFullYear();
-  const month = now.getMonth(); // mois actuel (0-indexé)
-  // Premier lundi du mois actuel
-  const firstDay = new Date(year, month, 1);
-  const dayOfWeek = firstDay.getDay(); // 0=dim
-  const daysToMonday = dayOfWeek === 0 ? 1 : dayOfWeek === 1 ? 0 : (8 - dayOfWeek);
-  const firstMonday = new Date(year, month, 1 + daysToMonday);
+  const dayOfWeek = now.getDay(); // 0=dim, 1=lun...
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diffToMonday);
+  monday.setHours(0,0,0,0);
   // Ajouter weekOffset semaines
-  firstMonday.setDate(firstMonday.getDate() + weekOffset * 7);
-  return firstMonday;
+  monday.setDate(monday.getDate() + weekOffset * 7);
+  return monday;
 }
 
 function getWkLabel() {
