@@ -444,6 +444,8 @@ html.light{
 ══════════════════════════════════════ */
 #hv-screen{display:none;position:fixed;inset:0;z-index:500;background:#0a0a0a;overflow:hidden}
 #hv-screen>div{height:100%;display:flex;flex-direction:column;overflow:hidden}
+#hv-login{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;overflow-y:auto;padding:20px}
+#hv-login>div{width:100%;max-width:400px}
 .hv-center{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:48px 16px 60px;position:relative;z-index:1;width:100%}
 .login-box{width:100%;max-width:440px}
 .login-logo{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:18px;color:var(--o);letter-spacing:3px;margin-bottom:4px;text-align:center;text-transform:uppercase}
@@ -517,8 +519,8 @@ html.light{
   </div>
 
   <!-- LOGIN PAGE -->
-  <div id="hv-login" style="flex:1;overflow-y:auto;display:flex;align-items:center;justify-content:center;padding:20px">
-    <div style="width:100%;max-width:400px">
+  <div id="hv-login">
+    <div>
       <div style="text-align:center;margin-bottom:32px">
         <div style="font-size:44px;margin-bottom:12px">🎤</div>
         <div style="font-size:24px;font-weight:800;color:#f0f0f0;margin-bottom:4px;letter-spacing:-.5px">Portail Humoriste</div>
@@ -1379,7 +1381,9 @@ function hvLogin() {
     document.getElementById('l-err').textContent = 'Remplis tous les champs';
     document.getElementById('l-err').style.display = 'block'; return;
   }
-  if (code !== currentCode) {
+  // Valider le code — accepter BCCD25 toujours + le code admin actuel
+  const validCodes = ['BCCD25', currentCode, localStorage.getItem('stagely_club_code')].filter(Boolean);
+  if (!validCodes.includes(code)) {
     document.getElementById('l-err').textContent = 'Code club incorrect';
     document.getElementById('l-err').style.display = 'block'; return;
   }
