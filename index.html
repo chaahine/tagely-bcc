@@ -721,14 +721,14 @@ html.light{
   <button class="logo-t" onclick="toggleSB()">≡</button>
 </div>
   <div class="ns">Général</div>
-  <div class="ni on" onclick="nav('dashboard')"><span class="ni-ico">⊡</span><span class="ni-lbl">Dashboard</span></div>
+  <div class="ni on" onclick="nav('dashboard')"><span class="ni-lbl">Dashboard</span></div>
   <div class="ns">Programmation</div>
-  <div class="ni" onclick="nav('planning')"><span class="ni-ico">⊞</span><span class="ni-lbl">Planning</span></div>
-  <div class="ni" onclick="nav('dispos')"><span class="ni-ico">◫</span><span class="ni-lbl">Disponibilités</span><span class="nbadge" id="bdg-dispos">8</span></div>
+  <div class="ni" onclick="nav('planning')"><span class="ni-lbl">Planning</span></div>
+  <div class="ni" onclick="nav('dispos')"><span class="ni-lbl">Disponibilités</span><span class="nbadge" id="bdg-dispos">8</span></div>
   <div class="ns">Gestion</div>
-  <div class="ni" onclick="nav('humoristes')"><span class="ni-ico">◉</span><span class="ni-lbl">Humoristes</span></div>
-  <div class="ni" onclick="nav('chapeau')"><span class="ni-ico">🎩</span><span class="ni-lbl">Chapeau</span></div>
-  <div class="ni" onclick="nav('reglages')"><span class="ni-ico">⚙</span><span class="ni-lbl">Réglages</span></div>
+  <div class="ni" onclick="nav('humoristes')"><span class="ni-lbl">Humoristes</span></div>
+  <div class="ni" onclick="nav('chapeau')"><span class="ni-lbl">Chapeau</span></div>
+  <div class="ni" onclick="nav('reglages')"><span class="ni-lbl">Réglages</span></div>
   <div class="ns">Communication</div>
 
   <div class="ctag"><strong id="club-badge">BCC</strong><span class="ni-lbl">Directeur artistique</span></div>
@@ -3653,21 +3653,13 @@ if (savedTheme === 'light') {
   localStorage.setItem('stagely_theme', 'dark');
 }
 
-// Charger données — localStorage d'abord, puis sync Supabase
+// Charger données — localStorage d'abord pour la vitesse
 const loaded = loadAll();
 if (loaded) console.log('✓ Données restaurées depuis localStorage');
 
-// Charger depuis Supabase au démarrage (en arrière-plan)
+// Charger depuis Supabase — remplace TOUJOURS les comedians
 loadFromSupabase().then(ok => {
   if (ok) {
-    // Si Supabase est vide, vider aussi le localStorage
-    if (COMEDIANS.length === 0) {
-      const data = JSON.parse(localStorage.getItem(LS_KEY)||'{}');
-      if (data.COMEDIANS?.length) {
-        // Supabase est vide mais localStorage a des données — ignorer localStorage
-        console.log('Supabase vide — localStorage ignoré');
-      }
-    }
     renderDashboard();
     console.log('✓ Données synchronisées depuis Supabase');
   }
@@ -3681,7 +3673,7 @@ loadFromSupabase().then(ok => {
   const div = document.createElement('div');
   div.className = 'ni';
   div.setAttribute('onclick', "nav('historique')");
-  div.innerHTML = '<span class="ni-ico">◌</span><span class="ni-lbl">Historique</span>';
+  div.innerHTML = '<span class="ni-lbl">Historique</span>';
   sidebar.insertBefore(div, ctag);
 })();
 
@@ -3941,11 +3933,8 @@ function saveChapeau() {
   const especes = parseFloat(document.getElementById('ch-especes').value) || 0;
   const cb = parseFloat(document.getElementById('ch-cb').value) || 0;
   const montant = especes + cb;
-  const spectateurs = parseInt(document.getElementById('ch-spectateurs').value) || 0;
-  const notes = document.getElementById('ch-notes').value.trim();
   if (!date) { toast('⚠ Ajoute une date'); return; }
   const mc = COMEDIANS.find(c => c.id === mcId);
-  // Répartition par artiste
   const key = `${date}-${slot.replace(':','H')}`;
   const ids = assignments[key] || [];
   const repartition = {};
@@ -3953,12 +3942,11 @@ function saveChapeau() {
     const val = parseFloat(document.getElementById(`ch-art-${id}`)?.value) || 0;
     if (val > 0) repartition[id] = val;
   });
-  // Si pas de répartition manuelle, calculer égale
   if (!Object.keys(repartition).length && ids.length && montant > 0) {
     const share = Math.round(montant / ids.length * 100) / 100;
     ids.forEach(id => repartition[id] = share);
   }
-  chapeauData.unshift({id:Date.now(), date, slot, mc:mc?.name||'—', mcId, montant, especes, cb, spectateurs, notes, repartition});
+  chapeauData.unshift({id:Date.now(), date, slot, mc:mc?.name||'—', mcId, montant, especes, cb, repartition});
   localStorage.setItem('stagely_chapeau', JSON.stringify(chapeauData));
   closeModal('modal-chapeau');
   renderChapeau();
@@ -4111,12 +4099,10 @@ function renderChapeau(periode = 'jour') {
       <span style="font-size:16px;font-weight:700;color:var(--gold)" id="ch-total">0€</span>
     </div>
     <div class="fr">
-      <label class="fl">Répartition par artiste (€)</label>
+      <label class="fl">Montant par artiste (€)</label>
       <div id="ch-artistes" style="display:flex;flex-direction:column;gap:6px"></div>
       <div style="font-size:9px;color:var(--muted);margin-top:4px">Laisser vide = répartition égale automatique</div>
     </div>
-    <div class="fr"><label class="fl">Nombre de spectateurs</label><input class="fi" id="ch-spectateurs" type="number" placeholder="0" min="0"></div>
-    <div class="fr"><label class="fl">Notes</label><textarea class="fta" id="ch-notes" placeholder="Observations, ambiance..."></textarea></div>
     <div class="ma">
       <button class="btn btn-ghost" onclick="closeModal('modal-chapeau')">Annuler</button>
       <button class="btn btn-o" onclick="saveChapeau()">Enregistrer</button>
