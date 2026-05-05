@@ -3810,41 +3810,14 @@ document.addEventListener('keydown', e => {
 
 // ── SERVICE WORKER (rappels en arrière-plan) ──
 if ('serviceWorker' in navigator) {
-  // Inline SW via blob URL
-  const swCode = `
-    self.addEventListener('install', e => self.skipWaiting());
-    self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
-
-    // Reçoit les rappels à programmer
-    self.addEventListener('message', e => {
-      if (e.data?.type === 'schedule_reminder') {
-        const { delay, payload } = e.data;
-        setTimeout(() => {
-          self.clients.matchAll().then(clients => {
-            clients.forEach(c => c.postMessage({ type: 'reminder_fire', payload }));
-          });
-          // Notification push
-          self.registration.showNotification('STAGELY — ' + payload.title, {
-            body: payload.body,
-            icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🎤</text></svg>',
-            tag: payload.key,
-            requireInteraction: true
-          });
-        }, delay);
-      }
-    });
-  `;
-  const swBlob = new Blob([swCode], {type:'application/javascript'});
-  const swUrl = URL.createObjectURL(swBlob);
-  navigator.serviceWorker.register(swUrl).then(reg => {
-    console.log('✓ Service Worker actif');
-    // Écoute les messages du SW
+  navigator.serviceWorker.register('/sw.js').then(reg => {
+    console.log('✓ Service Worker /sw.js actif');
     navigator.serviceWorker.addEventListener('message', e => {
       if (e.data?.type === 'reminder_fire') {
-        showAppNotif(e.data.payload.body, 'var(--o)');
+        showAppNotif(e.data.payload?.body || e.data.body, 'var(--o)');
       }
     });
-  }).catch(e => console.warn('SW non disponible (file://):', e.message));
+  }).catch(e => console.warn('SW erreur:', e.message));
 }
 
 // Demander permission notifications navigateur
@@ -3891,7 +3864,6 @@ setInterval(checkCancellations, 30000);
 let chapeauData = JSON.parse(localStorage.getItem('stagely_chapeau') || '[]');
 
 function openUrgenceModal() {
-  // Remplir les créneaux de la semaine
   const weekStart = getWeekStart();
   const sel = document.getElementById('urg-slot-select');
   sel.innerHTML = '<option value="">— Sélectionner —</option>';
@@ -3900,43 +3872,27 @@ function openUrgenceModal() {
     date.setDate(weekStart.getDate() + di + 1);
     const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
     day.slots.forEach(slot => {
-      const key = `${dateStr}-${slot}`;
-      const ids = assignments[key] || [];
-      if (!ids.length) return;
       const label = `${day.label} ${date.getDate()} ${MOIS[date.getMonth()]} à ${slot.replace('H',':')}`;
-      sel.innerHTML += `<option value="${key}">${label}</option>`;
+      sel.innerHTML += `<option value="${dateStr}-${slot}">${label}</option>`;
     });
   });
-  // Remplir les humoristes
-  const csel = document.getElementById('urg-comedian');
-  csel.innerHTML = '<option value="">— Sélectionner —</option>' +
-    COMEDIANS.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
   openModal('modal-urgence');
 }
 
 async function sendUrgenceAlert() {
   const slotKey = document.getElementById('urg-slot-select').value;
-  const comedianId = document.getElementById('urg-comedian').value;
   const message = document.getElementById('urg-message').value.trim();
   if (!slotKey) { toast('⚠ Sélectionne un créneau'); return; }
   const parts = slotKey.split('-');
   const date = new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
   const slot = parts[3]?.replace('H',':');
   const dateStr = date.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-  const absent = COMEDIANS.find(c => c.id === comedianId);
-  const alertMsg = `🚨 REMPLACEMENT URGENT — ${dateStr} à ${slot}${absent?' ('+absent.name.split(' ')[0]+' absent)':''}${message?' : '+message:''}`;
-
-  // Notification push admin
-  sendNotif('🚨 Remplacement urgent BCC', `${dateStr} à ${slot}${absent?' — '+absent.name.split(' ')[0]+' absent':''}`);
+  const alertMsg = `🚨 REMPLACEMENT URGENT — ${dateStr} à ${slot}${message?' : '+message:''}`;
+  sendNotif('🚨 Remplacement urgent BCC', `${dateStr} à ${slot}`);
   showAppNotif(alertMsg, 'var(--r)');
-
-  // Sauvegarder dans chat_messages pour que les humoristes voient via portail
-  await sbFetch('chat_messages', {method:'POST', body:{
-    sender:'ADMIN', sender_id:'admin', text: alertMsg
-  }});
-
+  await sbFetch('chat_messages', {method:'POST', body:{sender:'ADMIN', sender_id:'admin', text: alertMsg}});
   closeModal('modal-urgence');
-  toast(`✓ Alerte envoyée`);
+  toast('✓ Alerte envoyée');
 }
 
 function updateChapeauTotal() {
@@ -4127,16 +4083,10 @@ function renderChapeau(periode = 'semaine') {
 <div class="overlay" id="modal-urgence">
   <div class="modal" style="width:420px">
     <div class="modal-title" style="color:var(--r)">🚨 Remplacement urgent</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:16px">Un email va être envoyé à tous tes humoristes pour demander un remplacement.</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px">Un message va être envoyé pour demander un remplacement.</div>
     <div class="fr">
       <label class="fl">Créneau annulé</label>
       <select class="fsl" id="urg-slot-select">
-        <option value="">— Sélectionner —</option>
-      </select>
-    </div>
-    <div class="fr">
-      <label class="fl">Humoriste absent</label>
-      <select class="fsl" id="urg-comedian">
         <option value="">— Sélectionner —</option>
       </select>
     </div>
