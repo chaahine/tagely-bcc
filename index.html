@@ -1505,20 +1505,23 @@ function hvLogin() {
     localStorage.removeItem('stagely_hv_saved');
   }
 
-  // Cherche ou crée l'humoriste par nom
+  // Cherche l'humoriste par nom — NE PAS créer si pas trouvé
   const fullName = `${prenom.toUpperCase()} ${nom.toUpperCase()}`;
-  // Recherche souple : nom complet, ou prénom seul
   let found = COMEDIANS.find(c =>
     c.name.toUpperCase() === fullName ||
     c.name.toUpperCase().split(' ')[0] === prenom.toUpperCase()
   );
   if (!found) {
+    // Humoriste pas encore dans le système — créer avec ID stable
     const stableId = (prenom+'_'+nom).toLowerCase().replace(/\s+/g,'').replace(/[^a-z0-9_]/g,'');
-    found = {id: stableId, name: fullName, prio:'new', presence:100, gender:'m', duration:10, phone};
+    found = {id: stableId, name: fullName, prio:'new', presence:100, gender:'m', duration:10, phone, email};
+    // Ajouter en mémoire SEULEMENT — pas dans Supabase ici
+    // Supabase sera mis à jour uniquement quand il envoie ses dispos
     COMEDIANS.push(found);
     DISPO_STATUS[found.id] = 'none';
   } else {
-    if (phone && !found.phone) { found.phone = phone; autoSave(); }
+    if (phone && !found.phone) found.phone = phone;
+    if (email && !found.email) found.email = email;
   }
   hvUser = found;
   // Charge les dispos existantes (clés génériques MAR-20H15)
@@ -1644,12 +1647,16 @@ async function hvSubmit() {
 
   // Sauvegarder dans Supabase
   try {
-    await sbFetch('comedians', {method:'POST', params:'?on_conflict=id', body:[{
-      id:hvUser.id, name:hvUser.name, prio:hvUser.prio||'new',
-      presence:hvUser.presence||100, gender:hvUser.gender||'m',
-      duration:hvUser.duration||10, phone:hvUser.phone||'',
-      email:hvUser.email||'', active:true
-    }]});
+    // Créer l'humoriste dans Supabase seulement s'il n'existe pas
+    const existing = await sbFetch('comedians', {params:`?id=eq.${hvUser.id}`});
+    if (!existing || existing.length === 0) {
+      await sbFetch('comedians', {method:'POST', params:'?on_conflict=id', body:[{
+        id:hvUser.id, name:hvUser.name, prio:hvUser.prio||'new',
+        presence:hvUser.presence||100, gender:hvUser.gender||'m',
+        duration:hvUser.duration||10, phone:hvUser.phone||'',
+        email:hvUser.email||'', active:true
+      }]});
+    }
     const dispoRows = Object.entries(DISPOS_DATA[hvUser.id]).map(([slot_key, v]) => ({
       comedian_id:hvUser.id, slot_key, dispo:v.dispo, mc:v.mc||false
     }));
