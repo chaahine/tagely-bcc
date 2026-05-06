@@ -3246,10 +3246,12 @@ function loadAll() {
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return false;
     const data = JSON.parse(raw);
-    if (data.COMEDIANS) COMEDIANS.splice(0, COMEDIANS.length, ...data.COMEDIANS);
+    // NE PAS charger COMEDIANS depuis localStorage — Supabase est la source de vérité
+    // if (data.COMEDIANS) COMEDIANS.splice(0, COMEDIANS.length, ...data.COMEDIANS);
     if (data.DISPOS_DATA) Object.assign(DISPOS_DATA, data.DISPOS_DATA);
     if (data.DISPO_STATUS) Object.assign(DISPO_STATUS, data.DISPO_STATUS);
-    if (data.assignments) Object.assign(assignments, data.assignments);
+    // NE PAS charger assignments depuis localStorage — Supabase est la source de vérité
+    // if (data.assignments) Object.assign(assignments, data.assignments);
     if (data.chatMessages) chatMessages.splice(0, chatMessages.length, ...data.chatMessages);
     if (data.DAYS_CONFIG) DAYS_CONFIG.splice(0, DAYS_CONFIG.length, ...data.DAYS_CONFIG);
     if (data.currentCode) currentCode = data.currentCode;
