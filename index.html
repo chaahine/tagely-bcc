@@ -508,9 +508,38 @@ html.light{
 </head>
 <body>
 
+<!-- ÉCRAN D'ACCUEIL -->
+<div id="home-screen" style="display:none;position:fixed;inset:0;background:#080810;z-index:9999;align-items:center;justify-content:center;flex-direction:column">
+  <div style="width:100%;max-width:400px;padding:32px 24px">
+    <div style="text-align:center;margin-bottom:40px">
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:28px;color:#f97316;letter-spacing:4px;margin-bottom:6px">STAGELY</div>
+      <div style="font-size:12px;color:#555">Broadway Comedy Club</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <button onclick="showAdminLogin()" style="width:100%;padding:18px 20px;background:#141414;border:1px solid #222;border-radius:14px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:14px;transition:.15s" onmouseover="this.style.borderColor='#f97316'" onmouseout="this.style.borderColor='#222'">
+        <div style="width:46px;height:46px;background:rgba(249,115,22,.1);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">⚙️</div>
+        <div style="flex:1;text-align:left">
+          <div style="font-size:14px;font-weight:700;color:#f0f0f0;margin-bottom:3px">Espace Admin</div>
+          <div style="font-size:11px;color:#555">Gérer le planning et les humoristes</div>
+        </div>
+        <span style="color:#333;font-size:18px">›</span>
+      </button>
+      <button onclick="showHumoristPortal()" style="width:100%;padding:18px 20px;background:#141414;border:1px solid #222;border-radius:14px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:14px;transition:.15s" onmouseover="this.style.borderColor='#6366f1'" onmouseout="this.style.borderColor='#222'">
+        <div style="width:46px;height:46px;background:rgba(99,102,241,.1);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🎤</div>
+        <div style="flex:1;text-align:left">
+          <div style="font-size:14px;font-weight:700;color:#f0f0f0;margin-bottom:3px">Portail Humoriste</div>
+          <div style="font-size:11px;color:#555">Mes dispos et mes dates de passage</div>
+        </div>
+        <span style="color:#333;font-size:18px">›</span>
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ÉCRAN LOGIN ADMIN -->
 <div id="admin-login-screen" style="display:none;position:fixed;inset:0;background:#080810;z-index:9999;align-items:center;justify-content:center">
   <div style="width:100%;max-width:360px;padding:32px 24px">
+    <button onclick="showHomeScreen()" style="background:none;border:none;color:#555;cursor:pointer;font-size:12px;margin-bottom:24px;display:flex;align-items:center;gap:4px;padding:0">← Retour</button>
     <div style="text-align:center;margin-bottom:32px">
       <div style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:22px;color:#f97316;letter-spacing:4px;margin-bottom:8px">STAGELY</div>
       <div style="font-size:12px;color:#555">Accès administrateur</div>
@@ -525,6 +554,43 @@ html.light{
 
 <script>
 const ADMIN_PWD = 'Hendeck59190@';
+
+function showHomeScreen() {
+  document.getElementById('home-screen').style.display = 'flex';
+  document.getElementById('admin-login-screen').style.display = 'none';
+  document.getElementById('hv-screen').style.display = 'none';
+  document.getElementById('admin-screen').style.display = 'none';
+}
+
+function showAdminLogin() {
+  document.getElementById('home-screen').style.display = 'none';
+  document.getElementById('admin-login-screen').style.display = 'flex';
+  setTimeout(() => document.getElementById('admin-pwd')?.focus(), 100);
+}
+
+function showHumoristPortal() {
+  document.getElementById('home-screen').style.display = 'none';
+  document.getElementById('hv-screen').style.display = 'flex';
+  // Reset portail
+  hvUser = null; hvSlots = {};
+  document.getElementById('hv-space').style.display = 'none';
+  document.getElementById('hv-login').style.display = 'flex';
+  document.getElementById('hv-page-choice').style.display = 'flex';
+  document.getElementById('hv-login-form').style.display = 'none';
+  // Charger infos sauvegardées
+  const saved = localStorage.getItem('stagely_hv_saved');
+  if (saved) {
+    try {
+      const s = JSON.parse(saved);
+      document.getElementById('l-prenom').value = s.prenom||'';
+      document.getElementById('l-nom').value = s.nom||'';
+      document.getElementById('l-email').value = s.email||'';
+      document.getElementById('l-phone').value = s.phone||'';
+      if (document.getElementById('l-remember')) document.getElementById('l-remember').checked = true;
+    } catch(e) {}
+  }
+}
+
 function checkAdminPwd() {
   const val = document.getElementById('admin-pwd').value;
   if (val === ADMIN_PWD) {
@@ -537,13 +603,16 @@ function checkAdminPwd() {
     document.getElementById('admin-pwd').focus();
   }
 }
+
 window.addEventListener('DOMContentLoaded', () => {
   const params = new URLSearchParams(location.search);
   const isPortal = params.get('code') || location.hash.startsWith('#/portal');
-  if (!isPortal && !sessionStorage.getItem('stagely_admin_auth')) {
-    document.getElementById('admin-screen').style.display = 'none';
-    document.getElementById('admin-login-screen').style.display = 'flex';
-    setTimeout(() => document.getElementById('admin-pwd')?.focus(), 100);
+  if (isPortal) {
+    showHumoristPortal();
+  } else if (sessionStorage.getItem('stagely_admin_auth')) {
+    document.getElementById('admin-screen').style.removeProperty('display');
+  } else {
+    showHomeScreen();
   }
 });
 </script>
