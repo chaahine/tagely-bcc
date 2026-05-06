@@ -2308,16 +2308,36 @@ async function saveFiche() {
 }
 
 async function delH(id){
-  const c=COMEDIANS.find(c=>c.id===id);
-  COMEDIANS=COMEDIANS.filter(c=>c.id!==id);
-  Object.keys(assignments).forEach(k=>{assignments[k]=assignments[k].filter(i=>i!==id);if(!assignments[k].length)delete assignments[k];});
-  // Supprimer dans Supabase
+  const c = COMEDIANS.find(c=>c.id===id);
+  if (!c) return;
+  if (!confirm(`Supprimer ${c.name} définitivement ?`)) return;
+  
+  // Supprimer dans Supabase EN PREMIER
   if (sbConnected) {
     await sbFetch('comedians', {method:'DELETE', params:`?id=eq.${id}`});
+    await sbFetch('dispos', {method:'DELETE', params:`?comedian_id=eq.${id}`});
+    await sbFetch('dispo_status', {method:'DELETE', params:`?comedian_id=eq.${id}`});
+    await sbFetch('assignments', {method:'DELETE', params:`?comedian_id=eq.${id}`});
   }
-  autoSave();
+  
+  // Supprimer en mémoire
+  const idx = COMEDIANS.findIndex(c=>c.id===id);
+  if (idx !== -1) COMEDIANS.splice(idx, 1);
+  Object.keys(assignments).forEach(k=>{
+    assignments[k] = assignments[k].filter(i=>i!==id);
+    if (!assignments[k].length) delete assignments[k];
+  });
+  delete DISPOS_DATA[id];
+  delete DISPO_STATUS[id];
+  
+  // Vider le localStorage pour éviter la réapparition
+  const lsData = JSON.parse(localStorage.getItem(LS_KEY)||'{}');
+  lsData.COMEDIANS = COMEDIANS;
+  localStorage.setItem(LS_KEY, JSON.stringify(lsData));
+  
   renderHumoristes();
-  toast(`✕ ${c?.name} retiré`);
+  renderDashboard();
+  toast(`✕ ${c.name} supprimé`);
 }
 function addH(){
   const name=document.getElementById('n-name').value.trim().toUpperCase();
