@@ -896,16 +896,10 @@ window.addEventListener('DOMContentLoaded', () => {
     <div id="view-humoristes" class="view">
       <div class="hum-toolbar">
         <input class="sinp" type="text" placeholder="Rechercher..." oninput="filterH(this.value)">
-        <div style="display:flex;gap:4px" id="pfilters">
-          <button class="pfb" onclick="setP(this,'all')" style="padding:3px 9px;border-radius:3px;font-size:9px;border:1px solid var(--o);color:var(--o);background:transparent;cursor:pointer;font-family:'Rajdhani',sans-serif">Tous</button>
-          <button class="pfb" onclick="setP(this,'headliner')" style="padding:3px 9px;border-radius:3px;font-size:9px;border:1px solid var(--border2);color:var(--muted);background:transparent;cursor:pointer;font-family:'Rajdhani',sans-serif">Headliner</button>
-          <button class="pfb" onclick="setP(this,'regular')" style="padding:3px 9px;border-radius:3px;font-size:9px;border:1px solid var(--border2);color:var(--muted);background:transparent;cursor:pointer;font-family:'Rajdhani',sans-serif">Régulier</button>
-          <button class="pfb" onclick="setP(this,'new')" style="padding:3px 9px;border-radius:3px;font-size:9px;border:1px solid var(--border2);color:var(--muted);background:transparent;cursor:pointer;font-family:'Rajdhani',sans-serif">Nouveau</button>
-        </div>
         <div style="margin-left:auto"></div>
+        <button onclick="deleteAllComedians()" style="padding:4px 12px;border-radius:4px;font-size:10px;border:1px solid rgba(239,68,68,.3);color:var(--r);background:rgba(239,68,68,.06);cursor:pointer;font-family:'Rajdhani',sans-serif">🗑 Supprimer tout</button>
       </div>
       <div class="hum-cards" id="hcards"></div>
-    </div>
 
     <!-- RÉGLAGES -->
     <div id="view-reglages" class="view">
@@ -2362,6 +2356,23 @@ async function saveFiche() {
   closeModal('modal-fiche');
   renderHumoristes();
   toast(`✓ Fiche ${c.name} sauvegardée`);
+}
+
+async function deleteAllComedians() {
+  if (!confirm(`Supprimer les ${COMEDIANS.length} humoristes définitivement ?`)) return;
+  // Supprimer dans Supabase
+  await sbFetch('assignments', {method:'DELETE', params:'?comedian_id=neq.null'});
+  await sbFetch('dispos', {method:'DELETE', params:'?comedian_id=neq.null'});
+  await sbFetch('dispo_status', {method:'DELETE', params:'?comedian_id=neq.null'});
+  await sbFetch('comedians', {method:'DELETE', params:'?id=neq.null'});
+  // Vider en mémoire
+  COMEDIANS.splice(0, COMEDIANS.length);
+  Object.keys(assignments).forEach(k => delete assignments[k]);
+  Object.keys(DISPOS_DATA).forEach(k => delete DISPOS_DATA[k]);
+  Object.keys(DISPO_STATUS).forEach(k => delete DISPO_STATUS[k]);
+  renderHumoristes();
+  renderDashboard();
+  toast('✓ Tous les humoristes supprimés');
 }
 
 async function delH(id){
