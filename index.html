@@ -3308,14 +3308,11 @@ async function saveToSupabase() {
 function saveAll() {
   try {
     const data = {
-      COMEDIANS, DISPOS_DATA, DISPO_STATUS,
-      assignments: Object.fromEntries(Object.entries(assignments).map(([k,v])=>[k,v])),
+      // COMEDIANS et assignments viennent uniquement de Supabase
       cancelledSlots, chatMessages, DAYS_CONFIG, currentCode, historique,
       lastSaved: new Date().toISOString()
     };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
-    // Sync Supabase en arrière-plan
-    saveToSupabase().catch(()=>{});
   } catch(e) { console.warn('Save failed:', e); }
 }
 
