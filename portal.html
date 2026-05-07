@@ -570,7 +570,7 @@ if (urlManage) {
 }
 
 // ── LOGIN ──
-function showForm(mode) {
+window.showForm = function(mode) {
   loginMode = mode;
   document.getElementById('choice-screen').style.display = 'none';
   document.getElementById('form-screen').style.display = 'block';
