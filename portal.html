@@ -580,21 +580,31 @@ async function doLogin() {
 
 
   const name = `${prenom.toUpperCase()} ${nom.toUpperCase()}`;
+  
+  // Recherche souple — normaliser les accents et espaces
+  const normalize = s => s.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+  const normalizedInput = normalize(name);
+  
+  const existing = comedians.find(c => {
+    const n = normalize(c.name);
+    return n === normalizedInput ||
+      n.startsWith(normalize(prenom)) ||
+      normalize(prenom) === n.split(' ')[0];
+  });
 
-  // Chercher si humoriste existe déjà dans Supabase
-  const existing = comedians.find(c => c.name.toLowerCase() === name.toLowerCase());
-  
-  if (!existing) {
-    // Humoriste pas reconnu — afficher erreur
-    document.getElementById('f-err').textContent = '⚠ Nom non reconnu. Contacte l\'admin.';
-    document.getElementById('f-err').style.display = 'block';
-    return;
+  if (existing) {
+    user = existing;
+    if (phone && !user.phone) user.phone = phone;
+    if (email && !user.email) user.email = email;
+  } else {
+    // Nouvel humoriste — créer dans Supabase
+    const stableId = normalize(prenom+'_'+nom).toLowerCase().replace(/[^a-z0-9_]/g,'').replace(/\s/g,'_');
+    user = {id: stableId, name, prio:'new', presence:100, gender:'m', duration:10, phone, email, active:true};
+    await sb('comedians', {method:'POST', params:'?on_conflict=id', body:[{
+      id: user.id, name: user.name, prio:'new', presence:100, gender:'m',
+      duration:10, phone, email, active:true
+    }]});
   }
-  
-  user = existing;
-  // Mettre à jour email/phone si manquants
-  if (phone && !user.phone) user.phone = phone;
-  if (email && !user.email) user.email = email;
 
   if (remember) {
     localStorage.setItem('stagely_hv_saved', JSON.stringify({prenom,nom,email,phone}));
