@@ -816,7 +816,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <div class="ni" onclick="nav('planning')"><span class="ni-lbl">Planning</span></div>
   <div class="ni" onclick="nav('dispos')"><span class="ni-lbl">Disponibilités</span><span class="nbadge" id="bdg-dispos">8</span></div>
   <div class="ns">Gestion</div>
-  <div class="ni" onclick="nav('humoristes')"><span class="ni-lbl">Humoristes</span></div>
+  <div class="ni" onclick="nav('humoristes')"><span class="ni-lbl">Humoristes</span><span class="nbadge" id="bdg-humoristes" style="background:var(--s3);color:var(--muted)">0</span></div>
   <div class="ni" onclick="nav('chapeau')"><span class="ni-lbl">Chapeau</span></div>
   <div class="ni" onclick="nav('reglages')"><span class="ni-lbl">Réglages</span></div>
   <div class="ns">Communication</div>
@@ -2205,6 +2205,8 @@ async function sendDispos(){
 // ══════════════════════════════════════════════════
 
 function renderHumoristes(){
+  const bdg = document.getElementById('bdg-humoristes');
+  if (bdg) bdg.textContent = COMEDIANS.length;
   const list=COMEDIANS.filter(c=>{
     if(prioFilter!=='all'&&c.prio!==prioFilter) return false;
     if(humFilter&&!c.name.toLowerCase().includes(humFilter.toLowerCase())) return false;
