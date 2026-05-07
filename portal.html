@@ -580,19 +580,21 @@ async function doLogin() {
 
 
   const name = `${prenom.toUpperCase()} ${nom.toUpperCase()}`;
-  const id = `${prenom.toLowerCase()}_${nom.toLowerCase()}_${Date.now()}`.replace(/\s/g,'_');
 
-  // Chercher si humoriste existe déjà
+  // Chercher si humoriste existe déjà dans Supabase
   const existing = comedians.find(c => c.name.toLowerCase() === name.toLowerCase());
-  user = existing || {id, name, prio:'new', presence:100, gender:'m', duration:10, phone, email, active:true};
-
+  
   if (!existing) {
-    // Créer dans Supabase
-    await sb('comedians', {method:'POST', params:'?on_conflict=id', body:[{
-      id: user.id, name: user.name, prio:'new', presence:100, gender:'m',
-      duration:10, phone, email, active:true
-    }]});
+    // Humoriste pas reconnu — afficher erreur
+    document.getElementById('f-err').textContent = '⚠ Nom non reconnu. Contacte l\'admin.';
+    document.getElementById('f-err').style.display = 'block';
+    return;
   }
+  
+  user = existing;
+  // Mettre à jour email/phone si manquants
+  if (phone && !user.phone) user.phone = phone;
+  if (email && !user.email) user.email = email;
 
   if (remember) {
     localStorage.setItem('stagely_hv_saved', JSON.stringify({prenom,nom,email,phone}));
