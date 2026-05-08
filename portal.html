@@ -348,7 +348,7 @@ body::before{
 
       <!-- Choix -->
       <div id="choice-screen">
-        <div class="choice-btn" onclick="showForm('dispos')" style="cursor:pointer">
+        <div class="choice-btn" id="btn-dispos" style="cursor:pointer">
           <div class="choice-icon" style="background:rgba(249,115,22,.1)">📅</div>
           <div>
             <div class="choice-title">Mes disponibilités</div>
@@ -356,7 +356,7 @@ body::before{
           </div>
           <span class="choice-arr">›</span>
         </div>
-        <div class="choice-btn" onclick="showForm('dates')" style="cursor:pointer">
+        <div class="choice-btn" id="btn-dates" style="cursor:pointer">
           <div class="choice-icon" style="background:rgba(99,102,241,.1)">🗓️</div>
           <div>
             <div class="choice-title">Mes dates de passage</div>
@@ -562,6 +562,14 @@ async function loadAssignments() {
   comedians = await sb('comedians', {params:'?order=name'}) || [];
 }
 loadAssignments();
+
+// Attacher les événements après chargement
+document.addEventListener('DOMContentLoaded', function() {
+  const btnDispos = document.getElementById('btn-dispos');
+  const btnDates = document.getElementById('btn-dates');
+  if (btnDispos) btnDispos.addEventListener('click', function() { window.showForm('dispos'); });
+  if (btnDates) btnDates.addEventListener('click', function() { window.showForm('dates'); });
+});
 
 // Si lien direct manage
 if (urlManage) {
