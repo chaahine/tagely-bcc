@@ -2,665 +2,420 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Stagely — Portail Humoriste</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#080810;--s1:#0f0f1a;--s2:#161625;--s3:#1e1e30;
-  --border:#1f1f35;--border2:#2a2a42;
-  --text:#f0f0f8;--muted:#5a5a7a;--muted2:#2a2a42;
-  --o:#f97316;--o2:rgba(249,115,22,.1);--ob:rgba(249,115,22,.3);
-  --g:#22c55e;--g2:rgba(34,197,94,.1);--gb:rgba(34,197,94,.3);
-  --r:#ef4444;--r2:rgba(239,68,68,.1);
-  --gold:#f59e0b;
-}
-body{
-  font-family:'DM Sans',sans-serif;
-  background:var(--bg);
-  color:var(--text);
-  min-height:100vh;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-}
-/* Fond animé */
-body::before{
-  content:'';position:fixed;inset:0;z-index:0;
-  background:radial-gradient(ellipse 60% 40% at 50% 0%,rgba(249,115,22,.06) 0%,transparent 70%),
-             radial-gradient(ellipse 40% 60% at 80% 80%,rgba(99,102,241,.04) 0%,transparent 60%);
-  pointer-events:none;
-}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Inter',sans-serif;background:#080810;color:#f0f0f8;min-height:100vh;overflow-x:hidden}
+input,select,textarea,button{font-family:'Inter',sans-serif}
 
-/* WRAPPER */
-.wrap{
-  width:100%;max-width:480px;
-  min-height:100vh;
-  display:flex;flex-direction:column;
-  position:relative;z-index:1;
-}
+.page{display:none}
+.page.active{display:flex;flex-direction:column;min-height:100vh}
 
 /* HEADER */
-.hdr{
-  padding:18px 24px;
-  display:flex;align-items:center;justify-content:space-between;
-  border-bottom:1px solid var(--border);
-  background:rgba(8,8,16,.8);
-  backdrop-filter:blur(12px);
-  position:sticky;top:0;z-index:10;
-}
-.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;color:var(--o);letter-spacing:3px}
-.hdr-name{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
+.hdr{padding:16px 20px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid #1a1a2e;position:relative;background:#0a0a14}
+.logo{font-weight:800;font-size:16px;color:#f97316;letter-spacing:3px}
+.hdr-name{position:absolute;right:20px;font-size:11px;color:#444}
 
-/* TABS */
-.tabs{
-  display:flex;
-  border-bottom:1px solid var(--border);
-  background:rgba(8,8,16,.6);
-  backdrop-filter:blur(8px);
-  position:sticky;top:57px;z-index:9;
-}
-.tab{
-  flex:1;padding:14px 8px;
-  background:none;border:none;border-bottom:2px solid transparent;
-  color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.8px;
-  cursor:pointer;font-family:'Syne',sans-serif;transition:.15s;
-}
-.tab.on{color:var(--o);border-bottom-color:var(--o)}
+/* ACCUEIL */
+.home-body{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}
+.home-inner{width:100%;max-width:400px}
+.home-hero{text-align:center;margin-bottom:32px}
+.home-mic{font-size:48px;display:block;margin-bottom:12px}
+.home-title{font-size:26px;font-weight:800;margin-bottom:6px}
+.home-sub{font-size:12px;color:#555}
 
-/* SCREEN */
-.screen{display:none;flex:1;flex-direction:column}
-.screen.on{display:flex}
+.card-btn{width:100%;padding:18px 20px;background:#111;border:1px solid #222;border-radius:14px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:14px;margin-bottom:12px;transition:border-color .15s}
+.card-btn:hover,.card-btn:active{border-color:#f97316}
+.card-icon{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.card-text{flex:1}
+.card-title{font-size:14px;font-weight:700;margin-bottom:3px}
+.card-sub{font-size:11px;color:#555}
+.card-arr{color:#333;font-size:20px}
 
 /* LOGIN */
-#scr-login{
-  flex:1;
-  align-items:center;justify-content:center;
-  padding:32px 24px;
-  overflow-y:auto;
-}
-#scr-login > div {
-  width:100%;
-  max-width:420px;
-}
-.choice-btn{
-  width:100%;padding:18px 20px;
-  background:var(--s2);color:var(--text);
-  border:1px solid var(--border2);
-  border-radius:14px;cursor:pointer;
-  text-align:left;display:flex;align-items:center;gap:14px;
-  transition:.15s;margin-bottom:10px;
-  -webkit-tap-highlight-color:transparent;
-  position:relative;z-index:1;
-}
-.login-hero .mic{font-size:48px;margin-bottom:12px;display:block}
-.login-hero h1{font-family:'Syne',sans-serif;font-weight:800;font-size:26px;margin-bottom:6px;letter-spacing:-.5px}
-.login-hero p{font-size:12px;color:var(--muted)}
-
-.card{
-  background:var(--s1);
-  border:1px solid var(--border);
-  border-radius:16px;
-  padding:24px;
-  width:100%;
-}
-.choice-btn{
-  width:100%;padding:18px 20px;
-  background:var(--s2);color:var(--text);
-  border:1px solid var(--border2);
-  border-radius:14px;cursor:pointer;
-  text-align:left;display:flex;align-items:center;gap:14px;
-  transition:.15s;margin-bottom:10px;
-}
-.choice-btn:hover{border-color:var(--o);background:var(--s3)}
-.choice-icon{
-  width:48px;height:48px;border-radius:12px;
-  display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;
-}
-.choice-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:3px}
-.choice-sub{font-size:11px;color:var(--muted)}
-.choice-arr{margin-left:auto;color:var(--border2);font-size:20px}
-
-.back-btn{
-  background:none;border:none;color:var(--muted);cursor:pointer;
-  font-size:12px;margin-bottom:20px;display:flex;align-items:center;gap:4px;
-  font-family:'DM Sans',sans-serif;padding:0;
-}
-.form-title{font-family:'Syne',sans-serif;font-weight:700;font-size:18px;margin-bottom:24px;letter-spacing:-.3px}
-
-.lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;font-weight:600}
-.inp{
-  width:100%;background:var(--s2);border:1px solid var(--border2);
-  border-radius:10px;padding:12px 14px;color:var(--text);
-  font-size:13px;font-family:'DM Sans',sans-serif;
-  transition:.15s;margin-bottom:14px;
-}
-.inp:focus{outline:none;border-color:var(--o);background:var(--s1)}
-.inp.code{
-  font-family:'DM Mono',monospace;font-weight:700;
-  font-size:20px;letter-spacing:8px;text-align:center;text-transform:uppercase;
-}
-.err{
-  font-size:11px;color:var(--r);padding:10px 14px;
-  background:var(--r2);border-radius:8px;
-  border:1px solid rgba(239,68,68,.2);display:none;margin-bottom:12px;
-}
+.login-body{flex:1;overflow-y:auto;padding:24px}
+.login-inner{max-width:400px;margin:0 auto}
+.back{background:none;border:none;color:#555;cursor:pointer;font-size:12px;margin-bottom:20px;display:flex;align-items:center;gap:4px;padding:0}
+.login-title{font-size:20px;font-weight:800;margin-bottom:24px}
+.lbl{font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;font-weight:600}
+.inp{width:100%;background:#111;border:1px solid #222;border-radius:10px;padding:13px 14px;color:#f0f0f8;font-size:14px;margin-bottom:14px}
+.inp:focus{outline:none;border-color:#f97316}
+.divider{height:1px;background:#1a1a1a;margin:8px 0 14px}
 .remember{display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer}
-.remember input{width:16px;height:16px;accent-color:var(--o);cursor:pointer}
-.remember span{font-size:11px;color:var(--muted)}
-.btn-main{
-  width:100%;padding:14px;background:var(--o);color:#fff;
-  border:none;border-radius:10px;font-family:'Syne',sans-serif;
-  font-weight:700;font-size:13px;letter-spacing:.3px;cursor:pointer;transition:.15s;
-}
-.btn-main:hover{filter:brightness(1.1)}
-.divider{height:1px;background:var(--border);margin:14px 0}
+.remember input{width:16px;height:16px;accent-color:#f97316}
+.remember span{font-size:12px;color:#555}
+.err{font-size:11px;color:#ef4444;padding:10px 14px;background:rgba(239,68,68,.08);border-radius:8px;border:1px solid rgba(239,68,68,.2);display:none;margin-bottom:12px}
+.btn-main{width:100%;padding:14px;background:#f97316;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer}
+
+/* ESPACE CONNECTÉ */
+.tabs{display:flex;border-bottom:1px solid #1a1a1a;background:#0a0a14;flex-shrink:0}
+.tab{flex:1;padding:14px 8px;background:none;border:none;border-bottom:2px solid transparent;color:#444;font-size:11px;font-weight:700;letter-spacing:.8px;cursor:pointer}
+.tab.on{color:#f97316;border-bottom-color:#f97316}
+.tab-content{display:none;flex:1;overflow-y:auto;padding:20px}
+.tab-content.on{display:block}
 
 /* DISPOS */
-#scr-dispos{padding:24px;overflow-y:auto}
 .dispo-header{margin-bottom:20px}
-.dispo-name{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px}
-.dispo-club{font-size:11px;color:var(--muted);margin-bottom:10px}
-.deadline-badge{
-  display:inline-block;background:var(--o2);border:1px solid var(--ob);
-  color:var(--o);font-size:10px;padding:5px 14px;border-radius:20px;font-weight:600;
-}
-.help-box{
-  background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.15);
-  border-radius:12px;padding:12px 16px;margin:16px 0;
-  font-size:11px;color:var(--o);line-height:1.7;
-}
+.dispo-name{font-size:22px;font-weight:800;margin-bottom:4px}
+.dispo-sub{font-size:11px;color:#555;margin-bottom:10px}
+.deadline{display:inline-block;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.3);color:#f97316;font-size:10px;padding:4px 12px;border-radius:20px;font-weight:600}
+.help{background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.15);border-radius:10px;padding:12px 16px;margin:14px 0;font-size:11px;color:#f97316;line-height:1.7}
 .quick-btns{display:flex;gap:8px;margin-bottom:16px}
-.quick-btn{
-  flex:1;padding:9px 14px;border-radius:20px;font-size:11px;font-weight:600;
-  cursor:pointer;border:1px solid var(--border2);background:var(--s2);color:var(--text);
-  font-family:'DM Sans',sans-serif;transition:.12s;
-}
-.quick-btn:hover{border-color:var(--gb);color:var(--g)}
+.quick-btn{flex:1;padding:8px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #222;background:#111;color:#f0f0f8}
 
-/* Day cards */
-.day-card{
-  background:var(--s1);border-radius:14px;overflow:hidden;
-  border:1px solid var(--border);margin-bottom:10px;
-}
-.day-card-hdr{
-  padding:10px 16px;background:var(--s2);
-  border-bottom:1px solid var(--border);
-  font-size:10px;font-weight:700;color:var(--o);
-  text-transform:uppercase;letter-spacing:1px;
-  font-family:'Syne',sans-serif;
-}
-.slot-row{
-  padding:13px 16px;display:flex;align-items:center;
-  border-bottom:1px solid rgba(255,255,255,.03);
-}
+.day-card{background:#111;border-radius:12px;overflow:hidden;border:1px solid #1a1a1a;margin-bottom:10px}
+.day-hdr{padding:9px 16px;background:#161620;border-bottom:1px solid #1a1a1a;font-size:10px;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:1px}
+.slot-row{padding:12px 16px;display:flex;align-items:center;border-bottom:1px solid rgba(255,255,255,.03)}
 .slot-row:last-child{border-bottom:none}
-.slot-time{
-  font-size:15px;font-weight:600;color:var(--text);
-  width:58px;flex-shrink:0;font-family:'DM Mono',monospace;
-}
-.slot-label{flex:1;font-size:11px;color:var(--muted)}
-.tcheck{display:flex;align-items:center;justify-content:center;margin-right:10px}
-.tcheck input{display:none}
-.tcheck label{
-  width:32px;height:32px;border-radius:8px;
-  border:1.5px solid var(--border2);background:var(--s2);
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-  transition:.15s;font-size:15px;color:transparent;
-}
-.tcheck input:checked+label{background:var(--g2);border-color:var(--gb);color:var(--g)}
-.tcheck label:hover{border-color:var(--gb)}
-.mc-check{display:flex;align-items:center;justify-content:center}
-.mc-check input{display:none}
-.mc-check label{
-  width:32px;height:32px;border-radius:8px;
-  border:1.5px solid var(--border2);background:var(--s2);
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-  transition:.15s;font-size:9px;font-weight:700;color:transparent;
-  font-family:'DM Mono',monospace;
-}
-.mc-check input:checked+label{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4);color:var(--gold)}
-.mc-check.off label{opacity:.25;cursor:not-allowed}
+.slot-time{font-size:15px;font-weight:600;width:56px;flex-shrink:0;font-variant-numeric:tabular-nums}
+.slot-lbl{flex:1;font-size:11px;color:#444}
 
-.submit-area{margin-top:24px;padding-bottom:32px;text-align:center}
-.submit-count{font-size:11px;color:var(--muted);margin-top:10px}
-.submit-ok{
-  background:var(--g2);border:1px solid var(--gb);border-radius:12px;
-  padding:16px;text-align:center;font-size:12px;color:var(--g);
-  margin-top:14px;display:none;font-weight:600;
-}
+/* Checkboxes */
+.chk-wrap{display:flex;align-items:center;margin-right:10px}
+.chk-wrap input{display:none}
+.chk-wrap label{width:32px;height:32px;border-radius:8px;border:1.5px solid #222;background:#111;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:transparent;transition:.15s}
+.chk-wrap input:checked + label{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.4);color:#22c55e}
+.mc-wrap{display:flex;align-items:center}
+.mc-wrap input{display:none}
+.mc-wrap label{width:32px;height:32px;border-radius:8px;border:1.5px solid #222;background:#111;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:transparent;transition:.15s}
+.mc-wrap input:checked + label{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4);color:#f59e0b}
+.mc-wrap.off label{opacity:.3;cursor:not-allowed}
+
+.submit-area{margin-top:20px;padding-bottom:30px}
+.submit-count{text-align:center;font-size:11px;color:#444;margin-top:10px}
+.submit-ok{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:10px;padding:14px;text-align:center;font-size:12px;color:#22c55e;margin-top:14px;display:none;font-weight:600}
 
 /* MES DATES */
-#scr-dates{padding:24px;overflow-y:auto}
-.dates-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px}
-.dates-sub{font-size:11px;color:var(--muted);margin-bottom:20px}
-.cal-btn{
-  width:100%;padding:14px;background:var(--s1);
-  border:1px solid var(--border2);border-radius:12px;
-  color:var(--text);font-family:'Syne',sans-serif;font-weight:700;
-  font-size:12px;cursor:pointer;display:flex;align-items:center;
-  justify-content:center;gap:8px;margin-bottom:20px;transition:.15s;
-}
-.cal-btn:hover{border-color:var(--o);color:var(--o)}
-.date-card{
-  background:var(--s1);border:1px solid var(--border);border-radius:14px;
-  overflow:hidden;margin-bottom:10px;
-}
-.date-card-hdr{
-  padding:10px 16px;background:var(--s2);border-bottom:1px solid var(--border);
-  font-size:10px;font-weight:700;color:var(--g);text-transform:uppercase;
-  letter-spacing:1px;font-family:'Syne',sans-serif;
-}
-.date-slot-row{
-  padding:13px 16px;display:flex;align-items:center;
-  border-bottom:1px solid rgba(255,255,255,.03);
-}
-.date-slot-row:last-child{border-bottom:none}
-.date-time{font-size:15px;font-weight:600;font-family:'DM Mono',monospace;flex:1}
-.date-mc-badge{
-  font-size:9px;font-weight:700;padding:3px 8px;border-radius:20px;
-  background:rgba(245,158,11,.1);color:var(--gold);border:1px solid rgba(245,158,11,.3);
-}
-.date-tcheck{display:flex;align-items:center;justify-content:center;margin-left:12px}
-.date-tcheck input{display:none}
-.date-tcheck label{
-  width:32px;height:32px;border-radius:8px;
-  border:1.5px solid var(--gb);background:var(--g2);
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-  transition:.15s;font-size:15px;color:var(--g);
-}
-.date-tcheck input:not(:checked)+label{
-  background:var(--s2);border-color:var(--border2);color:transparent;
-}
-.empty-state{
-  text-align:center;padding:60px 20px;color:var(--muted);
-}
+.cal-btn{width:100%;padding:13px;background:#111;border:1px solid #222;border-radius:10px;color:#f0f0f8;font-weight:600;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px}
+.cancel-btn{width:100%;padding:13px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:10px;color:#ef4444;font-weight:600;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:20px}
+.date-card{background:#111;border-radius:12px;overflow:hidden;border:1px solid #1a1a1a;margin-bottom:10px}
+.date-hdr{padding:9px 16px;background:#161620;border-bottom:1px solid #1a1a1a;font-size:10px;font-weight:700;color:#22c55e;text-transform:uppercase;letter-spacing:1px}
+.date-row{padding:12px 16px;display:flex;align-items:center;border-bottom:1px solid rgba(255,255,255,.03)}
+.date-row:last-child{border-bottom:none}
+.date-time{font-size:15px;font-weight:600;flex:1}
+.date-mc{font-size:9px;font-weight:700;padding:3px 8px;border-radius:20px;background:rgba(245,158,11,.1);color:#f59e0b;border:1px solid rgba(245,158,11,.3)}
+.chk-date{display:flex;align-items:center;margin-left:12px}
+.chk-date input{display:none}
+.chk-date label{width:30px;height:30px;border-radius:8px;border:1.5px solid rgba(34,197,94,.4);background:rgba(34,197,94,.1);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:#22c55e}
+.chk-date input:not(:checked) + label{background:#111;border-color:#222;color:transparent}
+.empty{text-align:center;padding:50px 20px;color:#444}
 .empty-icon{font-size:40px;margin-bottom:12px;display:block}
-.confirm-btn{
-  width:100%;padding:14px;background:var(--o);color:#fff;
-  border:none;border-radius:12px;font-family:'Syne',sans-serif;
-  font-weight:700;font-size:13px;cursor:pointer;margin-top:16px;
-  display:none;transition:.15s;
-}
-.confirm-ok{
-  background:var(--g2);border:1px solid var(--gb);border-radius:12px;
-  padding:14px;text-align:center;font-size:12px;color:var(--g);
-  margin-top:14px;display:none;font-weight:600;
-}
+.confirm-btn{width:100%;padding:14px;background:#f97316;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;margin-top:14px;display:none}
+.confirm-ok{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:10px;padding:14px;text-align:center;font-size:12px;color:#22c55e;margin-top:14px;display:none;font-weight:600}
+
+/* MODAL ANNULATION */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:100;align-items:center;justify-content:center;padding:24px}
+.modal-overlay.open{display:flex}
+.modal-box{background:#111;border:1px solid #222;border-radius:16px;padding:24px;width:100%;max-width:400px}
+.modal-title{font-size:16px;font-weight:700;color:#ef4444;margin-bottom:12px}
+.modal-sub{font-size:12px;color:#555;margin-bottom:16px;line-height:1.6}
+.fsl{width:100%;background:#0a0a14;border:1px solid #222;border-radius:8px;padding:11px 14px;color:#f0f0f8;font-size:13px;margin-bottom:12px}
+.fta{width:100%;background:#0a0a14;border:1px solid #222;border-radius:8px;padding:11px 14px;color:#f0f0f8;font-size:12px;resize:none;height:80px;margin-bottom:16px}
+.modal-btns{display:flex;gap:8px}
+.btn-cancel{flex:1;padding:12px;background:#1a1a1a;border:1px solid #222;border-radius:8px;color:#555;cursor:pointer;font-weight:600;font-size:12px}
+.btn-send{flex:1;padding:12px;background:#ef4444;border:none;border-radius:8px;color:#fff;font-weight:700;font-size:12px;cursor:pointer}
+.modal-ok{text-align:center;font-size:11px;color:#22c55e;margin-top:12px;padding:10px;background:rgba(34,197,94,.1);border-radius:8px;display:none}
 
 /* PROFIL */
-#scr-profil{padding:24px;overflow-y:auto}
-.profil-card{
-  background:var(--s1);border:1px solid var(--border);
-  border-radius:16px;padding:20px;margin-bottom:14px;
-}
-.profil-avatar{
-  width:64px;height:64px;border-radius:50%;
-  background:var(--o2);border:2px solid var(--o);
-  display:flex;align-items:center;justify-content:center;
-  font-size:22px;font-weight:800;color:var(--o);
-  flex-shrink:0;font-family:'Syne',sans-serif;
-}
-.profil-info{flex:1}
-.profil-name{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;letter-spacing:-.5px;margin-bottom:3px}
-.profil-role{font-size:11px;color:var(--muted)}
-.stat-box{
-  background:var(--s2);border-radius:12px;padding:16px;
-  text-align:center;flex:1;
-}
-.stat-val{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;line-height:1;letter-spacing:-1px}
-.stat-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;margin-top:5px;letter-spacing:.6px;font-weight:600}
-.info-row{
-  display:flex;justify-content:space-between;align-items:center;
-  padding:13px 0;border-bottom:1px solid var(--border);font-size:12px;
-}
+.profil-card{background:#111;border:1px solid #1a1a1a;border-radius:14px;padding:20px;margin-bottom:12px}
+.profil-top{display:flex;align-items:center;gap:16px;margin-bottom:16px}
+.avatar{width:60px;height:60px;border-radius:50%;background:rgba(249,115,22,.1);border:2px solid #f97316;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#f97316;flex-shrink:0}
+.profil-name{font-size:18px;font-weight:800;margin-bottom:3px}
+.profil-role{font-size:11px;color:#555}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:#0a0a14;border-radius:10px;padding:14px;text-align:center}
+.stat-val{font-size:28px;font-weight:800;line-height:1}
+.stat-lbl{font-size:9px;color:#444;text-transform:uppercase;margin-top:4px;letter-spacing:.5px}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #1a1a1a;font-size:12px}
 .info-row:last-child{border-bottom:none}
-.info-key{color:var(--muted)}
-.logout-btn{
-  width:100%;padding:14px;background:rgba(239,68,68,.06);color:var(--r);
-  border:1px solid rgba(239,68,68,.2);border-radius:12px;
-  font-family:'Syne',sans-serif;font-weight:700;font-size:12px;
-  cursor:pointer;letter-spacing:.3px;margin-top:4px;transition:.15s;
-}
-
-/* SUPABASE */
-.sb-url='https://dvdwfxytdsvwjtirxncz.supabase.co';
+.info-key{color:#555}
+.logout-btn{width:100%;padding:13px;background:rgba(239,68,68,.06);color:#ef4444;border:1px solid rgba(239,68,68,.2);border-radius:10px;font-weight:700;font-size:12px;cursor:pointer;margin-top:4px}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <!-- HEADER -->
+
+<!-- PAGE ACCUEIL -->
+<div class="page active" id="page-home">
+  <div class="hdr"><span class="logo">STAGELY</span></div>
+  <div class="home-body">
+    <div class="home-inner">
+      <div class="home-hero">
+        <span class="home-mic">🎤</span>
+        <div class="home-title">Portail Humoriste</div>
+        <div class="home-sub">Broadway Comedy Club</div>
+      </div>
+      <div class="card-btn" id="btn-dispos">
+        <div class="card-icon" style="background:rgba(249,115,22,.1)">📅</div>
+        <div class="card-text">
+          <div class="card-title">Mes disponibilités</div>
+          <div class="card-sub">Indiquer mes créneaux pour le mois à venir</div>
+        </div>
+        <span class="card-arr">›</span>
+      </div>
+      <div class="card-btn" id="btn-dates">
+        <div class="card-icon" style="background:rgba(99,102,241,.1)">🗓️</div>
+        <div class="card-text">
+          <div class="card-title">Mes dates de passage</div>
+          <div class="card-sub">Voir et modifier mes créneaux planifiés</div>
+        </div>
+        <span class="card-arr">›</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE LOGIN -->
+<div class="page" id="page-login">
+  <div class="hdr"><span class="logo">STAGELY</span></div>
+  <div class="login-body">
+    <div class="login-inner">
+      <button class="back" id="btn-back">← Retour</button>
+      <div class="login-title" id="login-title">Connexion</div>
+      <label class="lbl">Prénom</label>
+      <input class="inp" id="f-prenom" placeholder="Ton prénom">
+      <label class="lbl">Nom</label>
+      <input class="inp" id="f-nom" placeholder="Ton nom">
+      <label class="lbl">Email</label>
+      <input class="inp" id="f-email" type="email" placeholder="ton@email.com">
+      <label class="lbl">Téléphone WhatsApp</label>
+      <input class="inp" id="f-phone" type="tel" placeholder="+33 6 xx xx xx xx">
+      <div class="divider"></div>
+      <div class="err" id="f-err">⚠ Remplis tous les champs</div>
+      <label class="remember">
+        <input type="checkbox" id="f-remember">
+        <span>Se souvenir de moi</span>
+      </label>
+      <button class="btn-main" id="btn-login">Accéder →</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE ESPACE CONNECTÉ -->
+<div class="page" id="page-space">
   <div class="hdr">
     <span class="logo">STAGELY</span>
     <span class="hdr-name" id="hdr-name"></span>
   </div>
-
-  <!-- LOGIN -->
-  <div class="screen on" id="scr-login" style="align-items:center;justify-content:center;padding:24px">
-    <div style="width:100%">
-      <div class="login-hero">
-        <span class="mic">🎤</span>
-        <h1>Portail Humoriste</h1>
-        <p>Broadway Comedy Club</p>
-      </div>
-
-      <!-- Choix -->
-      <div id="choice-screen">
-        <div class="choice-btn" id="btn-dispos" style="cursor:pointer">
-          <div class="choice-icon" style="background:rgba(249,115,22,.1)">📅</div>
-          <div>
-            <div class="choice-title">Mes disponibilités</div>
-            <div class="choice-sub">Indiquer mes créneaux pour le mois à venir</div>
-          </div>
-          <span class="choice-arr">›</span>
-        </div>
-        <div class="choice-btn" id="btn-dates" style="cursor:pointer">
-          <div class="choice-icon" style="background:rgba(99,102,241,.1)">🗓️</div>
-          <div>
-            <div class="choice-title">Mes dates de passage</div>
-            <div class="choice-sub">Voir et modifier mes créneaux planifiés</div>
-          </div>
-          <span class="choice-arr">›</span>
-        </div>
-      </div>
-
-      <!-- Formulaire -->
-      <div id="form-screen" style="display:none">
-        <button class="back-btn" onclick="document.getElementById('choice-screen').style.display='block';document.getElementById('form-screen').style.display='none'">← Retour</button>
-        <div class="form-title" id="form-title">Connexion</div>
-        <div class="card">
-          <label class="lbl">Prénom</label>
-          <input class="inp" id="f-prenom" placeholder="Ton prénom" oninput="clearErr()">
-          <label class="lbl">Nom</label>
-          <input class="inp" id="f-nom" placeholder="Ton nom" oninput="clearErr()">
-          <label class="lbl">Email</label>
-          <input class="inp" id="f-email" type="email" placeholder="ton@email.com" oninput="clearErr()">
-          <label class="lbl">Téléphone WhatsApp</label>
-          <input class="inp" id="f-phone" type="tel" placeholder="+33 6 xx xx xx xx" oninput="clearErr()">
-
-          <div class="err" id="f-err">⚠ Code incorrect ou champs manquants</div>
-          <label class="remember">
-            <input type="checkbox" id="f-remember">
-            <span>Se souvenir de moi</span>
-          </label>
-          <button class="btn-main" onclick="doLogin()">Accéder →</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- TABS (cachés jusqu'au login) -->
-  <div class="tabs" id="tabs" style="display:none">
-    <button class="tab on" id="tab-dispos" onclick="switchTab('dispos')">📅 DISPOS</button>
-    <button class="tab" id="tab-dates" onclick="switchTab('dates')">🗓 DATES</button>
-    <button class="tab" id="tab-profil" onclick="switchTab('profil')">👤 PROFIL</button>
+  <div class="tabs">
+    <button class="tab on" data-tab="dispos">📅 DISPOS</button>
+    <button class="tab" data-tab="dates">🗓 DATES</button>
+    <button class="tab" data-tab="profil">👤 PROFIL</button>
   </div>
 
   <!-- DISPOS -->
-  <div class="screen" id="scr-dispos">
-    <div style="padding:24px">
-      <div class="dispo-header">
-        <div class="dispo-name" id="d-name">—</div>
-        <div class="dispo-club" id="d-club">Broadway Comedy Club · Disponibilités</div>
-        <div class="deadline-badge">⏰ Deadline : <span id="d-deadline">—</span></div>
-      </div>
-      <div class="help-box">👆 Coche ✓ les créneaux où tu es disponible. Active <strong>MC</strong> si tu peux animer la soirée.</div>
-      <div class="quick-btns">
-        <button class="quick-btn" onclick="checkAll()">✓ Tout cocher</button>
-        <button class="quick-btn" onclick="uncheckAll()">Tout décocher</button>
-      </div>
-      <div id="slots-container"></div>
-      <div class="submit-area">
-        <button class="btn-main" onclick="doSubmit()">Envoyer mes disponibilités</button>
-        <div class="submit-count" id="d-count">0 créneau coché</div>
-        <div class="submit-ok" id="d-ok">✓ Disponibilités envoyées — merci !</div>
-      </div>
+  <div class="tab-content on" id="tab-dispos">
+    <div class="dispo-header">
+      <div class="dispo-name" id="d-name">—</div>
+      <div class="dispo-sub" id="d-sub">Broadway Comedy Club · Disponibilités</div>
+      <div class="deadline">⏰ Deadline : <span id="d-deadline">—</span></div>
+    </div>
+    <div class="help">👆 Coche ✓ les créneaux où tu es disponible. Active <strong>MC</strong> si tu peux animer.</div>
+    <div class="quick-btns">
+      <button class="quick-btn" id="btn-all">✓ Tout cocher</button>
+      <button class="quick-btn" id="btn-none">Tout décocher</button>
+    </div>
+    <div id="slots-container"></div>
+    <div class="submit-area">
+      <button class="btn-main" id="btn-submit">Envoyer mes disponibilités</button>
+      <div class="submit-count" id="d-count">0 créneau coché</div>
+      <div class="submit-ok" id="d-ok">✓ Disponibilités envoyées — merci !</div>
     </div>
   </div>
 
-  <!-- MES DATES -->
-  <div class="screen" id="scr-dates">
-    <div style="padding:24px">
-      <div class="dates-title">Mes dates planifiées</div>
-      <div class="dates-sub">Clique sur une date pour la gérer</div>
-      
-      <!-- Bouton calendrier -->
-      <button class="cal-btn" onclick="exportCal()">
-        📅 Ajouter toutes mes dates à mon calendrier
-      </button>
-
-      <!-- Bouton annulation urgente -->
-      <button onclick="showCancelModal()" style="width:100%;padding:13px;background:rgba(239,68,68,.06);color:var(--r);border:1px solid rgba(239,68,68,.2);border-radius:12px;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:20px;transition:.15s">
-        🚨 Signaler une annulation
-      </button>
-
-      <div id="dates-container"></div>
-      <button class="confirm-btn" id="confirm-btn" onclick="confirmDates()">Confirmer les changements</button>
-      <div class="confirm-ok" id="confirm-ok">✓ Planning mis à jour !</div>
-    </div>
-  </div>
-
-  <!-- MODAL ANNULATION -->
-  <div id="cancel-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:100;align-items:center;justify-content:center;padding:24px">
-    <div style="background:var(--s1);border:1px solid var(--border2);border-radius:16px;padding:24px;width:100%;max-width:400px">
-      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:16px;color:var(--r)">🚨 Signaler une annulation</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">Quel créneau ne peux-tu plus assurer ?</div>
-      <select id="cancel-slot-select" style="width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:10px;padding:12px 14px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;margin-bottom:12px">
-        <option value="">— Sélectionner le créneau —</option>
-      </select>
-      <textarea id="cancel-reason" placeholder="Raison (facultatif)..." style="width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:10px;padding:12px 14px;color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;resize:none;height:80px;margin-bottom:16px"></textarea>
-      <div style="display:flex;gap:8px">
-        <button onclick="hideCancelModal()" style="flex:1;padding:12px;background:var(--s2);border:1px solid var(--border2);border-radius:10px;color:var(--muted);font-family:'Syne',sans-serif;font-weight:600;font-size:12px;cursor:pointer">Annuler</button>
-        <button onclick="sendCancelAlert()" style="flex:1;padding:12px;background:var(--r);border:none;border-radius:10px;color:#fff;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;cursor:pointer">Envoyer l'alerte</button>
-      </div>
-      <div id="cancel-ok" style="display:none;text-align:center;font-size:11px;color:var(--g);margin-top:12px;padding:10px;background:var(--g2);border-radius:8px">✓ Alerte envoyée à l'admin !</div>
-    </div>
+  <!-- DATES -->
+  <div class="tab-content" id="tab-dates">
+    <button class="cal-btn" id="btn-cal">📅 Ajouter toutes mes dates au calendrier</button>
+    <button class="cancel-btn" id="btn-cancel-show">🚨 Signaler une annulation</button>
+    <div id="dates-container"></div>
+    <button class="confirm-btn" id="btn-confirm">Confirmer les changements</button>
+    <div class="confirm-ok" id="confirm-ok">✓ Planning mis à jour !</div>
   </div>
 
   <!-- PROFIL -->
-  <div class="screen" id="scr-profil">
-    <div style="padding:24px">
-      <div class="profil-card">
-        <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
-          <div class="profil-avatar" id="p-avatar">?</div>
-          <div class="profil-info">
-            <div class="profil-name" id="p-name">—</div>
-            <div class="profil-role">Humoriste · Broadway Comedy Club</div>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div class="stat-box">
-            <div class="stat-val" id="p-stat-dispos" style="color:var(--o)">0</div>
-            <div class="stat-lbl">Dispos</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-val" id="p-stat-dates" style="color:var(--g)">0</div>
-            <div class="stat-lbl">Dates planifiées</div>
-          </div>
+  <div class="tab-content" id="tab-profil">
+    <div class="profil-card">
+      <div class="profil-top">
+        <div class="avatar" id="p-avatar">?</div>
+        <div>
+          <div class="profil-name" id="p-name">—</div>
+          <div class="profil-role">Humoriste · Broadway Comedy Club</div>
         </div>
       </div>
-      <div class="profil-card">
-        <div class="info-row"><span class="info-key">Email</span><span id="p-email">—</span></div>
-        <div class="info-row"><span class="info-key">Téléphone</span><span id="p-phone">—</span></div>
-        <div class="info-row"><span class="info-key">Club</span><span style="color:var(--o);font-weight:700">Broadway Comedy Club</span></div>
+      <div class="stats">
+        <div class="stat"><div class="stat-val" id="p-dispos" style="color:#f97316">0</div><div class="stat-lbl">Dispos</div></div>
+        <div class="stat"><div class="stat-val" id="p-dates" style="color:#22c55e">0</div><div class="stat-lbl">Dates planifiées</div></div>
       </div>
-      <button class="logout-btn" onclick="doLogout()">Se déconnecter</button>
     </div>
+    <div class="profil-card">
+      <div class="info-row"><span class="info-key">Email</span><span id="p-email">—</span></div>
+      <div class="info-row"><span class="info-key">Téléphone</span><span id="p-phone">—</span></div>
+      <div class="info-row"><span class="info-key">Club</span><span style="color:#f97316;font-weight:700">Broadway Comedy Club</span></div>
+    </div>
+    <button class="logout-btn" id="btn-logout">Se déconnecter</button>
+  </div>
+</div>
+
+<!-- MODAL ANNULATION -->
+<div class="modal-overlay" id="modal-cancel">
+  <div class="modal-box">
+    <div class="modal-title">🚨 Signaler une annulation</div>
+    <div class="modal-sub">Quel créneau ne peux-tu plus assurer ?</div>
+    <select class="fsl" id="cancel-slot"></select>
+    <textarea class="fta" id="cancel-reason" placeholder="Raison (facultatif)..."></textarea>
+    <div class="modal-btns">
+      <button class="btn-cancel" id="btn-modal-cancel">Annuler</button>
+      <button class="btn-send" id="btn-modal-send">Envoyer l'alerte</button>
+    </div>
+    <div class="modal-ok" id="cancel-ok">✓ Alerte envoyée !</div>
   </div>
 </div>
 
 <script>
 // ── CONFIG ──
-const SUPABASE_URL = 'https://dvdwfxytdsvwjtirxncz.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2ZHdmeHl0ZHN2d2p0aXJ4bmN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTY0MTMsImV4cCI6MjA5MjYzMjQxM30.7u70HAAepfCfU7T58IlN_u-b-rI5uBzqT7lISLQsrWY';
-const VALID_CODES = ['BCCD25'];
+const SB_URL = 'https://dvdwfxytdsvwjtirxncz.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2ZHdmeHl0ZHN2d2p0aXJ4bmN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTY0MTMsImV4cCI6MjA5MjYzMjQxM30.7u70HAAepfCfU7T58IlN_u-b-rI5uBzqT7lISLQsrWY';
 const MOIS = ['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','nov','déc'];
 const MOIS_FULL = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const DAYS = ['DIM','LUN','MAR','MER','JEU','VEN','SAM'];
 const DAYS_FR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
-const DAYS_CONFIG = [
-  {name:'MAR',label:'Mardi',slots:['20:15','21:30']},
-  {name:'MER',label:'Mercredi',slots:['20:15','21:30']},
-  {name:'JEU',label:'Jeudi',slots:['20:15','21:30']},
-  {name:'VEN',label:'Vendredi',slots:['19:00','20:15','21:30']},
-  {name:'SAM',label:'Samedi',slots:['19:00','20:30','21:45','23:00']},
-  {name:'DIM',label:'Dimanche',slots:['20:15','21:30']}
+const DAYS_CFG = [
+  {n:'MAR',l:'Mardi',s:['20H15','21H30']},
+  {n:'MER',l:'Mercredi',s:['20H15','21H30']},
+  {n:'JEU',l:'Jeudi',s:['20H15','21H30']},
+  {n:'VEN',l:'Vendredi',s:['19H00','20H15','21H30']},
+  {n:'SAM',l:'Samedi',s:['19H00','20H30','21H45','23H00']},
+  {n:'DIM',l:'Dimanche',s:['20H15','21H30']}
 ];
 
 let user = null;
+let mode = 'dispos';
 let hvSlots = {};
-let manageDates = {};
 let assignments = {};
 let comedians = [];
-let loginMode = 'dispos';
+let manageDates = {};
 
 // ── SUPABASE ──
 async function sb(table, opts={}) {
   const {method='GET', params='', body} = opts;
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, {
-      method, headers: {
-        'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': method==='POST' ? 'resolution=merge-duplicates' : ''
-      },
-      body: body ? JSON.stringify(body) : undefined
-    });
+    const h = {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+    if (method==='POST') h['Prefer']='resolution=merge-duplicates';
+    if (method==='DELETE') h['Prefer']='return=minimal';
+    const r = await fetch(SB_URL+'/rest/v1/'+table+params, {method, headers:h, body:body?JSON.stringify(body):undefined});
     return method==='GET' ? await r.json() : r.ok;
-  } catch(e) { return method==='GET' ? [] : false; }
+  } catch(e) { return method==='GET'?[]:false; }
+}
+
+// ── NAVIGATION ──
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab===name));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('on', c.id==='tab-'+name));
+  if (name==='dates') renderDates();
+  if (name==='profil') renderProfil();
 }
 
 // ── INIT ──
-const params = new URLSearchParams(location.search);
-const urlCode = params.get('code');
-const urlManage = params.get('manage');
-
-// Charger données sauvegardées
-const saved = localStorage.getItem('stagely_hv_saved');
-if (saved) {
-  try {
-    const s = JSON.parse(saved);
-    document.getElementById('f-prenom').value = s.prenom||'';
-    document.getElementById('f-nom').value = s.nom||'';
-    document.getElementById('f-email').value = s.email||'';
-    document.getElementById('f-phone').value = s.phone||'';
-    document.getElementById('f-code').value = urlCode || s.code||'BCCD25';
-    document.getElementById('f-remember').checked = true;
-  } catch(e){}
-
-
-// Charger assignments depuis Supabase
-async function loadAssignments() {
-  const data = await sb('assignments');
+async function init() {
+  // Charger données
+  const [c, a] = await Promise.all([sb('comedians',{params:'?order=name'}), sb('assignments')]);
+  comedians = c||[];
   assignments = {};
-  (data||[]).forEach(a => {
-    if (!assignments[a.slot_key]) assignments[a.slot_key] = [];
-    assignments[a.slot_key].push(a.comedian_id);
+  (a||[]).forEach(r => {
+    if (!assignments[r.slot_key]) assignments[r.slot_key]=[];
+    assignments[r.slot_key].push(r.comedian_id);
   });
-  comedians = await sb('comedians', {params:'?order=name'}) || [];
+
+  // Charger infos sauvegardées
+  const saved = localStorage.getItem('stagely_hv');
+  if (saved) {
+    try {
+      const s = JSON.parse(saved);
+      document.getElementById('f-prenom').value = s.p||'';
+      document.getElementById('f-nom').value = s.n||'';
+      document.getElementById('f-email').value = s.e||'';
+      document.getElementById('f-phone').value = s.ph||'';
+      document.getElementById('f-remember').checked = true;
+    } catch(e) {}
+  }
+
+  // Events
+  document.getElementById('btn-dispos').addEventListener('click', () => { mode='dispos'; goLogin(); });
+  document.getElementById('btn-dates').addEventListener('click', () => { mode='dates'; goLogin(); });
+  document.getElementById('btn-back').addEventListener('click', () => showPage('page-home'));
+  document.getElementById('btn-login').addEventListener('click', doLogin);
+  document.getElementById('btn-all').addEventListener('click', checkAll);
+  document.getElementById('btn-none').addEventListener('click', uncheckAll);
+  document.getElementById('btn-submit').addEventListener('click', doSubmit);
+  document.getElementById('btn-cal').addEventListener('click', exportCal);
+  document.getElementById('btn-cancel-show').addEventListener('click', openCancelModal);
+  document.getElementById('btn-confirm').addEventListener('click', confirmDates);
+  document.getElementById('btn-logout').addEventListener('click', doLogout);
+  document.getElementById('btn-modal-cancel').addEventListener('click', () => document.getElementById('modal-cancel').classList.remove('open'));
+  document.getElementById('btn-modal-send').addEventListener('click', sendCancelAlert);
+  document.getElementById('btn-all').addEventListener('click', checkAll);
+
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => showTab(t.dataset.tab));
+  });
+
+  document.getElementById('f-prenom').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+  document.getElementById('f-email').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 }
-loadAssignments();
 
-// Attacher les événements après chargement
-document.addEventListener('DOMContentLoaded', function() {
-  const btnDispos = document.getElementById('btn-dispos');
-  const btnDates = document.getElementById('btn-dates');
-  if (btnDispos) btnDispos.addEventListener('click', function() { window.showForm('dispos'); });
-  if (btnDates) btnDates.addEventListener('click', function() { window.showForm('dates'); });
-});
-
-// Si lien direct manage
-if (urlManage) {
-  showForm('dates');
-  // Sera traité après login
+function goLogin() {
+  document.getElementById('login-title').textContent = mode==='dispos' ? 'Mes disponibilités' : 'Mes dates de passage';
+  document.getElementById('f-err').style.display = 'none';
+  showPage('page-login');
 }
-
-// ── LOGIN ──
-window.showForm = function(mode) {
-  loginMode = mode;
-  document.getElementById('choice-screen').style.display = 'none';
-  document.getElementById('form-screen').style.display = 'block';
-  document.getElementById('form-title').textContent = mode==='dispos' ? 'Mes disponibilités' : 'Mes dates de passage';
-}
-
-function clearErr() { document.getElementById('f-err').style.display='none'; }
 
 async function doLogin() {
   const prenom = document.getElementById('f-prenom').value.trim();
   const nom = document.getElementById('f-nom').value.trim();
   const email = document.getElementById('f-email').value.trim();
   const phone = document.getElementById('f-phone').value.trim();
-  const remember = document.getElementById('f-remember')?.checked;
+  const remember = document.getElementById('f-remember').checked;
 
   if (!prenom||!nom||!email||!phone) {
-    const err = document.getElementById('f-err');
-    err.textContent = '⚠ Remplis tous les champs';
-    err.style.display='block'; return;
+    document.getElementById('f-err').textContent = '⚠ Remplis tous les champs';
+    document.getElementById('f-err').style.display = 'block';
+    return;
   }
 
-
-  const name = `${prenom.toUpperCase()} ${nom.toUpperCase()}`;
+  const fullName = (prenom+' '+nom).toUpperCase();
+  const normalize = s => s.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
   
-  // Recherche souple — normaliser les accents et espaces
-  const normalize = s => s.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
-  const normalizedInput = normalize(name);
+  let found = comedians.find(c => normalize(c.name) === normalize(fullName) || normalize(c.name).split(' ')[0] === normalize(prenom));
   
-  const existing = comedians.find(c => {
-    const n = normalize(c.name);
-    return n === normalizedInput ||
-      n.startsWith(normalize(prenom)) ||
-      normalize(prenom) === n.split(' ')[0];
-  });
-
-  if (existing) {
-    user = existing;
-    if (phone && !user.phone) user.phone = phone;
-    if (email && !user.email) user.email = email;
-  } else {
-    // Nouvel humoriste — créer dans Supabase
-    const stableId = normalize(prenom+'_'+nom).toLowerCase().replace(/[^a-z0-9_]/g,'').replace(/\s/g,'_');
-    user = {id: stableId, name, prio:'new', presence:100, gender:'m', duration:10, phone, email, active:true};
-    await sb('comedians', {method:'POST', params:'?on_conflict=id', body:[{
-      id: user.id, name: user.name, prio:'new', presence:100, gender:'m',
-      duration:10, phone, email, active:true
-    }]});
+  if (!found) {
+    const id = normalize(prenom+'_'+nom).replace(/[^A-Z0-9_]/g,'').toLowerCase();
+    found = {id, name:fullName, prio:'new', presence:100, gender:'m', duration:10, phone, email, active:true};
+    await sb('comedians', {method:'POST', params:'?on_conflict=id', body:[found]});
+    comedians.push(found);
   }
+  
+  user = found;
+  if (phone && !user.phone) user.phone = phone;
+  if (email && !user.email) user.email = email;
 
-  if (remember) {
-    localStorage.setItem('stagely_hv_saved', JSON.stringify({prenom,nom,email,phone}));
-  }
+  if (remember) localStorage.setItem('stagely_hv', JSON.stringify({p:prenom,n:nom,e:email,ph:phone}));
 
-  // Afficher l'espace connecté
-  document.getElementById('scr-login').classList.remove('on');
-  document.getElementById('tabs').style.display = 'flex';
-  document.getElementById('hdr-name').textContent = `${prenom} ${nom}`;
-
-  // Charger les données Supabase
-  await loadAssignments();
-
-  if (loginMode === 'dates' || urlManage) {
-    switchTab('dates');
-  } else {
-    switchTab('dispos');
-  }
-}
-
-// ── TABS ──
-function switchTab(tab) {
-  ['dispos','dates','profil'].forEach(t => {
-    document.getElementById(`scr-${t}`).classList.toggle('on', t===tab);
-    const btn = document.getElementById(`tab-${t}`);
-    btn.classList.toggle('on', t===tab);
-  });
-  if (tab==='dispos') renderDispos();
-  if (tab==='dates') renderDates();
-  if (tab==='profil') renderProfil();
+  document.getElementById('hdr-name').textContent = prenom+' '+nom;
+  showPage('page-space');
+  
+  if (mode==='dates') showTab('dates');
+  else { showTab('dispos'); renderDispos(); }
 }
 
 // ── DISPOS ──
-function getNextMonthSlots() {
+function getSlots() {
   const now = new Date();
   const nextM = (now.getMonth()+1) % 12;
   const nextY = now.getMonth()===11 ? now.getFullYear()+1 : now.getFullYear();
@@ -668,12 +423,12 @@ function getNextMonthSlots() {
   const slots = [];
   for (let d=1; d<=daysInMonth; d++) {
     const date = new Date(nextY, nextM, d);
-    const dayName = DAYS[date.getDay()];
-    const cfg = DAYS_CONFIG.find(dc => dc.name === dayName);
+    const dayN = DAYS[date.getDay()];
+    const cfg = DAYS_CFG.find(c => c.n===dayN);
     if (!cfg) continue;
-    cfg.slots.forEach(slot => {
-      const key = `${nextY}-${String(nextM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}-${slot.replace(':','H')}`;
-      slots.push({key, date, day:d, dayName:cfg.name, dayLabel:DAYS_FR[date.getDay()], slot});
+    cfg.s.forEach(slot => {
+      const key = `${nextY}-${String(nextM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}-${slot}`;
+      slots.push({key, date, day:d, dayL:DAYS_FR[date.getDay()], slot, mois:MOIS[nextM]});
     });
   }
   return slots;
@@ -685,54 +440,61 @@ function renderDispos() {
   const nextM = (now.getMonth()+1) % 12;
   const nextY = now.getMonth()===11 ? now.getFullYear()+1 : now.getFullYear();
   document.getElementById('d-name').textContent = user.name;
-  document.getElementById('d-club').textContent = `Broadway Comedy Club · Disponibilités ${MOIS_FULL[nextM]} ${nextY}`;
+  document.getElementById('d-sub').textContent = `Broadway Comedy Club · ${MOIS_FULL[nextM]} ${nextY}`;
   document.getElementById('d-deadline').textContent = `15 ${MOIS_FULL[nextM]} ${nextY}`;
 
-  const slots = getNextMonthSlots();
-  const days = {};
-  const dayOrder = [];
+  const slots = getSlots();
+  const days = {}; const dayOrder = [];
   slots.forEach(s => {
-    const ds = `${s.dayLabel} ${s.day} ${MOIS[s.date.getMonth()]}`;
-    if (!days[ds]) { days[ds] = []; dayOrder.push(ds); }
-    days[ds].push(s);
+    const k = `${s.dayL} ${s.day} ${s.mois}`;
+    if (!days[k]) { days[k]=[]; dayOrder.push(k); }
+    days[k].push(s);
   });
 
   let html = '';
-  dayOrder.forEach(ds => {
-    html += `<div class="day-card"><div class="day-card-hdr">${ds}</div>`;
-    days[ds].forEach(({key, slot}) => {
+  dayOrder.forEach(dk => {
+    html += `<div class="day-card"><div class="day-hdr">${dk}</div>`;
+    days[dk].forEach(({key, slot}) => {
       const sv = hvSlots[key]||{dispo:false,mc:false};
       const uid = key.replace(/[-H]/g,'_');
+      const time = slot.replace('H',':');
       html += `<div class="slot-row">
-        <span class="slot-time">${slot}</span>
-        <span class="slot-label">Disponible</span>
-        <div class="tcheck">
-          <input type="checkbox" id="d_${uid}" ${sv.dispo?'checked':''} onchange="toggle('${key}','dispo',this.checked)">
+        <span class="slot-time">${time}</span>
+        <span class="slot-lbl">Disponible</span>
+        <div class="chk-wrap">
+          <input type="checkbox" id="d_${uid}" ${sv.dispo?'checked':''} data-key="${key}" data-type="dispo">
           <label for="d_${uid}">✓</label>
         </div>
-        <div class="mc-check ${!sv.dispo?'off':''}">
-          <input type="checkbox" id="mc_${uid}" ${sv.mc?'checked':''} ${!sv.dispo?'disabled':''} onchange="toggle('${key}','mc',this.checked)">
-          <label for="mc_${uid}">MC</label>
+        <div class="mc-wrap ${!sv.dispo?'off':''}" id="mc_${uid}">
+          <input type="checkbox" id="mc__${uid}" ${sv.mc?'checked':''} ${!sv.dispo?'disabled':''} data-key="${key}" data-type="mc">
+          <label for="mc__${uid}">MC</label>
         </div>
       </div>`;
     });
     html += '</div>';
   });
-  document.getElementById('slots-container').innerHTML = html || '<div style="text-align:center;padding:40px;color:var(--muted)">Aucun créneau ce mois-ci</div>';
-  updateCount();
-}
 
-function toggle(key, type, val) {
-  if (!hvSlots[key]) hvSlots[key] = {dispo:false,mc:false};
-  hvSlots[key][type] = val;
-  if (type==='dispo' && !val) hvSlots[key].mc = false;
-  const uid = key.replace(/[-H]/g,'_');
-  const mcEl = document.querySelector(`#mc_${uid}`);
-  const mcWrap = mcEl?.closest('.mc-check');
-  if (mcWrap) {
-    mcWrap.classList.toggle('off', !hvSlots[key].dispo);
-    if (mcEl) { mcEl.disabled = !hvSlots[key].dispo; if (!hvSlots[key].dispo) { mcEl.checked=false; hvSlots[key].mc=false; } }
-  }
+  document.getElementById('slots-container').innerHTML = html || '<div style="text-align:center;padding:40px;color:#444">Aucun créneau ce mois-ci</div>';
+
+  // Events checkboxes
+  document.querySelectorAll('#slots-container input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', function() {
+      const key = this.dataset.key;
+      const type = this.dataset.type;
+      if (!hvSlots[key]) hvSlots[key]={dispo:false,mc:false};
+      hvSlots[key][type] = this.checked;
+      if (type==='dispo' && !this.checked) hvSlots[key].mc=false;
+      const uid = key.replace(/[-H]/g,'_');
+      const mcWrap = document.getElementById('mc_'+uid);
+      const mcCb = document.getElementById('mc__'+uid);
+      if (mcWrap && mcCb) {
+        mcWrap.classList.toggle('off', !hvSlots[key].dispo);
+        mcCb.disabled = !hvSlots[key].dispo;
+        if (!hvSlots[key].dispo) { mcCb.checked=false; hvSlots[key].mc=false; }
+      }
+      updateCount();
+    });
+  });
   updateCount();
 }
 
@@ -742,70 +504,55 @@ function updateCount() {
 }
 
 function checkAll() {
-  document.querySelectorAll('.tcheck input').forEach(el => {
-    el.checked = true; el.dispatchEvent(new Event('change'));
-  });
+  document.querySelectorAll('#slots-container input[data-type=dispo]').forEach(cb => { if(!cb.checked){cb.checked=true;cb.dispatchEvent(new Event('change'));} });
 }
 function uncheckAll() {
-  document.querySelectorAll('.tcheck input').forEach(el => {
-    el.checked = false; el.dispatchEvent(new Event('change'));
-  });
+  document.querySelectorAll('#slots-container input[data-type=dispo]').forEach(cb => { if(cb.checked){cb.checked=false;cb.dispatchEvent(new Event('change'));} });
 }
 
 async function doSubmit() {
   const n = Object.values(hvSlots).filter(v=>v.dispo).length;
   if (!n) { alert('Coche au moins un créneau'); return; }
-  const dispoRows = Object.entries(hvSlots)
-    .filter(([,v])=>v.dispo)
-    .map(([slot_key,v])=>({comedian_id:user.id,slot_key,dispo:true,mc:v.mc||false}));
-  await sb('dispos',{method:'POST',params:'?on_conflict=comedian_id,slot_key',body:dispoRows});
+  const rows = Object.entries(hvSlots).filter(([,v])=>v.dispo).map(([k,v])=>({comedian_id:user.id,slot_key:k,dispo:true,mc:v.mc||false}));
+  await sb('dispos',{method:'POST',params:'?on_conflict=comedian_id,slot_key',body:rows});
   await sb('dispo_status',{method:'POST',params:'?on_conflict=comedian_id',body:[{comedian_id:user.id,status:'replied'}]});
   document.getElementById('d-ok').style.display='block';
-  document.querySelector('#scr-dispos .btn-main').disabled=true;
-  document.querySelector('#scr-dispos .btn-main').style.opacity='.4';
+  document.getElementById('btn-submit').disabled=true;
+  document.getElementById('btn-submit').style.opacity='.4';
 }
 
-// ── MES DATES ──
+// ── DATES ──
 async function renderDates() {
   if (!user) return;
-  const myKeys = Object.entries(assignments)
-    .filter(([,ids])=>ids.includes(user.id))
-    .map(([k])=>k);
-
+  const myKeys = Object.entries(assignments).filter(([,ids])=>ids.includes(user.id)).map(([k])=>k);
   manageDates = {};
   myKeys.forEach(k => manageDates[k]=true);
-
-  const btn = document.getElementById('confirm-btn');
   const container = document.getElementById('dates-container');
-
+  const confirmBtn = document.getElementById('btn-confirm');
   if (!myKeys.length) {
-    container.innerHTML = `<div class="empty-state"><span class="empty-icon">📭</span><div>Aucune date planifiée ce mois-ci</div></div>`;
-    btn.style.display='none'; return;
+    container.innerHTML = '<div class="empty"><span class="empty-icon">📭</span>Aucune date planifiée</div>';
+    confirmBtn.style.display='none'; return;
   }
-
-  // Grouper par jour
-  const days = {};
-  const dayOrder = [];
+  const days={}; const dayOrder=[];
   myKeys.sort().forEach(key => {
-    const parts = key.split('-');
-    const date = new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
-    const ds = `${DAYS_FR[date.getDay()]} ${date.getDate()} ${MOIS[date.getMonth()]}`;
-    if (!days[ds]) { days[ds]=[]; dayOrder.push(ds); }
-    const time = parts[3]?.replace('H',':');
-    const isMC = (assignments[key]||[])[0]===user.id;
-    days[ds].push({key,time,isMC});
+    const parts=key.split('-');
+    const date=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+    const slot=parts[3]?.replace('H',':');
+    const dk=`${DAYS_FR[date.getDay()]} ${date.getDate()} ${MOIS[date.getMonth()]}`;
+    if (!days[dk]){days[dk]=[];dayOrder.push(dk);}
+    const isMC=(assignments[key]||[])[0]===user.id;
+    days[dk].push({key,slot,isMC});
   });
-
   let html='';
-  dayOrder.forEach(ds => {
-    html+=`<div class="date-card"><div class="date-card-hdr">📌 ${ds}</div>`;
-    days[ds].forEach(({key,time,isMC}) => {
+  dayOrder.forEach(dk => {
+    html+=`<div class="date-card"><div class="date-hdr">📌 ${dk}</div>`;
+    days[dk].forEach(({key,slot,isMC}) => {
       const uid=key.replace(/[-H]/g,'_');
-      html+=`<div class="date-slot-row">
-        <span class="date-time">${time}</span>
-        ${isMC?'<span class="date-mc-badge">🎤 MC</span>':''}
-        <div class="date-tcheck">
-          <input type="checkbox" id="mg_${uid}" checked onchange="manageDates['${key}']=this.checked;document.getElementById('confirm-btn').style.display='block'">
+      html+=`<div class="date-row">
+        <span class="date-time">${slot}</span>
+        ${isMC?'<span class="date-mc">🎤 MC</span>':''}
+        <div class="chk-date">
+          <input type="checkbox" id="mg_${uid}" checked data-key="${key}">
           <label for="mg_${uid}">✓</label>
         </div>
       </div>`;
@@ -813,27 +560,39 @@ async function renderDates() {
     html+='</div>';
   });
   container.innerHTML=html;
-  btn.style.display='block';
+  confirmBtn.style.display='block';
+  document.getElementById('confirm-ok').style.display='none';
+  document.querySelectorAll('#dates-container input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', function() { manageDates[this.dataset.key]=this.checked; });
+  });
+
+  // Remplir modal annulation
+  const sel = document.getElementById('cancel-slot');
+  sel.innerHTML = '<option value="">— Sélectionner —</option>';
+  myKeys.sort().forEach(key => {
+    const parts=key.split('-');
+    const date=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+    const slot=parts[3]?.replace('H',':');
+    sel.innerHTML += `<option value="${key}">${DAYS_FR[date.getDay()]} ${date.getDate()} ${MOIS[date.getMonth()]} à ${slot}</option>`;
+  });
 }
 
 async function confirmDates() {
-  // Supprimer les assignments décochés
   const toRemove = Object.entries(manageDates).filter(([,v])=>!v).map(([k])=>k);
   for (const key of toRemove) {
     await sb('assignments',{method:'DELETE',params:`?slot_key=eq.${key}&comedian_id=eq.${user.id}`});
+    if (assignments[key]) assignments[key]=assignments[key].filter(id=>id!==user.id);
   }
   document.getElementById('confirm-ok').style.display='block';
-  document.getElementById('confirm-btn').style.display='none';
+  document.getElementById('btn-confirm').style.display='none';
   await renderDates();
 }
 
 function exportCal() {
-  const myKeys = Object.entries(assignments)
-    .filter(([,ids])=>ids.includes(user.id))
-    .map(([k])=>k);
+  if (!user) return;
+  const myKeys = Object.entries(assignments).filter(([,ids])=>ids.includes(user.id)).map(([k])=>k);
   if (!myKeys.length) { alert('Aucune date à exporter'); return; }
-
-  let ics='BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Stagely BCC//FR\nCALSCALE:GREGORIAN\n';
+  let ics='BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Stagely BCC//FR\n';
   myKeys.sort().forEach(key => {
     const parts=key.split('-');
     const y=parts[0],mo=parts[1],d=parts[2];
@@ -841,16 +600,33 @@ function exportCal() {
     const [h,m]=t.split(':');
     const isFirst=(assignments[key]||[])[0]===user.id;
     const endH=parseInt(h)+1;
-    const dt=`${y}${mo}${d}T${String(h).padStart(2,'0')}${String(m||'00').padStart(2,'0')}00`;
-    const dtend=`${y}${mo}${d}T${String(endH).padStart(2,'0')}${String(m||'00').padStart(2,'0')}00`;
-    ics+=`BEGIN:VEVENT\nUID:stagely-${key}-${user.id}@bcc\nDTSTART:${dt}\nDTEND:${dtend}\nSUMMARY:${isFirst?'🎤 MC — ':' '}Broadway Comedy Club ${t}\nLOCATION:Broadway Comedy Club\nEND:VEVENT\n`;
+    const dt=`${y}${mo}${d}T${h.padStart(2,'0')}${(m||'00').padStart(2,'0')}00`;
+    const dtend=`${y}${mo}${d}T${String(endH).padStart(2,'0')}${(m||'00').padStart(2,'0')}00`;
+    ics+=`BEGIN:VEVENT\nUID:stagely-${key}@bcc\nDTSTART:${dt}\nDTEND:${dtend}\nSUMMARY:${isFirst?'🎤 MC — ':''}Broadway Comedy Club ${t}\nLOCATION:Broadway Comedy Club\nEND:VEVENT\n`;
   });
   ics+='END:VCALENDAR';
   const blob=new Blob([ics],{type:'text/calendar'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href=url; a.download=`BCC_${user.name.replace(' ','_')}.ics`; a.click();
+  a.href=url;a.download=`BCC_${user.name}.ics`;a.click();
   URL.revokeObjectURL(url);
+}
+
+function openCancelModal() { document.getElementById('modal-cancel').classList.add('open'); }
+
+async function sendCancelAlert() {
+  const key = document.getElementById('cancel-slot').value;
+  const reason = document.getElementById('cancel-reason').value.trim();
+  if (!key) { alert('Sélectionne un créneau'); return; }
+  const parts=key.split('-');
+  const date=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+  const slot=parts[3]?.replace('H',':');
+  const dateStr=`${DAYS_FR[date.getDay()]} ${date.getDate()} ${MOIS[date.getMonth()]} à ${slot}`;
+  const msg=`🚨 ANNULATION — ${user.name} ne peut plus assurer le ${dateStr}${reason?' : '+reason:''}`;
+  await sb('chat_messages',{method:'POST',body:{sender:user.name,sender_id:user.id,text:msg}});
+  await sb('assignments',{method:'DELETE',params:`?slot_key=eq.${key}&comedian_id=eq.${user.id}`});
+  document.getElementById('cancel-ok').style.display='block';
+  setTimeout(() => { document.getElementById('modal-cancel').classList.remove('open'); renderDates(); }, 2000);
 }
 
 // ── PROFIL ──
@@ -863,74 +639,19 @@ async function renderProfil() {
   document.getElementById('p-phone').textContent = user.phone||'—';
   const dispos = await sb('dispos',{params:`?comedian_id=eq.${user.id}&dispo=eq.true`});
   const dates = Object.entries(assignments).filter(([,ids])=>ids.includes(user.id)).length;
-  document.getElementById('p-stat-dispos').textContent = dispos?.length||0;
-  document.getElementById('p-stat-dates').textContent = dates;
+  document.getElementById('p-dispos').textContent = dispos?.length||0;
+  document.getElementById('p-dates').textContent = dates;
 }
 
-function showCancelModal() {
-  const myKeys = Object.entries(assignments)
-    .filter(([,ids])=>ids.includes(user.id))
-    .map(([k])=>k);
-  
-  const sel = document.getElementById('cancel-slot-select');
-  sel.innerHTML = '<option value="">— Sélectionner le créneau —</option>';
-  myKeys.sort().forEach(key => {
-    const parts = key.split('-');
-    const date = new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
-    const time = parts[3]?.replace('H',':');
-    const ds = `${DAYS_FR[date.getDay()]} ${date.getDate()} ${MOIS[date.getMonth()]} à ${time}`;
-    sel.innerHTML += `<option value="${key}">${ds}</option>`;
-  });
-  
-  document.getElementById('cancel-modal').style.display = 'flex';
-}
-
-function hideCancelModal() {
-  document.getElementById('cancel-modal').style.display = 'none';
-  document.getElementById('cancel-ok').style.display = 'none';
-  document.getElementById('cancel-reason').value = '';
-}
-
-async function sendCancelAlert() {
-  const key = document.getElementById('cancel-slot-select').value;
-  const reason = document.getElementById('cancel-reason').value.trim();
-  if (!key) { alert('Sélectionne un créneau'); return; }
-  
-  const parts = key.split('-');
-  const date = new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
-  const time = parts[3]?.replace('H',':');
-  const ds = `${DAYS_FR[date.getDay()]} ${date.getDate()} ${MOIS[date.getMonth()]} à ${time}`;
-  
-  // Sauvegarder l'annulation dans Supabase
-  await sb('chat_messages', {method:'POST', body:{
-    sender: user.name,
-    sender_id: user.id,
-    text: `🚨 ANNULATION — ${user.name} ne peut plus assurer le ${ds}${reason?' : '+reason:''} — Qui peut remplacer ?`
-  }});
-  
-  // Supprimer l'assignment
-  await sb('assignments', {method:'DELETE', params:`?slot_key=eq.${key}&comedian_id=eq.${user.id}`});
-  
-  document.getElementById('cancel-ok').style.display = 'block';
-  setTimeout(() => {
-    hideCancelModal();
-    renderDates();
-  }, 2000);
-}
-
-
+function doLogout() {
   user=null; hvSlots={};
-  document.getElementById('scr-login').classList.add('on');
-  document.getElementById('tabs').style.display='none';
+  showPage('page-home');
   document.getElementById('hdr-name').textContent='';
-  ['dispos','dates','profil'].forEach(t=>{
-    document.getElementById(`scr-${t}`).classList.remove('on');
-    document.getElementById(`tab-${t}`).classList.remove('on');
-  });
-  document.getElementById('tab-dispos').classList.add('on');
-  document.getElementById('choice-screen').style.display='block';
-  document.getElementById('form-screen').style.display='none';
+  showTab('dispos');
 }
+
+// ── LANCER ──
+init();
 </script>
 </body>
 </html>
