@@ -575,8 +575,9 @@ function showHumoristPortal() {
 function checkAdminPwd() {
   const val = document.getElementById('admin-pwd').value;
   if (val === ADMIN_PWD) {
-    sessionStorage.setItem('stagely_admin_auth', '1');
+    localStorage.setItem('stagely_admin_auth', '1');
     document.getElementById('admin-login-screen').style.display = 'none';
+    document.getElementById('home-screen').style.display = 'none';
     document.getElementById('admin-screen').style.removeProperty('display');
   } else {
     document.getElementById('admin-pwd-err').style.display = 'block';
@@ -590,7 +591,9 @@ window.addEventListener('DOMContentLoaded', () => {
   const isPortal = params.get('code') || location.hash.startsWith('#/portal');
   if (isPortal) {
     showHumoristPortal();
-  } else if (sessionStorage.getItem('stagely_admin_auth')) {
+  } else if (localStorage.getItem('stagely_admin_auth')) {
+    document.getElementById('home-screen').style.display = 'none';
+    document.getElementById('admin-login-screen').style.display = 'none';
     document.getElementById('admin-screen').style.removeProperty('display');
   } else {
     showHomeScreen();
