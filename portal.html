@@ -445,7 +445,7 @@ function getSlots() {
   return slots;
 }
 
-function renderDispos() {
+async function renderDispos() {
   if (!user) return;
   const now = new Date();
   const nextM = (now.getMonth()+1) % 12;
@@ -453,6 +453,16 @@ function renderDispos() {
   document.getElementById('d-name').textContent = user.name;
   document.getElementById('d-sub').textContent = `Broadway Comedy Club · ${MOIS_FULL[nextM]} ${nextY}`;
   document.getElementById('d-deadline').textContent = `15 ${MOIS_FULL[nextM]} ${nextY}`;
+
+  // Vérifier si déjà envoyé
+  const status = await sb('dispo_status', {params:`?comedian_id=eq.${user.id}`});
+  const alreadySent = status && status.length && status[0].status === 'replied';
+  if (alreadySent) {
+    document.getElementById('btn-submit').disabled = true;
+    document.getElementById('btn-submit').style.opacity = '.4';
+    document.getElementById('btn-submit').textContent = '✓ Dispos déjà envoyées';
+    document.getElementById('d-ok').style.display = 'block';
+  }
 
   const slots = getSlots();
   const days = {}; const dayOrder = [];
