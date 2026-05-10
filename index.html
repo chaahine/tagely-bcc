@@ -92,8 +92,9 @@ html.light{
 /* ── MEDIA QUERIES ── */
 @media(max-width:768px){
   .sidebar{width:0!important;overflow:hidden!important;position:fixed!important;z-index:200!important;height:100vh!important;transition:width .2s!important}
-  .sidebar.mobile-open{width:180px!important;overflow:visible!important}
-  #hamburger{display:block!important}
+  .sidebar.mobile-open{width:200px!important;overflow:visible!important;z-index:999}
+  #hamburger{display:block!important;font-size:24px;padding:8px 12px}
+  .ni, .ns{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
   .sidebar .ni-lbl,.sidebar .ns,.sidebar .ctag span{opacity:0;pointer-events:none}
   .sidebar.mobile-open .ni-lbl,.sidebar.mobile-open .ns,.sidebar.mobile-open .ctag span{opacity:1;pointer-events:auto}
   .kpi-row{grid-template-columns:1fr 1fr!important}
@@ -830,7 +831,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
 <div class="main">
   <div class="topbar">
-    <button id="hamburger" onclick="toggleSB()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:3px;display:block;flex-shrink:0">≡</button>
+    <button id="hamburger" ontouchstart="toggleSB()" onclick="toggleSB()" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:8px 12px;border-radius:3px;display:block;flex-shrink:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation">≡</button>
     <div class="ptitle" id="ptitle">Dashboard</div>
     <div id="tactions" style="display:flex;gap:6px;align-items:center"></div>
   </div>
@@ -1723,7 +1724,14 @@ function nav(id) {
 window._navReady = nav;
 if (window._navQueue) { nav(window._navQueue); window._navQueue = null; }
 
-function toggleSB() { document.getElementById('sidebar').classList.toggle('col'); }
+function toggleSB() {
+  const sb = document.getElementById('sidebar');
+  if (window.innerWidth <= 768) {
+    sb.classList.toggle('mobile-open');
+  } else {
+    sb.classList.toggle('col');
+  }
+}
 function toggleSidebar() {
   const sb = document.getElementById('sidebar');
   sb.classList.toggle('mobile-open');
