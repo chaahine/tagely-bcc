@@ -4096,6 +4096,8 @@ function saveChapeau() {
   toast(`✓ Chapeau enregistré — ${montant}€`);
 }
 
+function chgWkChapeau(d) { weekOffset += d; renderChapeau(); }
+
 function deleteChapeau(id) {
   if (!confirm('Supprimer cette entrée ?')) return;
   chapeauData = chapeauData.filter(e => e.id !== id);
@@ -4128,8 +4130,14 @@ function renderChapeau(periode = 'semaine') {
   const totalCB = filteredData.reduce((s,e)=>s+(e.cb||0),0);
   const avg = filteredData.length ? Math.round(totalMontant/filteredData.length) : 0;
 
-  // Filtres
-  let html = `<div style="display:flex;gap:6px;margin-bottom:16px">
+  // Filtres + navigation semaine
+  let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+    <button onclick="chgWkChapeau(-1)" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--s2);color:var(--text);cursor:pointer;font-size:14px">←</button>
+    <span style="font-size:12px;font-weight:600;color:var(--text);flex:1;text-align:center">${wkLabel}</span>
+    <button onclick="chgWkChapeau(1)" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--s2);color:var(--text);cursor:pointer;font-size:14px">→</button>
+    <button onclick="weekOffset=0;renderChapeau()" style="padding:5px 10px;border-radius:8px;font-size:10px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer">Aujourd'hui</button>
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:16px">
     ${['semaine','mois','tout'].map(p => `
       <button onclick="renderChapeau('${p}')" style="padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${periode===p?'var(--o)':'var(--border2)'};background:${periode===p?'var(--o2)':'transparent'};color:${periode===p?'var(--o)':'var(--muted)'};font-family:'Rajdhani',sans-serif">
         ${{semaine:'Cette semaine',mois:'Ce mois',tout:'Tout'}[p]}
