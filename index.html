@@ -4129,6 +4129,7 @@ function renderChapeau(periode = 'semaine') {
   const totalEspeces = filteredData.reduce((s,e)=>s+(e.especes||0),0);
   const totalCB = filteredData.reduce((s,e)=>s+(e.cb||0),0);
   const avg = filteredData.length ? Math.round(totalMontant/filteredData.length) : 0;
+  const wkLabel = getWkLabel();
 
   // Filtres + navigation semaine
   let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
@@ -4152,7 +4153,6 @@ function renderChapeau(periode = 'semaine') {
   </div>`;
 
   // Séances de la semaine complète
-  const wkLabel = getWkLabel();
   html += `<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;font-weight:600">Séances — ${wkLabel}</div>`;
   html += `<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:24px">`;
   DAYS_CONFIG.forEach((day, di) => {
