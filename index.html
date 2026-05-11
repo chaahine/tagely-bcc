@@ -205,8 +205,8 @@ html.light{
 .btn-ghost:hover{color:var(--text);border-color:var(--border3)}
 .btn-r{background:var(--r2);color:var(--r);border:1px solid var(--rb)}
 .btn-b{background:var(--b2);color:var(--b);border:1px solid var(--bb)}
-.content{flex:1;overflow-y:auto;padding:20px}
-.view{display:none}.view.on{display:block;width:100%}
+.content{flex:1;overflow-y:auto;padding:20px;position:relative}
+.view{display:none;position:absolute;inset:0;overflow-y:auto;padding:20px}.view.on{display:block}
 #view-reglages.on,#view-humoristes.on,#view-planning.on,#view-dispos.on,#view-dashboard.on{display:block!important;width:100%;height:100%;overflow-y:auto}
 
 /* ── DASHBOARD KPIs ── */
