@@ -123,6 +123,8 @@ html.light{
 
 /* ── SHELL ── */
 .shell{display:flex;height:100vh;background:var(--bg)}
+.content{flex:1;overflow-y:auto;padding:20px;min-width:0;width:0}
+.view{display:none}.view.on{display:block;width:100%}
 
 /* ── SIDEBAR ── */
 .sidebar{
@@ -205,10 +207,6 @@ html.light{
 .btn-ghost:hover{color:var(--text);border-color:var(--border3)}
 .btn-r{background:var(--r2);color:var(--r);border:1px solid var(--rb)}
 .btn-b{background:var(--b2);color:var(--b);border:1px solid var(--bb)}
-.content{flex:1;overflow-y:auto;padding:20px;background:var(--bg)}
-.view{display:none;width:100%}.view.on{display:block!important;width:100%;opacity:1!important;visibility:visible!important}
-
-/* ── DASHBOARD KPIs ── */
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
 .kpi{
   background:var(--s1);border:1px solid var(--border);
@@ -1701,6 +1699,9 @@ function nav(id) {
   if(id==='dispos') renderDispos();
   if(id==='humoristes') renderHumoristes();
   if(id==='reglages') { renderSlotsCfg(); updateShareWidget(currentCode); }
+  // Forcer dimensions
+  const activeView = document.getElementById('view-'+id);
+  if (activeView) { activeView.style.width='100%'; activeView.style.display='block'; }
 }
 // Connecter la vraie nav au proxy temporaire
 window._navReady = nav;
