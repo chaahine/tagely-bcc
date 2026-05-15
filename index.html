@@ -1694,6 +1694,8 @@ function nav(id) {
   document.querySelectorAll('.ni').forEach(n=>{if(n.getAttribute('onclick')===`nav('${id}')`) n.classList.add('on');});
   document.getElementById('ptitle').textContent = PTITLES[id]||id;
   document.getElementById('tactions').innerHTML = PACTIONS[id]||'';
+  // Scroller en haut
+  document.querySelector('.content').scrollTop = 0;
   if(id==='dashboard') renderDashboard();
   if(id==='planning') { renderPlanning(); scheduleReminders(); }
   if(id==='dispos') renderDispos();
@@ -3537,28 +3539,7 @@ try {
 
 // Override sendChatMsg pour broadcaster
 const _origSendChatMsg = sendChatMsg;
-function sendChatMsg() {
-  const input = document.getElementById('chat-input');
-  const text = input?.value.trim();
-  if (!text) return;
-  const senderId = document.getElementById('chat-sender')?.value || 'admin';
-  const c = COMEDIANS.find(c => c.id === senderId);
-  const senderName = senderId === 'admin' ? 'BCC Admin' : c?.name || 'Inconnu';
-  const now = new Date();
-  const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  const msg = { sender: senderName, senderId, text, time, date: "Aujourd'hui" };
-  chatMessages.push(msg);
-  input.value = '';
-  renderChat();
-  autoSave();
-  logAction('chat', { sender: senderName, text });
-  // Sauvegarder message dans Supabase
-  if (sbConnected) {
-    sbFetch('chat_messages', {method:'POST', body:{sender:senderName, sender_id:senderId, text}}).catch(()=>{});
-  }
-  // Broadcast aux autres onglets
-  try { chatChannel?.postMessage({ type: 'new_message', msg }); } catch(e) {}
-}
+
 
 // ══════════════════════════════════════════════════
 // HISTORIQUE UI
@@ -3643,17 +3624,7 @@ function formatHistEntry(h) {
 // ══════════════════════════════════════════════════
 
 const _origPlanAsgn = planAsgn;
-function planAsgn(id, key) {
-  if(!assignments[key]) assignments[key]=[];
-  const MAX=parseInt(document.getElementById('s-max')?.value)||4;
-  if(assignments[key].length>=MAX){toast('Créneau plein');return;}
-  if(assignments[key].includes(id)) return;
-  assignments[key].push(id);
-  const c = COMEDIANS.find(c=>c.id===id);
-  logAction('assignment', { humId: id, name: c?.name, key });
-  toast(`✓ ${c?.name} assigné`);
-  renderPlanning();
-}
+
 
 // ══════════════════════════════════════════════════
 // CONFIG WHATSAPP UI (dans réglages)
@@ -4050,18 +4021,7 @@ function openChapeauForSlot(date, slot) {
   openModal('modal-chapeau');
 }
 
-function openChapeauForSlot(date, slot) {
-  document.getElementById('ch-date').value = date;
-  document.getElementById('ch-especes').value = '';
-  document.getElementById('ch-cb').value = '';
-  document.getElementById('ch-par-personne').value = '';
-  document.getElementById('ch-total').textContent = '0€';
-  const slotSel = document.getElementById('ch-slot');
-  for (let i=0; i<slotSel.options.length; i++) {
-    if (slotSel.options[i].value === slot) { slotSel.selectedIndex = i; break; }
-  }
-  openModal('modal-chapeau');
-}
+
 
 function saveChapeau() {
   const date = document.getElementById('ch-date').value;
