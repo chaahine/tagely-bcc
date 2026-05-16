@@ -902,9 +902,10 @@ window.addEventListener('DOMContentLoaded', () => {
         <button onclick="deleteAllComedians()" style="padding:4px 12px;border-radius:4px;font-size:10px;border:1px solid rgba(239,68,68,.3);color:var(--r);background:rgba(239,68,68,.06);cursor:pointer;font-family:'Rajdhani',sans-serif">🗑 Supprimer tout</button>
       </div>
       <div class="hum-cards" id="hcards"></div>
+    </div>
 
     <!-- RÉGLAGES -->
-    <div id="view-reglages" class="view" style="padding:20px">
+    <div id="view-reglages" class="view">
       <div style="display:flex;flex-direction:column;gap:16px;max-width:600px">
 
         <div class="scard" style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:20px">
@@ -1669,7 +1670,12 @@ function nav(id) {
   if(id==='planning') { renderPlanning(); scheduleReminders(); }
   if(id==='dispos') renderDispos();
   if(id==='humoristes') renderHumoristes();
-  if(id==='reglages') { renderSlotsCfg(); updateShareWidget(currentCode); }
+  if(id==='reglages') { 
+    const vr = document.getElementById('view-reglages');
+    if(vr) vr.style.display = 'block';
+    renderSlotsCfg(); 
+    try { updateShareWidget(currentCode); } catch(e) {}
+  }
 
 }
 // Connecter la vraie nav au proxy temporaire
