@@ -904,75 +904,42 @@ window.addEventListener('DOMContentLoaded', () => {
       <div class="hum-cards" id="hcards"></div>
 
     <!-- RÉGLAGES -->
-    <div id="view-reglages" class="view">
-      <div class="sg">
-        <div class="scard">
-          <div class="stitle">Infos du club</div>
-          <div class="fr"><label class="fl">Nom du club</label><input class="fi" id="s-club" value="BCC" oninput="document.getElementById('club-badge').textContent=this.value"></div>
-          <div class="fr"><label class="fl">Ville</label><input class="fi" value="Lille"></div>
-          <div class="fr"><label class="fl">Deadline dispos (jour du mois)</label><input class="fi" id="s-deadline" type="number" value="15" min="1" max="28"></div>
-          <button class="btn btn-o" onclick="toast('✓ Sauvegardé')" style="margin-top:4px">Sauvegarder</button>
-        </div>
-        <div class="scard">
-          <div class="stitle">Lien portail humoristes</div>
-          <div style="font-size:10px;color:var(--muted);margin-bottom:10px">Envoie ce lien à tes humoristes pour qu'ils accèdent au portail.</div>
-          <div style="display:flex;gap:6px;margin-bottom:14px;align-items:center">
-            <div id="share-link-val" style="flex:1;background:var(--s3);border:1px solid var(--border2);border-radius:3px;padding:7px 10px;font-size:11px;color:var(--b);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">tagely-bcc.vercel.app/portal.html</div>
-            <button class="btn btn-ghost" onclick="navigator.clipboard.writeText('https://tagely-bcc.vercel.app/portal.html');toast('✓ Lien copié')" style="font-size:9px;flex-shrink:0">Copier</button>
-          </div>
-          <div style="font-size:9px;color:var(--muted);margin-bottom:8px">QR Code</div>
-          <div id="qr-wrap" style="display:inline-block;line-height:0"></div>
-          <div style="margin-top:8px">
-            <button class="btn btn-ghost" onclick="downloadQR()" style="font-size:9px">↓ Télécharger le QR</button>
-          </div>
-        </div>
-        <div class="scard">
-          <div class="stitle">Préférences planning</div>
-          <div class="srow"><div><div class="slbl">Max humoristes / créneau</div></div><select class="fi" style="width:50px;padding:3px 5px" id="s-max"><option>2</option><option>3</option><option selected>4</option><option>5</option></select></div>
-          <div class="srow"><div><div class="slbl">1er = MC automatique</div></div><button class="tgl on" onclick="this.classList.toggle('on')"></button></div>
-          <div class="srow"><div><div class="slbl">Mode clair</div><div class="ssub">Passer en thème blanc</div></div><button class="tgl" id="tgl-light" onclick="toggleTheme(this)"></button></div>
-        </div>
-        <div class="scard">
-          <div class="stitle">Séances par défaut</div>
-          <div id="slots-cfg"></div>
-        </div>
-        <div class="scard" id="danger-zone" style="border-color:var(--rb)">
-          <div class="stitle" style="color:var(--r)">Zone dangereuse</div>
-          <div class="srow"><div><div class="slbl">Vider le planning</div><div class="ssub">Efface toutes les assignations</div></div><button class="btn btn-r" onclick="clearAll();toast('Planning vidé')">Vider</button></div>
-          <div class="srow"><div><div class="slbl">Réinitialiser humoristes</div></div><button class="btn btn-r" onclick="resetH()">Reset</button></div>
+    <div id="view-reglages" class="view" style="padding:20px">
+      <div style="display:flex;flex-direction:column;gap:16px;max-width:600px">
+
+        <div class="scard" style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:20px">
+          <div class="stitle" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--o);margin-bottom:14px;font-weight:700">Infos du club</div>
+          <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Nom du club</label><input class="fi" id="s-club" value="BCC" style="width:100%"></div>
+          <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Ville</label><input class="fi" value="Lille" style="width:100%"></div>
+          <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Deadline dispos (jour du mois)</label><input class="fi" id="s-deadline" type="number" value="15" min="1" max="28" style="width:100%"></div>
         </div>
 
-        <!-- RAPPELS AUTO -->
-        <div class="scard">
-          <div class="stitle" style="display:flex;align-items:center;justify-content:space-between">
-            Rappels automatiques
-            <span id="reminders-status" style="font-size:9px;padding:2px 7px;border-radius:2px;background:var(--g2);color:var(--g);border:1px solid var(--gb)">Actif</span>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
-            <div style="background:var(--s2);border:1px solid var(--border2);border-radius:4px;padding:12px">
-              <div style="font-size:11px;font-weight:500;margin-bottom:4px;color:var(--b)">⏰ 3h avant</div>
-              <div style="font-size:10px;color:var(--muted);line-height:1.5">Message WhatsApp individuel à chaque humoriste du créneau.</div>
-              <div style="margin-top:6px;font-size:9px;color:var(--muted2)">→ Humoristes uniquement</div>
-            </div>
-            <div style="background:var(--s2);border:1px solid var(--border2);border-radius:4px;padding:12px">
-              <div style="font-size:11px;font-weight:500;margin-bottom:4px;color:var(--o)">🔔 1h avant</div>
-              <div style="font-size:10px;color:var(--muted);line-height:1.5">Rappel urgent + notif admin dans l'app.</div>
-              <div style="margin-top:6px;font-size:9px;color:var(--muted2)">→ Humoristes + Admin</div>
-            </div>
-            <div style="background:var(--s2);border:1px solid var(--border2);border-radius:4px;padding:12px">
-              <div style="font-size:11px;font-weight:500;margin-bottom:4px;color:var(--g)">📋 3 min avant</div>
-              <div style="font-size:10px;color:var(--muted);line-height:1.5">Line-up complet dans l'ordre avec durées.</div>
-              <div style="margin-top:6px;font-size:9px;color:var(--muted2)">→ Humoristes uniquement</div>
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <button class="btn btn-o" onclick="const n=scheduleReminders();document.getElementById('reminders-status').textContent=n+' timers actifs'">⏰ Activer rappels cette semaine</button>
-            <button class="btn btn-ghost" onclick="cancelAllReminders();document.getElementById('reminders-status').textContent='Désactivé';document.getElementById('reminders-status').style.background='var(--r2)';document.getElementById('reminders-status').style.color='var(--r)';document.getElementById('reminders-status').style.borderColor='var(--rb)'">Désactiver</button>
-            <button class="btn btn-ghost" onclick="testReminders()" style="font-size:9px">🧪 Tester</button>
-            <button class="btn btn-b" onclick="requestNotifPermission().then(ok=>toast(ok?'✓ Notifications activées !':'✗ Refusé — active dans Réglages iPhone'))" style="font-size:9px">🔔 Activer notifications</button>
-            <span style="font-size:9px;color:var(--muted)">⚠ Nécessite WhatsApp configuré pour l'envoi réel</span>
+        <div class="scard" style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:20px">
+          <div class="stitle" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--o);margin-bottom:14px;font-weight:700">Lien portail humoristes</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Envoie ce lien à tes humoristes</div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
+            <div style="flex:1;background:var(--s3);border:1px solid var(--border2);border-radius:4px;padding:8px 12px;font-size:11px;color:var(--b);font-family:monospace">tagely-bcc.vercel.app/portal.html</div>
+            <button class="btn btn-ghost" onclick="navigator.clipboard.writeText('https://tagely-bcc.vercel.app/portal.html');toast('✓ Copié')" style="font-size:10px">Copier</button>
           </div>
         </div>
+
+        <div class="scard" style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:20px">
+          <div class="stitle" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--o);margin-bottom:14px;font-weight:700">Séances par défaut</div>
+          <div id="slots-cfg"></div>
+        </div>
+
+        <div class="scard" style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:20px">
+          <div class="stitle" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--o);margin-bottom:14px;font-weight:700">Préférences</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)"><span style="font-size:12px">Max humoristes / créneau</span><select class="fi" style="width:60px;padding:4px" id="s-max"><option>2</option><option>3</option><option selected>4</option><option>5</option></select></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0"><span style="font-size:12px">1er = MC automatique</span><button class="tgl on" onclick="this.classList.toggle('on')"></button></div>
+        </div>
+
+        <div class="scard" style="background:rgba(239,68,68,.05);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:20px">
+          <div class="stitle" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--r);margin-bottom:14px;font-weight:700">Zone dangereuse</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:12px">Vider le planning</div><div style="font-size:9px;color:var(--muted)">Efface toutes les assignations</div></div><button class="btn btn-r" onclick="clearAll()">Vider</button></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0"><div style="font-size:12px">Réinitialiser humoristes</div><button class="btn btn-r" onclick="resetH()">Reset</button></div>
+        </div>
+
       </div>
     </div>
 
