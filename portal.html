@@ -215,6 +215,7 @@ input,select,textarea,button{font-family:'Inter',sans-serif}
     <div class="help">👆 Coche ✓ les créneaux où tu es disponible. Active <strong>MC</strong> si tu peux animer.</div>
     <div class="quick-btns">
       <button class="quick-btn" id="btn-all">✓ Tout cocher</button>
+      <button class="quick-btn" id="btn-all-mc">🎤 Tout MC</button>
       <button class="quick-btn" id="btn-none">Tout décocher</button>
     </div>
     <div id="slots-container"></div>
@@ -352,6 +353,7 @@ async function init() {
   document.getElementById('btn-back').addEventListener('click', () => showPage('page-home'));
   document.getElementById('btn-login').addEventListener('click', doLogin);
   document.getElementById('btn-all').addEventListener('click', checkAll);
+  document.getElementById('btn-all-mc').addEventListener('click', checkAllMC);
   document.getElementById('btn-none').addEventListener('click', uncheckAll);
   document.getElementById('btn-submit').addEventListener('click', doSubmit);
   document.getElementById('btn-cal').addEventListener('click', exportCal);
@@ -360,7 +362,6 @@ async function init() {
   document.getElementById('btn-logout').addEventListener('click', doLogout);
   document.getElementById('btn-modal-cancel').addEventListener('click', () => document.getElementById('modal-cancel').classList.remove('open'));
   document.getElementById('btn-modal-send').addEventListener('click', sendCancelAlert);
-  document.getElementById('btn-all').addEventListener('click', checkAll);
 
   document.querySelectorAll('.tab').forEach(t => {
     t.addEventListener('click', () => showTab(t.dataset.tab));
@@ -526,6 +527,12 @@ function updateCount() {
 
 function checkAll() {
   document.querySelectorAll('#slots-container input[data-type=dispo]').forEach(cb => { if(!cb.checked){cb.checked=true;cb.dispatchEvent(new Event('change'));} });
+}
+function checkAllMC() {
+  // D'abord tout cocher dispo
+  checkAll();
+  // Puis cocher tous les MC
+  document.querySelectorAll('#slots-container input[data-type=mc]').forEach(cb => { if(!cb.disabled && !cb.checked){cb.checked=true;cb.dispatchEvent(new Event('change'));} });
 }
 function uncheckAll() {
   document.querySelectorAll('#slots-container input[data-type=dispo]').forEach(cb => { if(cb.checked){cb.checked=false;cb.dispatchEvent(new Event('change'));} });

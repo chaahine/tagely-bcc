@@ -906,39 +906,79 @@ window.addEventListener('DOMContentLoaded', () => {
 
     <!-- RÉGLAGES -->
     <div id="view-reglages" class="view">
-      <div style="display:flex;flex-direction:column;gap:16px;max-width:600px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:900px">
 
-        <div class="scard" style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:20px">
-          <div class="stitle" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--o);margin-bottom:14px;font-weight:700">Infos du club</div>
-          <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Nom du club</label><input class="fi" id="s-club" value="BCC" style="width:100%"></div>
-          <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Ville</label><input class="fi" value="Lille" style="width:100%"></div>
-          <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Deadline dispos (jour du mois)</label><input class="fi" id="s-deadline" type="number" value="15" min="1" max="28" style="width:100%"></div>
-        </div>
+        <!-- COLONNE GAUCHE -->
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <!-- Infos club -->
+          <div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);margin-bottom:16px;font-weight:700">📋 Infos du club</div>
+            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Nom du club</label><input class="fi" id="s-club" value="BCC" style="width:100%" oninput="document.getElementById('club-badge').textContent=this.value"></div>
+            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Ville</label><input class="fi" value="Lille" style="width:100%"></div>
+            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Deadline dispos (jour du mois)</label><input class="fi" id="s-deadline" type="number" value="15" min="1" max="28" style="width:100%"></div>
+            <button class="btn btn-o" onclick="toast('✓ Sauvegardé')" style="margin-top:4px;width:100%">💾 Sauvegarder</button>
+          </div>
 
-        <div class="scard" style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:20px">
-          <div class="stitle" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--o);margin-bottom:14px;font-weight:700">Lien portail humoristes</div>
-          <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Envoie ce lien à tes humoristes</div>
-          <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
-            <div style="flex:1;background:var(--s3);border:1px solid var(--border2);border-radius:4px;padding:8px 12px;font-size:11px;color:var(--b);font-family:monospace">tagely-bcc.vercel.app/portal.html</div>
-            <button class="btn btn-ghost" onclick="navigator.clipboard.writeText('https://tagely-bcc.vercel.app/portal.html');toast('✓ Copié')" style="font-size:10px">Copier</button>
+          <!-- Lien portail -->
+          <div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);margin-bottom:16px;font-weight:700">🔗 Lien portail humoristes</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Envoie ce lien à tes humoristes pour qu'ils accèdent au portail</div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
+              <div style="flex:1;background:var(--s3);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--b);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">tagely-bcc.vercel.app/portal.html</div>
+              <button class="btn btn-ghost" onclick="navigator.clipboard.writeText('https://tagely-bcc.vercel.app/portal.html');toast('✓ Lien copié')" style="font-size:10px;flex-shrink:0">📋 Copier</button>
+            </div>
+            <div style="font-size:9px;color:var(--muted);margin-bottom:8px">QR Code</div>
+            <div id="qr-wrap" style="display:inline-block;line-height:0"></div>
+            <div style="margin-top:8px"><button class="btn btn-ghost" onclick="downloadQR()" style="font-size:9px">↓ Télécharger le QR</button></div>
+          </div>
+
+          <!-- Séances -->
+          <div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);margin-bottom:16px;font-weight:700">🎭 Séances par défaut</div>
+            <div id="slots-cfg"></div>
           </div>
         </div>
 
-        <div class="scard" style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:20px">
-          <div class="stitle" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--o);margin-bottom:14px;font-weight:700">Séances par défaut</div>
-          <div id="slots-cfg"></div>
-        </div>
+        <!-- COLONNE DROITE -->
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <!-- Config Email -->
+          <div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);font-weight:700">📧 Configuration Email</div>
+              <div style="font-size:9px;padding:3px 10px;border-radius:20px;background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.3);font-weight:600">✓ CONFIGURÉ</div>
+            </div>
+            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Service</label><div style="font-size:12px;color:var(--text);padding:8px 12px;background:var(--s3);border-radius:6px;border:1px solid var(--border2)">EmailJS</div></div>
+            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Service ID</label><div style="font-size:11px;color:var(--b);padding:8px 12px;background:var(--s3);border-radius:6px;border:1px solid var(--border2);font-family:monospace">service_eyt0g4q</div></div>
+            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Template ID</label><div style="font-size:11px;color:var(--b);padding:8px 12px;background:var(--s3);border-radius:6px;border:1px solid var(--border2);font-family:monospace">template_322qzcp</div></div>
+            <div style="margin-bottom:14px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Test email</label><div style="display:flex;gap:6px"><input class="fi" id="test-email-input" placeholder="ton@email.com" style="flex:1"><button class="btn btn-o" onclick="sendEmail(document.getElementById('test-email-input').value,'Test BCC Stagely','Ceci est un test depuis Stagely').then(r=>toast(r.success?'✓ Email envoyé':'✕ Erreur'))" style="font-size:10px;flex-shrink:0">🚀 Tester</button></div></div>
+          </div>
 
-        <div class="scard" style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:20px">
-          <div class="stitle" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--o);margin-bottom:14px;font-weight:700">Préférences</div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)"><span style="font-size:12px">Max humoristes / créneau</span><select class="fi" style="width:60px;padding:4px" id="s-max"><option>2</option><option>3</option><option selected>4</option><option>5</option></select></div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0"><span style="font-size:12px">1er = MC automatique</span><button class="tgl on" onclick="this.classList.toggle('on')"></button></div>
-        </div>
+          <!-- Config WhatsApp -->
+          <div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);font-weight:700">📱 WhatsApp Business API</div>
+              <div id="wa-status" style="font-size:9px;padding:3px 10px;border-radius:20px;background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.3);font-weight:600">✕ NON CONFIGURÉ</div>
+            </div>
+            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Bearer Token Meta</label><div style="display:flex;gap:6px"><input class="fi" id="wa-token" type="password" placeholder="EAABwz..." style="flex:1"><button class="btn btn-ghost" onclick="this.previousElementSibling.type=this.previousElementSibling.type==='password'?'text':'password'" style="font-size:9px">👁</button></div></div>
+            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Phone Number ID</label><input class="fi" id="wa-phone-id" placeholder="296836181..." style="width:100%"></div>
+            <button class="btn btn-o" onclick="saveWAConfig()" style="width:100%;margin-bottom:10px">💾 Sauvegarder WhatsApp</button>
+            <div style="margin-bottom:8px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Test WhatsApp</label><div style="display:flex;gap:6px"><input class="fi" id="test-wa-input" placeholder="33612345678" style="flex:1"><button class="btn btn-o" onclick="testWA()" style="font-size:10px;flex-shrink:0">📱 Tester</button></div></div>
+            <div style="font-size:9px;color:var(--muted)">⚠ Nécessite un compte Meta Business. <a href="https://developers.facebook.com/docs/whatsapp/cloud-api" target="_blank" style="color:var(--b)">Doc Meta →</a></div>
+          </div>
 
-        <div class="scard" style="background:rgba(239,68,68,.05);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:20px">
-          <div class="stitle" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--r);margin-bottom:14px;font-weight:700">Zone dangereuse</div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:12px">Vider le planning</div><div style="font-size:9px;color:var(--muted)">Efface toutes les assignations</div></div><button class="btn btn-r" onclick="clearAll()">Vider</button></div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0"><div style="font-size:12px">Réinitialiser humoristes</div><button class="btn btn-r" onclick="resetH()">Reset</button></div>
+          <!-- Préférences -->
+          <div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);margin-bottom:16px;font-weight:700">⚙️ Préférences</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)"><span style="font-size:12px">Max humoristes / créneau</span><select class="fi" style="width:60px;padding:4px" id="s-max"><option>2</option><option>3</option><option selected>4</option><option>5</option></select></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0"><span style="font-size:12px">1er = MC automatique</span><button class="tgl on" onclick="this.classList.toggle('on')"></button></div>
+          </div>
+
+          <!-- Zone dangereuse -->
+          <div style="background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.15);border-radius:10px;padding:20px">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--r);margin-bottom:16px;font-weight:700">⚠️ Zone dangereuse</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(239,68,68,.1)"><div><div style="font-size:12px">Vider le planning</div><div style="font-size:9px;color:var(--muted)">Efface toutes les assignations</div></div><button class="btn btn-r" onclick="clearAll()">Vider</button></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0"><div style="font-size:12px">Réinitialiser humoristes</div><button class="btn btn-r" onclick="resetH()">Reset</button></div>
+          </div>
         </div>
 
       </div>
@@ -3370,8 +3410,8 @@ const WA_CONFIG = {
 
 // Config Email Brevo
 const EMAIL_CONFIG = {
-  apiKey: localStorage.getItem('stagely_resend_key') || '',
-  get configured() { return !!localStorage.getItem('stagely_resend_key'); }
+  apiKey: 'emailjs',
+  get configured() { return true; }
 };
 
 // EmailJS config
@@ -4169,7 +4209,7 @@ function renderChapeau(periode = 'semaine') {
   </div>
 </div>
 <div class="overlay" id="modal-chapeau">
-  <div class="modal" style="width:400px">
+  <div class="modal" style="width:360px">
     <div class="modal-title">🎩 Saisir le chapeau</div>
     <div class="fr"><label class="fl">Date</label><input class="fi" id="ch-date" type="date"></div>
     <div class="fr"><label class="fl">Créneau</label>
@@ -4177,15 +4217,7 @@ function renderChapeau(periode = 'semaine') {
         <option>20:15</option><option>21:30</option><option>19:00</option><option>20:30</option><option>21:45</option><option>23:00</option>
       </select>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-      <div><label class="fl">💵 Espèces (€)</label><input class="fi" id="ch-especes" type="number" placeholder="0" min="0" oninput="updateChapeauTotal()"></div>
-      <div><label class="fl">💳 CB (€)</label><input class="fi" id="ch-cb" type="number" placeholder="0" min="0" oninput="updateChapeauTotal()"></div>
-    </div>
-    <div style="background:var(--s2);border:1px solid var(--border2);border-radius:3px;padding:8px 12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:11px;color:var(--muted)">Total collecté</span>
-      <span style="font-size:18px;font-weight:800;color:var(--gold)" id="ch-total">0€</span>
-    </div>
-    <div><label class="fl">💰 Montant par personne (€)</label><input class="fi" id="ch-par-personne" type="number" placeholder="0" min="0"></div>
+    <div><label class="fl">💰 Montant par personne (€)</label><input class="fi" id="ch-par-personne" type="number" placeholder="0" min="0" style="font-size:18px;font-weight:700;text-align:center"></div>
     <div class="ma">
       <button class="btn btn-ghost" onclick="closeModal('modal-chapeau')">Annuler</button>
       <button class="btn btn-o" onclick="saveChapeau()">Enregistrer</button>
