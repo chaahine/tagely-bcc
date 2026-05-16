@@ -1647,6 +1647,8 @@ const PACTIONS = {
 function nav(id) {
   document.querySelectorAll('.view').forEach(v=>{
     v.classList.remove('on');
+    v.style.removeProperty('display');
+    v.style.removeProperty('width');
     if(v.id === 'view-chat') v.style.display = 'none';
   });
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
@@ -1701,9 +1703,7 @@ function nav(id) {
   if(id==='dispos') renderDispos();
   if(id==='humoristes') renderHumoristes();
   if(id==='reglages') { renderSlotsCfg(); updateShareWidget(currentCode); }
-  // Forcer dimensions
-  const activeView = document.getElementById('view-'+id);
-  if (activeView) { activeView.style.width='100%'; activeView.style.display='block'; }
+
 }
 // Connecter la vraie nav au proxy temporaire
 window._navReady = nav;
