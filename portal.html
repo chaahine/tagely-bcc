@@ -202,17 +202,14 @@ input,select,textarea,button{font-family:'Inter',sans-serif}
 <!-- PAGE ESPACE CONNECTÉ -->
 <div class="page" id="page-space">
   <div class="hdr">
+    <button id="btn-back-space" style="background:none;border:none;color:#555;cursor:pointer;font-size:16px;padding:4px 8px;position:absolute;left:12px">←</button>
     <span class="logo">STAGELY</span>
     <span class="hdr-name" id="hdr-name"></span>
   </div>
-  <div class="tabs">
-    <button class="tab on" data-tab="dispos">📅 DISPOS</button>
-    <button class="tab" data-tab="dates">🗓 DATES</button>
-    <button class="tab" data-tab="profil">👤 PROFIL</button>
-  </div>
+  <div style="padding:10px 20px;border-bottom:1px solid #1a1a1a;font-size:12px;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:1px" id="space-title">Mes disponibilités</div>
 
   <!-- DISPOS -->
-  <div class="tab-content on" id="tab-dispos">
+  <div class="tab-content" id="tab-dispos" style="display:none;flex:1;overflow-y:auto;padding:20px">
     <div class="dispo-header">
       <div class="dispo-name" id="d-name">—</div>
       <div class="dispo-sub" id="d-sub">Broadway Comedy Club · Disponibilités</div>
@@ -358,6 +355,7 @@ async function init() {
   document.getElementById('btn-dates').addEventListener('click', () => { mode='dates'; goToSpace(); });
   document.getElementById('btn-login').addEventListener('click', doLogin);
   document.getElementById('btn-logout-choice').addEventListener('click', doLogout);
+  document.getElementById('btn-back-space').addEventListener('click', () => showPage('page-choice'));
   document.getElementById('btn-all').addEventListener('click', checkAll);
   document.getElementById('btn-all-mc').addEventListener('click', checkAllMC);
   document.getElementById('btn-none').addEventListener('click', uncheckAll);
@@ -369,10 +367,6 @@ async function init() {
   document.getElementById('btn-modal-cancel').addEventListener('click', () => document.getElementById('modal-cancel').classList.remove('open'));
   document.getElementById('btn-modal-send').addEventListener('click', sendCancelAlert);
 
-  document.querySelectorAll('.tab').forEach(t => {
-    t.addEventListener('click', () => showTab(t.dataset.tab));
-  });
-
   document.getElementById('f-prenom').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
   document.getElementById('f-email').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 }
@@ -381,9 +375,18 @@ function goToSpace() {
   document.getElementById('hdr-name').textContent = user.name;
   showPage('page-space');
   
-  if (mode==='dates') showTab('dates');
-  else {
-    showTab('dispos');
+  // Cacher tout d'abord
+  document.getElementById('tab-dispos').style.display = 'none';
+  document.getElementById('tab-dates').style.display = 'none';
+  document.getElementById('tab-profil').style.display = 'none';
+  
+  if (mode==='dates') {
+    document.getElementById('space-title').textContent = '📅 Mes dates de passage';
+    document.getElementById('tab-dates').style.display = 'block';
+    renderDates();
+  } else {
+    document.getElementById('space-title').textContent = '📅 Mes disponibilités';
+    document.getElementById('tab-dispos').style.display = 'block';
     renderDispos();
   }
 }
@@ -455,14 +458,22 @@ async function renderDispos() {
   document.getElementById('d-deadline').textContent = `15 ${MOIS_FULL[nextM]} ${nextY}`;
 
   // Vérifier si déjà envoyé
-  const status = await sb('dispo_status', {params:`?comedian_id=eq.${user.id}`});
-  const alreadySent = status && status.length && status[0].status === 'replied';
-  if (alreadySent) {
-    document.getElementById('btn-submit').disabled = true;
-    document.getElementById('btn-submit').style.opacity = '.4';
-    document.getElementById('btn-submit').textContent = '✓ Dispos déjà envoyées';
-    document.getElementById('d-ok').style.display = 'block';
-  }
+  let alreadySent = false;
+  try {
+    const status = await sb('dispo_status', {params:`?comedian_id=eq.${user.id}`});
+    alreadySent = status && status.length > 0 && status[0].status === 'replied';
+    // Charger les dispos déjà envoyées
+    if (alreadySent) {
+      const savedDispos = await sb('dispos', {params:`?comedian_id=eq.${user.id}`});
+      if (savedDispos && savedDispos.length) {
+        savedDispos.forEach(d => { hvSlots[d.slot_key] = {dispo:d.dispo, mc:d.mc||false}; });
+      }
+      document.getElementById('btn-submit').disabled = true;
+      document.getElementById('btn-submit').style.opacity = '.4';
+      document.getElementById('btn-submit').textContent = '✓ Dispos déjà envoyées';
+      document.getElementById('d-ok').style.display = 'block';
+    }
+  } catch(e) { console.warn('Status check:', e); }
 
   const slots = getSlots();
   const days = {}; const dayOrder = [];
