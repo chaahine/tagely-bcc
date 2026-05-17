@@ -137,15 +137,46 @@ input,select,textarea,button{font-family:'Inter',sans-serif}
 </head>
 <body>
 
-<!-- PAGE ACCUEIL -->
+<!-- PAGE ACCUEIL = INSCRIPTION -->
 <div class="page active" id="page-home">
   <div class="hdr"><span class="logo">STAGELY</span></div>
   <div class="home-body">
-    <div class="home-inner">
+    <div class="home-inner" style="max-width:400px">
       <div class="home-hero">
         <span class="home-mic">🎤</span>
         <div class="home-title">Portail Humoriste</div>
         <div class="home-sub">Broadway Comedy Club</div>
+      </div>
+      <label class="lbl" style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;font-weight:600">Prénom</label>
+      <input class="inp" id="f-prenom" placeholder="Ton prénom" style="width:100%;background:#111;border:1px solid #222;border-radius:10px;padding:13px 14px;color:#f0f0f8;font-size:14px;margin-bottom:14px;box-sizing:border-box">
+      <label class="lbl" style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;font-weight:600">Nom</label>
+      <input class="inp" id="f-nom" placeholder="Ton nom" style="width:100%;background:#111;border:1px solid #222;border-radius:10px;padding:13px 14px;color:#f0f0f8;font-size:14px;margin-bottom:14px;box-sizing:border-box">
+      <label class="lbl" style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;font-weight:600">Email</label>
+      <input class="inp" id="f-email" type="email" placeholder="ton@email.com" style="width:100%;background:#111;border:1px solid #222;border-radius:10px;padding:13px 14px;color:#f0f0f8;font-size:14px;margin-bottom:14px;box-sizing:border-box">
+      <label class="lbl" style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;font-weight:600">Téléphone WhatsApp</label>
+      <input class="inp" id="f-phone" type="tel" placeholder="+33 6 xx xx xx xx" style="width:100%;background:#111;border:1px solid #222;border-radius:10px;padding:13px 14px;color:#f0f0f8;font-size:14px;margin-bottom:14px;box-sizing:border-box">
+      <div style="height:1px;background:#1a1a1a;margin:8px 0 14px"></div>
+      <div class="err" id="f-err" style="font-size:11px;color:#ef4444;padding:10px 14px;background:rgba(239,68,68,.08);border-radius:8px;border:1px solid rgba(239,68,68,.2);display:none;margin-bottom:12px">⚠ Remplis tous les champs</div>
+      <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer">
+        <input type="checkbox" id="f-remember" style="width:16px;height:16px;accent-color:#f97316">
+        <span style="font-size:12px;color:#555">Se souvenir de moi</span>
+      </label>
+      <button class="btn-main" id="btn-login" style="width:100%;padding:14px;background:#f97316;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer">Accéder →</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE CHOIX après login -->
+<div class="page" id="page-choice">
+  <div class="hdr">
+    <span class="logo">STAGELY</span>
+    <span class="hdr-name" id="hdr-name-choice" style="position:absolute;right:20px;font-size:11px;color:#444"></span>
+  </div>
+  <div class="home-body">
+    <div class="home-inner" style="max-width:400px">
+      <div style="text-align:center;margin-bottom:28px">
+        <div style="font-size:18px;font-weight:800;margin-bottom:4px" id="welcome-name">Bienvenue !</div>
+        <div style="font-size:12px;color:#555">Que veux-tu faire ?</div>
       </div>
       <div class="card-btn" id="btn-dispos">
         <div class="card-icon" style="background:rgba(249,115,22,.1)">📅</div>
@@ -163,32 +194,7 @@ input,select,textarea,button{font-family:'Inter',sans-serif}
         </div>
         <span class="card-arr">›</span>
       </div>
-    </div>
-  </div>
-</div>
-
-<!-- PAGE LOGIN -->
-<div class="page" id="page-login">
-  <div class="hdr"><span class="logo">STAGELY</span></div>
-  <div class="login-body">
-    <div class="login-inner">
-      <button class="back" id="btn-back">← Retour</button>
-      <div class="login-title" id="login-title">Connexion</div>
-      <label class="lbl">Prénom</label>
-      <input class="inp" id="f-prenom" placeholder="Ton prénom">
-      <label class="lbl">Nom</label>
-      <input class="inp" id="f-nom" placeholder="Ton nom">
-      <label class="lbl">Email</label>
-      <input class="inp" id="f-email" type="email" placeholder="ton@email.com">
-      <label class="lbl">Téléphone WhatsApp</label>
-      <input class="inp" id="f-phone" type="tel" placeholder="+33 6 xx xx xx xx">
-      <div class="divider"></div>
-      <div class="err" id="f-err">⚠ Remplis tous les champs</div>
-      <label class="remember">
-        <input type="checkbox" id="f-remember">
-        <span>Se souvenir de moi</span>
-      </label>
-      <button class="btn-main" id="btn-login">Accéder →</button>
+      <button id="btn-logout-choice" style="width:100%;margin-top:16px;padding:10px;background:none;border:1px solid #222;border-radius:10px;color:#555;font-size:11px;cursor:pointer">Se déconnecter</button>
     </div>
   </div>
 </div>
@@ -348,10 +354,10 @@ async function init() {
   }
 
   // Events
-  document.getElementById('btn-dispos').addEventListener('click', () => { mode='dispos'; goLogin(); });
-  document.getElementById('btn-dates').addEventListener('click', () => { mode='dates'; goLogin(); });
-  document.getElementById('btn-back').addEventListener('click', () => showPage('page-home'));
+  document.getElementById('btn-dispos').addEventListener('click', () => { mode='dispos'; goToSpace(); });
+  document.getElementById('btn-dates').addEventListener('click', () => { mode='dates'; goToSpace(); });
   document.getElementById('btn-login').addEventListener('click', doLogin);
+  document.getElementById('btn-logout-choice').addEventListener('click', doLogout);
   document.getElementById('btn-all').addEventListener('click', checkAll);
   document.getElementById('btn-all-mc').addEventListener('click', checkAllMC);
   document.getElementById('btn-none').addEventListener('click', uncheckAll);
@@ -371,10 +377,15 @@ async function init() {
   document.getElementById('f-email').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 }
 
-function goLogin() {
-  document.getElementById('login-title').textContent = mode==='dispos' ? 'Mes disponibilités' : 'Mes dates de passage';
-  document.getElementById('f-err').style.display = 'none';
-  showPage('page-login');
+function goToSpace() {
+  document.getElementById('hdr-name').textContent = user.name;
+  showPage('page-space');
+  
+  if (mode==='dates') showTab('dates');
+  else {
+    showTab('dispos');
+    renderDispos();
+  }
 }
 
 async function doLogin() {
@@ -408,22 +419,11 @@ async function doLogin() {
 
   if (remember) localStorage.setItem('stagely_hv', JSON.stringify({p:prenom,n:nom,e:email,ph:phone}));
 
-  document.getElementById('hdr-name').textContent = prenom+' '+nom;
-  showPage('page-space');
-  
-  if (mode==='dates') showTab('dates');
-  else {
-    showTab('dispos');
-    // Vérifier si dispos déjà envoyées
-    const status = await sb('dispo_status', {params:`?comedian_id=eq.${user.id}`});
-    if (status && status.length && status[0].status === 'replied') {
-      document.getElementById('btn-submit').disabled=true;
-      document.getElementById('btn-submit').style.opacity='.4';
-      document.getElementById('btn-submit').textContent='✓ Dispos déjà envoyées';
-      document.getElementById('d-ok').style.display='block';
-    }
-    renderDispos();
-  }
+  // Aller à la page de choix
+  document.getElementById('hdr-name-choice').textContent = user.name;
+  document.getElementById('welcome-name').textContent = `Bienvenue ${prenom} !`;
+  showPage('page-choice');
+}
 }
 
 // ── DISPOS ──
@@ -484,19 +484,24 @@ async function renderDispos() {
         <span class="slot-time">${time}</span>
         <span class="slot-lbl">Disponible</span>
         <div class="chk-wrap">
-          <input type="checkbox" id="d_${uid}" ${sv.dispo?'checked':''} data-key="${key}" data-type="dispo">
-          <label for="d_${uid}">✓</label>
+          <input type="checkbox" id="d_${uid}" ${sv.dispo?'checked':''} data-key="${key}" data-type="dispo" ${alreadySent?'disabled':''}>
+          <label for="d_${uid}" style="${alreadySent?'opacity:.4;cursor:not-allowed':''}">✓</label>
         </div>
         <div class="mc-wrap ${!sv.dispo?'off':''}" id="mc_${uid}">
-          <input type="checkbox" id="mc__${uid}" ${sv.mc?'checked':''} ${!sv.dispo?'disabled':''} data-key="${key}" data-type="mc">
-          <label for="mc__${uid}">MC</label>
+          <input type="checkbox" id="mc__${uid}" ${sv.mc?'checked':''} ${(!sv.dispo||alreadySent)?'disabled':''} data-key="${key}" data-type="mc">
+          <label for="mc__${uid}" style="${alreadySent?'opacity:.4;cursor:not-allowed':''}">MC</label>
         </div>
       </div>`;
     });
     html += '</div>';
   });
 
-  document.getElementById('slots-container').innerHTML = html || '<div style="text-align:center;padding:40px;color:#444">Aucun créneau ce mois-ci</div>';
+  document.getElementById('slots-container').innerHTML = (alreadySent ? '<div style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#22c55e;font-weight:600">✓ Tes disponibilités ont été envoyées. Plus de modification possible.</div>' : '') + (html || '<div style="text-align:center;padding:40px;color:#444">Aucun créneau ce mois-ci</div>');
+
+  // Cacher les boutons rapides si déjà envoyé
+  document.getElementById('btn-all').style.display = alreadySent ? 'none' : '';
+  document.getElementById('btn-all-mc').style.display = alreadySent ? 'none' : '';
+  document.getElementById('btn-none').style.display = alreadySent ? 'none' : '';
 
   // Events checkboxes
   document.querySelectorAll('#slots-container input[type=checkbox]').forEach(cb => {
@@ -713,9 +718,10 @@ async function renderProfil() {
 }
 
 function doLogout() {
-  user=null; hvSlots={};
+  user=null; hvSlots={}; mode='dispos';
   showPage('page-home');
   document.getElementById('hdr-name').textContent='';
+  document.getElementById('f-err').style.display='none';
   showTab('dispos');
 }
 
