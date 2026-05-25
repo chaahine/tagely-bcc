@@ -1929,14 +1929,24 @@ function planAsgn(id,key){
   assignments[key].push(id);
   toast(`✓ ${COMEDIANS.find(c=>c.id===id)?.name} assigné`);
   renderPlanning();
+  // Sauvegarder dans Supabase
+  sbFetch('assignments', {method:'POST', params:'?on_conflict=slot_key,comedian_id', body:[{slot_key:key, comedian_id:id}]});
 }
 function unassign(key,id){
   assignments[key]=(assignments[key]||[]).filter(i=>i!==id);
   if(!assignments[key].length) delete assignments[key];
   toast(`✕ ${COMEDIANS.find(c=>c.id===id)?.name} retiré`);
   renderPlanning();
+  // Supprimer de Supabase
+  sbFetch('assignments', {method:'DELETE', params:`?slot_key=eq.${key}&comedian_id=eq.${id}`});
 }
-function clearAll(){assignments={};renderPlanning();toast('Planning réinitialisé');}
+function clearAll(){
+  assignments={};
+  renderPlanning();
+  toast('Planning réinitialisé');
+  // Vider dans Supabase
+  sbFetch('assignments', {method:'DELETE', params:'?slot_key=neq.null'});
+}
 function chgWk(d){weekOffset+=d;renderPlanning();}
 
 // ── EXPORT PDF ──
@@ -2166,10 +2176,28 @@ function sendRem(id){
   renderDispos();renderDashboard();
   toast(`⏰ Relance → ${c?.name}`);
 }
-function relancerTous(){
+async function relancerTous(){
   const n=COMEDIANS.filter(c=>DISPO_STATUS[c.id]!=='replied');
-  n.forEach(c=>DISPO_STATUS[c.id]='pending');
-  renderDispos();toast(`⏰ ${n.length} relances envoyées`);
+  if(!n.length) { toast('Tous les humoristes ont déjà répondu !'); return; }
+  
+  const now = new Date();
+  const nextM = (now.getMonth()+1) % 12;
+  const nextY = now.getMonth()===11 ? now.getFullYear()+1 : now.getFullYear();
+  const mois = MOIS_FULL[nextM];
+  
+  let sent = 0;
+  for (const c of n) {
+    if (!c.email) continue;
+    const prenom = c.name.split(' ')[0];
+    const msg = `Salut ${prenom} !\n\nOn n'a pas encore reçu tes disponibilités pour ${mois} ${nextY} au BCC.\n\n📱 Remplis tes dispos ici :\nhttps://tagely-bcc.vercel.app/portal.html\n\nMerci ! 🎤`;
+    try {
+      await sendEmail(c.email, `BCC — Tes dispos pour ${mois}`, msg);
+      DISPO_STATUS[c.id]='pending';
+      sent++;
+    } catch(e) { console.warn('Email failed:', c.name, e); }
+  }
+  renderDispos();
+  toast(`⏰ ${sent} relance${sent>1?'s':''} envoyée${sent>1?'s':''}`);
 }
 async function sendDispos(){
   let t = COMEDIANS;
@@ -4023,10 +4051,7 @@ function nav_chapeau_open() {
 
 function openChapeauForSlot(date, slot) {
   document.getElementById('ch-date').value = date;
-  document.getElementById('ch-especes').value = '';
-  document.getElementById('ch-cb').value = '';
   document.getElementById('ch-par-personne').value = '';
-  document.getElementById('ch-total').textContent = '0€';
   const slotSel = document.getElementById('ch-slot');
   for (let i=0; i<slotSel.options.length; i++) {
     if (slotSel.options[i].value === slot) { slotSel.selectedIndex = i; break; }
@@ -4039,10 +4064,8 @@ function openChapeauForSlot(date, slot) {
 function saveChapeau() {
   const date = document.getElementById('ch-date').value;
   const slot = document.getElementById('ch-slot').value;
-  const especes = parseFloat(document.getElementById('ch-especes').value) || 0;
-  const cb = parseFloat(document.getElementById('ch-cb').value) || 0;
   const parPersonne = parseFloat(document.getElementById('ch-par-personne').value) || 0;
-  const montant = especes + cb;
+  const montant = parPersonne;
   if (!date) { toast('⚠ Ajoute une date'); return; }
   if (!montant) { toast('⚠ Saisis un montant'); return; }
   chapeauData.unshift({id:Date.now(), date, slot, montant, especes, cb, parPersonne});

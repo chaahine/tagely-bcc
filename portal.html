@@ -407,10 +407,13 @@ async function doLogin() {
   const fullName = (prenom+' '+nom).toUpperCase();
   const normalize = s => s.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
   
-  let found = comedians.find(c => normalize(c.name) === normalize(fullName) || normalize(c.name).split(' ')[0] === normalize(prenom));
+  // Chercher par email d'abord (unique), puis par nom
+  let found = comedians.find(c => c.email && c.email.toLowerCase() === email.toLowerCase());
+  if (!found) found = comedians.find(c => normalize(c.name) === normalize(fullName));
   
   if (!found) {
-    const id = normalize(prenom+'_'+nom).replace(/[^A-Z0-9_]/g,'').toLowerCase();
+    // ID unique basé sur email
+    const id = email.toLowerCase().replace(/[^a-z0-9]/g,'_').slice(0,50);
     found = {id, name:fullName, prio:'new', presence:100, gender:'m', duration:10, phone, email, active:true};
     await sb('comedians', {method:'POST', params:'?on_conflict=id', body:[found]});
     comedians.push(found);
