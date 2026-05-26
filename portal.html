@@ -571,8 +571,19 @@ async function doSubmit() {
   }
 
   const rows = Object.entries(hvSlots).filter(([,v])=>v.dispo).map(([k,v])=>({comedian_id:user.id,slot_key:k,dispo:true,mc:v.mc||false}));
-  await sb('dispos',{method:'POST',params:'?on_conflict=comedian_id,slot_key',body:rows});
+  
+  // Sauvegarder les dispos
+  const result = await sb('dispos',{method:'POST',params:'?on_conflict=comedian_id,slot_key',body:rows});
+  
+  // Vérifier que ça a marché
+  if (!result) {
+    alert('Erreur lors de l\'envoi. Réessaie.');
+    return;
+  }
+  
+  // Sauvegarder le statut seulement si les dispos sont bien enregistrées
   await sb('dispo_status',{method:'POST',params:'?on_conflict=comedian_id',body:[{comedian_id:user.id,status:'replied'}]});
+  
   document.getElementById('d-ok').style.display='block';
   document.getElementById('btn-submit').disabled=true;
   document.getElementById('btn-submit').style.opacity='.4';
