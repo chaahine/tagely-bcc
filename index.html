@@ -1914,6 +1914,15 @@ function renderPlanning() {
         </div>`;
       });
       if (!asgnIds.length && !available.length) html += `<div class="sc-empty">— aucun dispo</div>`;
+      // Bouton MC provisoire si pas encore de MC assigné
+      if (!asgnIds.length || !asgnIds.some(id => DISPOS_DATA[id]?.[key]?.mc)) {
+        html += `<div style="border-top:1px solid var(--border);padding:6px 10px;margin-top:4px">
+          <div onclick="addMCProvisoire('${key}')" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0;opacity:.7;transition:.15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7">
+            <span style="font-size:7px;font-weight:700;padding:2px 6px;border-radius:3px;background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3)">MC</span>
+            <span style="font-size:10px;color:var(--muted)">+ Ajouter MC provisoire</span>
+          </div>
+        </div>`;
+      }
       html += `</div></div>`;
     });
     html += `</div></div>`;
@@ -1929,8 +1938,24 @@ function planAsgn(id,key){
   assignments[key].push(id);
   toast(`✓ ${COMEDIANS.find(c=>c.id===id)?.name} assigné`);
   renderPlanning();
-  // Sauvegarder dans Supabase
   sbFetch('assignments', {method:'POST', params:'?on_conflict=slot_key,comedian_id', body:[{slot_key:key, comedian_id:id}]});
+}
+
+function addMCProvisoire(key) {
+  // Chercher ou créer l'humoriste "MC PROVISOIRE"
+  let mc = COMEDIANS.find(c => c.id === 'mc_provisoire');
+  if (!mc) {
+    mc = {id:'mc_provisoire', name:'MC PROVISOIRE', prio:'new', presence:100, gender:'m', duration:10, phone:'', email:'', active:true};
+    COMEDIANS.push(mc);
+    sbFetch('comedians', {method:'POST', params:'?on_conflict=id', body:[mc]});
+  }
+  // Assigner en première position (MC)
+  if (!assignments[key]) assignments[key] = [];
+  if (assignments[key].includes('mc_provisoire')) { toast('MC provisoire déjà ajouté'); return; }
+  assignments[key].unshift('mc_provisoire');
+  toast('✓ MC provisoire ajouté');
+  renderPlanning();
+  sbFetch('assignments', {method:'POST', params:'?on_conflict=slot_key,comedian_id', body:[{slot_key:key, comedian_id:'mc_provisoire'}]});
 }
 function unassign(key,id){
   assignments[key]=(assignments[key]||[]).filter(i=>i!==id);
