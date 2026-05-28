@@ -3264,10 +3264,21 @@ async function sbFetch(table, options = {}) {
 async function loadFromSupabase() {
   showSaveIndicator('⏳ Chargement...');
   try {
-    const [comedians, asgn, dispos, statuses, msgs] = await Promise.all([
+    // Charger toutes les dispos avec pagination (Supabase limite à 1000)
+    let allDispos = [];
+    let offset = 0;
+    const pageSize = 1000;
+    while (true) {
+      const page = await sbFetch('dispos', {params:`?order=id&limit=${pageSize}&offset=${offset}`});
+      if (!page || page.length === 0) break;
+      allDispos = allDispos.concat(page);
+      if (page.length < pageSize) break;
+      offset += pageSize;
+    }
+
+    const [comedians, asgn, statuses, msgs] = await Promise.all([
       sbFetch('comedians', {params:'?order=name'}),
       sbFetch('assignments'),
-      sbFetch('dispos'),
       sbFetch('dispo_status'),
       sbFetch('chat_messages', {params:'?order=created_at&limit=100'})
     ]);
@@ -3275,7 +3286,6 @@ async function loadFromSupabase() {
 
     // Supabase est la source de vérité — remplacer TOUJOURS
     COMEDIANS.splice(0, COMEDIANS.length, ...comedians);
-    // Si Supabase est vide, vider aussi le localStorage
     if (comedians.length === 0) {
       const lsData = JSON.parse(localStorage.getItem(LS_KEY)||'{}');
       lsData.COMEDIANS = [];
@@ -3289,9 +3299,9 @@ async function loadFromSupabase() {
       if (!assignments[a.slot_key]) assignments[a.slot_key] = [];
       if (!assignments[a.slot_key].includes(a.comedian_id)) assignments[a.slot_key].push(a.comedian_id);
     });
-    // Dispos
+    // Dispos — toutes les pages chargées
     Object.keys(DISPOS_DATA).forEach(k => delete DISPOS_DATA[k]);
-    dispos?.forEach(d => {
+    allDispos.forEach(d => {
       if (!DISPOS_DATA[d.comedian_id]) DISPOS_DATA[d.comedian_id] = {};
       DISPOS_DATA[d.comedian_id][d.slot_key] = {dispo: d.dispo, mc: d.mc};
     });
