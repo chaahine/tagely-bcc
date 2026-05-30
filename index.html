@@ -68,8 +68,8 @@ window.addEventListener('load', () => {
 *{box-sizing:border-box;margin:0;padding:0;color:inherit}
 body{color:var(--text);font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:-.1px}
 :root{
-  --bg:#080808;--s1:#0f0f0f;--s2:#161616;--s3:#1e1e1e;--s4:#282828;
-  --border:#1a1a1a;--border2:#252525;--border3:#333;
+  --bg:#000000;--s1:#0a0a0c;--s2:#111114;--s3:#18181b;--s4:#222225;
+  --border:#1a1a1e;--border2:#252528;--border3:#333336;
   --text:#f0f0f0;--muted:#4a4a4a;--muted2:#2a2a2a;
   --g:#22c55e;--g2:rgba(34,197,94,.08);--gb:rgba(34,197,94,.25);
   --o:#f97316;--o2:rgba(249,115,22,.08);--ob:rgba(249,115,22,.25);
@@ -1874,7 +1874,7 @@ async function loadNotifications() {
         </div>
         <div style="font-size:11px;color:var(--muted);line-height:1.4">${m.text||''}</div>
         ${(isAlert || isMod) ? `<div style="display:flex;gap:6px;margin-top:6px">
-          <button onclick="nav('planning')" style="padding:5px 14px;border-radius:6px;font-size:10px;font-weight:700;background:var(--o);color:#fff;border:none;cursor:pointer">🔄 Remplacer →</button>
+          <button onclick="goToSlotFromNotif(this)" style="padding:5px 14px;border-radius:6px;font-size:10px;font-weight:700;background:var(--o);color:#fff;border:none;cursor:pointer">🔄 Remplacer →</button>
         </div>` : ''}
       </div>`;
     }).join('');
@@ -1887,6 +1887,58 @@ async function deleteNotif(id) {
   const el = document.getElementById('notif-'+id);
   if (el) el.style.display = 'none';
   await sbFetch('chat_messages', {method:'DELETE', params:`?id=eq.${id}`});
+}
+
+function goToSlotFromNotif(btn) {
+  // Extraire le texte de la notification
+  const notifDiv = btn.closest('[id^=notif-]');
+  const text = notifDiv?.querySelector('div[style*="line-height"]')?.textContent || '';
+  
+  // Trouver le jour mentionné (ex: "Mar 2", "Jeu 5", "Sam 13")
+  const dayMap = {Dim:0,Lun:1,Mar:2,Mer:3,Jeu:4,Ven:5,Sam:6};
+  const match = text.match(/(Dim|Lun|Mar|Mer|Jeu|Ven|Sam)\s+(\d+)/);
+  
+  if (match) {
+    const dayNum = parseInt(match[2]);
+    const now = new Date();
+    const nextM = (now.getMonth()+1) % 12;
+    const nextY = now.getMonth()===11 ? now.getFullYear()+1 : now.getFullYear();
+    const targetDate = new Date(nextY, nextM, dayNum);
+    
+    // Calculer le weekOffset pour cette date
+    const today = new Date();
+    const todayDay = today.getDay() || 7;
+    const thisMonday = new Date(today);
+    thisMonday.setDate(today.getDate() - todayDay + 1);
+    thisMonday.setHours(0,0,0,0);
+    
+    const targetDay = targetDate.getDay() || 7;
+    const targetMonday = new Date(targetDate);
+    targetMonday.setDate(targetDate.getDate() - targetDay + 1);
+    targetMonday.setHours(0,0,0,0);
+    
+    weekOffset = Math.round((targetMonday - thisMonday) / (7*24*60*60*1000));
+  }
+  
+  nav('planning');
+  
+  // Scroller vers le créneau après rendu
+  setTimeout(() => {
+    const match2 = text.match(/(\d+:\d+)/);
+    if (match2) {
+      const slot = match2[1];
+      const slotEl = document.querySelector(`.sc-time`);
+      const allSlots = document.querySelectorAll('.sc-time');
+      for (const el of allSlots) {
+        if (el.textContent.trim() === slot) {
+          el.closest('.slot-card')?.scrollIntoView({behavior:'smooth', block:'center'});
+          el.closest('.slot-card').style.outline = '2px solid var(--o)';
+          setTimeout(() => el.closest('.slot-card').style.outline = '', 3000);
+          break;
+        }
+      }
+    }
+  }, 300);
 }
 
 async function sendReplacementEmail(notifId) {
