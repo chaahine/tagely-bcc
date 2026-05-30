@@ -207,7 +207,7 @@ html.light{
 .btn-ghost:hover{color:var(--text);border-color:var(--border3)}
 .btn-r{background:var(--r2);color:var(--r);border:1px solid var(--rb)}
 .btn-b{background:var(--b2);color:var(--b);border:1px solid var(--bb)}
-.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}
 .kpi{
   background:var(--s1);border:1px solid var(--border);
   border-radius:5px;padding:16px 18px;
@@ -842,12 +842,18 @@ window.addEventListener('DOMContentLoaded', () => {
         <div class="kpi"><div class="kpi-v" id="kv-asgn" style="color:var(--g)">8</div><div class="kpi-l">Assignés</div><div class="kpi-s" id="ks-asgn">sur 15 créneaux</div></div>
         <div class="kpi"><div class="kpi-v" id="kv-dispos" style="color:var(--b)">7</div><div class="kpi-l">Dispos reçues</div><div class="kpi-s" id="ks-dispos">8 en attente</div></div>
         <div class="kpi"><div class="kpi-v" id="kv-pres" style="color:var(--gold)">89%</div><div class="kpi-l">Présence moy.</div><div class="kpi-s">sur le groupe</div></div>
+        <div class="kpi"><div class="kpi-v" id="kv-jouent" style="color:var(--g)">0</div><div class="kpi-l">Jouent ce mois</div><div class="kpi-s" id="ks-jouent">humoristes</div></div>
       </div>
 
       <!-- Lineup chronologique -->
       <div class="lineup-wrap">
         <div class="lineup-head">
-          <span class="lineup-title">Line-up de la semaine</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button onclick="weekOffset--;renderDashboard()" style="background:none;border:1px solid var(--border2);color:var(--text);cursor:pointer;padding:2px 8px;border-radius:4px;font-size:12px">←</button>
+            <span class="lineup-title" id="dash-wk-label">Line-up de la semaine</span>
+            <button onclick="weekOffset++;renderDashboard()" style="background:none;border:1px solid var(--border2);color:var(--text);cursor:pointer;padding:2px 8px;border-radius:4px;font-size:12px">→</button>
+            <button onclick="weekOffset=0;renderDashboard()" style="background:none;border:1px solid var(--border2);color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:9px">Auj.</button>
+          </div>
           <button class="btn btn-ghost" style="font-size:9px;padding:2px 7px" onclick="nav('planning')">Modifier →</button>
         </div>
         <table class="lineup-table" id="lineup-tbl"></table>
@@ -927,9 +933,7 @@ window.addEventListener('DOMContentLoaded', () => {
               <div style="flex:1;background:var(--s3);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--b);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">tagely-bcc.vercel.app/portal.html</div>
               <button class="btn btn-ghost" onclick="navigator.clipboard.writeText('https://tagely-bcc.vercel.app/portal.html');toast('✓ Lien copié')" style="font-size:10px;flex-shrink:0">📋 Copier</button>
             </div>
-            <div style="font-size:9px;color:var(--muted);margin-bottom:8px">QR Code</div>
-            <div id="qr-wrap" style="display:inline-block;line-height:0"></div>
-            <div style="margin-top:8px"><button class="btn btn-ghost" onclick="downloadQR()" style="font-size:9px">↓ Télécharger le QR</button></div>
+            
           </div>
 
           <!-- Séances -->
@@ -1755,9 +1759,23 @@ function renderDashboard() {
   document.getElementById('ks-dispos').textContent = `${COMEDIANS.length-replied} en attente`;
   const avg = Math.round(COMEDIANS.reduce((a,c)=>a+c.presence,0)/COMEDIANS.length);
   document.getElementById('kv-pres').textContent = avg+'%';
+  
+  // Humoristes qui jouent ce mois
+  const now2 = new Date();
+  const curMonth = `${now2.getFullYear()}-${String(now2.getMonth()+1).padStart(2,'0')}`;
+  const nextMonth = now2.getMonth()===11 ? `${now2.getFullYear()+1}-01` : `${now2.getFullYear()}-${String(now2.getMonth()+2).padStart(2,'0')}`;
+  const jouent = new Set();
+  Object.entries(assignments).forEach(([key, ids]) => {
+    if (key.startsWith(curMonth) || key.startsWith(nextMonth)) {
+      ids.forEach(id => { if(id !== 'mc_provisoire') jouent.add(id); });
+    }
+  });
+  document.getElementById('kv-jouent').textContent = jouent.size;
+  document.getElementById('ks-jouent').textContent = 'humoristes';
 
   // ── Lineup chronologique ──
   const weekStart = getWeekStart();
+  document.getElementById('dash-wk-label').textContent = `Line-up — ${getWkLabel()}`;
   let tbl = '';
   let prevDay = '';
   DAYS_CONFIG.forEach((day,di) => {
@@ -2364,6 +2382,8 @@ function renderHumoristes(){
       <div style="display:flex;gap:4px;margin-bottom:4px">
         ${c.email?`<span style="font-size:8px;color:var(--g);background:var(--g2);padding:1px 5px;border-radius:2px;border:1px solid var(--gb)">✉ Email</span>`:`<span style="font-size:8px;color:var(--muted2);background:var(--s3);padding:1px 5px;border-radius:2px">✉ Pas d'email</span>`}
         ${c.phone?`<span style="font-size:8px;color:var(--b);background:var(--b2);padding:1px 5px;border-radius:2px;border:1px solid var(--bb)">📱 WA</span>`:''}
+        <span style="font-size:8px;color:var(--o);background:var(--o2);padding:1px 5px;border-radius:2px;border:1px solid rgba(249,115,22,.3)">${Object.entries(assignments).filter(([,ids])=>ids.includes(c.id)).length} dates</span>
+        <span style="font-size:8px;color:var(--b);background:var(--b2);padding:1px 5px;border-radius:2px;border:1px solid var(--bb)">${Object.values(DISPOS_DATA[c.id]||{}).filter(v=>v.dispo).length} dispos</span>
       </div>
       <div class="pres-row">
         <span style="font-size:9px;color:var(--muted)">Présence</span>
@@ -3101,8 +3121,15 @@ async function sendPlanningToAll() {
   if (!list.length) { toast('Aucun humoriste assigné'); return; }
 
   closeModal('modal-send-planning');
+  
+  // Déterminer le mois depuis les assignements
+  const firstKey = Object.keys(assignments)[0] || '';
+  const firstParts = firstKey.split('-');
+  const assignMonth = firstParts.length >= 2 ? new Date(parseInt(firstParts[0]), parseInt(firstParts[1])-1, 1).toLocaleDateString('fr-FR',{month:'long'}) : 'à venir';
 
   let sent = 0, skipped = 0;
+  const emailLog = JSON.parse(localStorage.getItem('stagely_email_log') || '[]');
+  
   for (const [id, keys] of list) {
     const c = COMEDIANS.find(c=>c.id===id);
     if (!c) continue;
@@ -3110,20 +3137,26 @@ async function sendPlanningToAll() {
     const prenom = c.name.split(' ')[0];
 
     if (c.email && EMAIL_CONFIG.configured) {
-      // Envoi par email
-      const r = await sendEmail(c.email, `🎤 Tes dates BCC — ${new Date().toLocaleDateString('fr-FR',{month:'long'})}`, msg);
-      if (r.success) { sent++; logAction('notification', {humId:id, name:c.name, type:'email_planning'}); }
-      else skipped++;
+      const r = await sendEmail(c.email, `🎤 Tes dates BCC — ${assignMonth}`, msg);
+      if (r.success) { 
+        sent++; 
+        emailLog.unshift({date:new Date().toISOString(), to:c.email, name:c.name, type:'planning', slots:keys.length, status:'ok'});
+        logAction('notification', {humId:id, name:c.name, type:'email_planning'}); 
+      } else {
+        skipped++;
+        emailLog.unshift({date:new Date().toISOString(), to:c.email, name:c.name, type:'planning', status:'erreur'});
+      }
     } else if (c.phone && WA_CONFIG.configured) {
-      // Fallback WhatsApp
       const r = await sendWhatsAppText(c.phone, msg);
       if (r.success && !r.simulated) { sent++; logAction('notification', {humId:id, name:c.name, type:'wa_planning'}); }
       else skipped++;
     } else {
       skipped++;
+      emailLog.unshift({date:new Date().toISOString(), name:c.name, type:'planning', status:'pas de contact'});
     }
   }
 
+  localStorage.setItem('stagely_email_log', JSON.stringify(emailLog.slice(0, 500)));
   autoSave();
   toast(`✓ ${sent} envoyé${sent>1?'s':''}${skipped?` · ${skipped} sans contact`:''}`);
 }
@@ -3758,6 +3791,27 @@ function renderHistorique() {
           </tr>`;
         }).join('')}</tbody>
       </table>
+    </div>
+    <div style="margin-top:20px">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">📧 Historique des emails envoyés</div>
+      ${(() => {
+        const log = JSON.parse(localStorage.getItem('stagely_email_log') || '[]');
+        if (!log.length) return '<div style="font-size:11px;color:var(--muted2);padding:20px 0">Aucun email envoyé</div>';
+        return '<div style="display:flex;flex-direction:column;gap:4px">' + log.slice(0,50).map(e => {
+          const d = new Date(e.date);
+          const dateStr = d.toLocaleDateString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+          const statusCol = e.status==='ok' ? 'var(--g)' : 'var(--r)';
+          const statusIcon = e.status==='ok' ? '✓' : '✕';
+          return '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--s1);border:1px solid var(--border);border-radius:6px;font-size:10px">' +
+            '<span style="color:' + statusCol + ';font-weight:700;width:14px">' + statusIcon + '</span>' +
+            '<span style="flex:1;color:var(--text)">' + (e.name||'?') + '</span>' +
+            '<span style="color:var(--muted)">' + (e.to||'') + '</span>' +
+            '<span style="color:var(--o)">' + (e.type||'') + '</span>' +
+            (e.slots ? '<span style="color:var(--b)">' + e.slots + ' dates</span>' : '') +
+            '<span style="color:var(--muted2);font-size:9px">' + dateStr + '</span>' +
+          '</div>';
+        }).join('') + '</div>';
+      })()}
     </div>`;
 }
 
@@ -4152,10 +4206,7 @@ function updateChapeauTotal() {
 
 function nav_chapeau_open() {
   document.getElementById('ch-date').value = new Date().toISOString().split('T')[0];
-  document.getElementById('ch-especes').value = '';
-  document.getElementById('ch-cb').value = '';
   document.getElementById('ch-par-personne').value = '';
-  document.getElementById('ch-total').textContent = '0€';
   openModal('modal-chapeau');
 }
 
@@ -4178,7 +4229,7 @@ function saveChapeau() {
   const montant = parPersonne;
   if (!date) { toast('⚠ Ajoute une date'); return; }
   if (!montant) { toast('⚠ Saisis un montant'); return; }
-  chapeauData.unshift({id:Date.now(), date, slot, montant, especes, cb, parPersonne});
+  chapeauData.unshift({id:Date.now(), date, slot, montant, parPersonne});
   localStorage.setItem('stagely_chapeau', JSON.stringify(chapeauData));
   closeModal('modal-chapeau');
   renderChapeau();
