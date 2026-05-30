@@ -1643,7 +1643,7 @@ async function hvSubmit() {
 
 const PTITLES = {dashboard:'Dashboard',planning:'Planning',dispos:'Disponibilités',humoristes:'Humoristes',reglages:'Réglages',chapeau:'🎩 Chapeau'};
 const PACTIONS = {
-  planning:`<button class="btn btn-ghost" onclick="clearAll()">Réinitialiser</button><button class="btn btn-ghost" onclick="exportPDF()" style="font-size:9px">📄 PDF</button><button class="btn btn-ghost" onclick="exportLU()">↓ Exporter</button><button class="btn btn-o" onclick="openSendPlanningModal()" style="font-weight:700">📲 Envoyer le planning</button>`,
+  planning:`<button class="btn btn-ghost" onclick="clearAll()">Réinitialiser</button><button class="btn btn-ghost" onclick="exportPDF()" style="font-size:9px">📄 PDF</button><button class="btn btn-ghost" onclick="exportLU()">↓ Exporter</button><button class="btn btn-ghost" onclick="generateWAMessages()" style="font-size:9px">📱 Messages WhatsApp</button><button class="btn btn-o" onclick="openSendPlanningModal()" style="font-weight:700">📲 Envoyer le planning</button>`,
   dispos:`<button class="btn btn-b" onclick="relancerTous()">⏰ Relancer</button><button class="btn btn-o" onclick="openModal('modal-dispo')">✉ Demandes</button>`,
   humoristes:`<button class="btn btn-o" onclick="openModal('modal-add-hum')">+ Ajouter</button>`,
   reglages:`<button class="btn btn-o" onclick="toast('✓ Sauvegardé')">Sauvegarder</button>`,
@@ -1939,6 +1939,77 @@ function planAsgn(id,key){
   toast(`✓ ${COMEDIANS.find(c=>c.id===id)?.name} assigné`);
   renderPlanning();
   sbFetch('assignments', {method:'POST', params:'?on_conflict=slot_key,comedian_id', body:[{slot_key:key, comedian_id:id}]});
+}
+
+function generateWAMessages() {
+  const comedianSlots = {};
+  Object.entries(assignments).forEach(([key, ids]) => {
+    ids.forEach((id, idx) => {
+      if (!comedianSlots[id]) comedianSlots[id] = [];
+      comedianSlots[id].push({key, isMC: idx === 0});
+    });
+  });
+  
+  const assigned = Object.entries(comedianSlots).filter(([id]) => id !== 'mc_provisoire');
+  if (!assigned.length) { toast('Aucun humoriste assigné'); return; }
+  
+  const now = new Date();
+  const nextM = (now.getMonth()+1) % 12;
+  const nextY = now.getMonth()===11 ? now.getFullYear()+1 : now.getFullYear();
+  const mois = MOIS_FULL[nextM];
+  
+  let modalHtml = '<div style="max-height:70vh;overflow-y:auto;display:flex;flex-direction:column;gap:16px">';
+  
+  assigned.sort((a,b) => {
+    const na = COMEDIANS.find(c=>c.id===a[0])?.name||'';
+    const nb = COMEDIANS.find(c=>c.id===b[0])?.name||'';
+    return na.localeCompare(nb);
+  });
+  
+  assigned.forEach(([id, slots]) => {
+    const c = COMEDIANS.find(c=>c.id===id);
+    if (!c) return;
+    const prenom = c.name.split(' ')[0];
+    slots.sort((a,b) => a.key.localeCompare(b.key));
+    
+    let dateLines = '';
+    slots.forEach(({key, isMC}) => {
+      const parts = key.split('-');
+      const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+      const dayName = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'][d.getDay()];
+      const slot = parts[3]?.replace('H',':') || '';
+      dateLines += '📌 ' + dayName + ' ' + d.getDate() + ' ' + MOIS[d.getMonth()] + ' à ' + slot + (isMC?' (MC)':'') + '\n';
+    });
+    
+    const msg = 'Salut ' + prenom + ' ! 🎤\n\nVoici tes passages au BCC pour ' + mois + ' :\n\n' + dateLines + '\n⏰ Tu as 24h pour modifier tes dates.\n\n📱 Modifier mes dates :\nhttps://tagely-bcc.vercel.app/portal.html\n\nÀ très vite sur scène !\nBroadway Comedy Club';
+    
+    const phone = (c.phone||'').replace(/[^0-9]/g,'');
+    const waLink = phone ? 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg) : '';
+    const msgId = 'wamsg_' + id.replace(/[^a-z0-9]/g,'');
+    
+    modalHtml += '<div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:14px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+        '<div style="font-size:13px;font-weight:700;color:var(--text)">' + c.name + ' <span style="font-size:10px;color:var(--muted)">(' + slots.length + ' créneaux)</span></div>' +
+        '<div style="display:flex;gap:6px">' +
+          (waLink ? '<a href="' + waLink + '" target="_blank" style="padding:5px 12px;border-radius:6px;font-size:10px;background:#25d366;color:#fff;text-decoration:none;font-weight:600">📱 WhatsApp</a>' : '<span style="font-size:9px;color:var(--r)">Pas de tel</span>') +
+          '<button onclick="const t=document.getElementById(\'' + msgId + '\');navigator.clipboard.writeText(t.innerText);toast(\'✓ Copié\')" style="padding:5px 12px;border-radius:6px;font-size:10px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer">📋 Copier</button>' +
+        '</div>' +
+      '</div>' +
+      '<pre id="' + msgId + '" style="font-family:Inter,sans-serif;font-size:10px;color:var(--muted);white-space:pre-wrap;line-height:1.6;max-height:120px;overflow-y:auto;background:var(--s3);border-radius:6px;padding:8px 10px;margin:0">' + msg + '</pre>' +
+    '</div>';
+  });
+  
+  modalHtml += '</div>';
+  
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.style.cssText = 'display:flex;z-index:999';
+  overlay.innerHTML = '<div class="modal" style="width:600px;max-width:95vw">' +
+    '<div class="modal-title">📱 Messages WhatsApp — ' + assigned.length + ' humoristes</div>' +
+    modalHtml +
+    '<div class="ma" style="margin-top:14px"><button class="btn btn-ghost" onclick="this.closest(\'.overlay\').remove()">Fermer</button></div>' +
+  '</div>';
+  document.body.appendChild(overlay);
 }
 
 function addMCProvisoire(key) {
@@ -4194,7 +4265,7 @@ function renderChapeau(periode = 'semaine') {
         <div style="font-size:22px;font-weight:800;color:var(--text);font-family:monospace;min-width:70px">${slot2}</div>
         <!-- Artistes -->
         <div style="flex:1;font-size:11px;color:var(--muted)">
-          ${ids.length ? ids.map(id => COMEDIANS.find(c=>c.id===id)?.name.split(' ')[0]||'?').join(', ') : 'Aucun assigné'}
+          ${ids.length ? ids.map(id => {const c=COMEDIANS.find(c=>c.id===id); return c?c.name:'?';}).join(' · ') : '<span style="color:var(--muted2)">Aucun assigné</span>'}
         </div>
         <!-- Montant -->
         <div style="text-align:right;min-width:80px">
