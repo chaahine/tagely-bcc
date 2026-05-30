@@ -922,7 +922,7 @@ window.addEventListener('DOMContentLoaded', () => {
             <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Nom du club</label><input class="fi" id="s-club" value="BCC" style="width:100%" oninput="document.getElementById('club-badge').textContent=this.value"></div>
             <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Ville</label><input class="fi" value="Lille" style="width:100%"></div>
             <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Deadline dispos (jour du mois)</label><input class="fi" id="s-deadline" type="number" value="15" min="1" max="28" style="width:100%"></div>
-            <button class="btn btn-o" onclick="toast('✓ Sauvegardé')" style="margin-top:4px;width:100%">💾 Sauvegarder</button>
+            <button class="btn btn-o" onclick="saveClubInfo()" style="margin-top:4px;width:100%">💾 Sauvegarder</button>
           </div>
 
           <!-- Lien portail -->
@@ -1682,6 +1682,7 @@ function nav(id) {
     document.querySelectorAll('.ni').forEach(n=>{if(n.getAttribute('onclick')===`nav('chapeau')`) n.classList.add('on');});
     document.getElementById('ptitle').textContent = '🎩 Chapeau';
     document.getElementById('tactions').innerHTML = `<button class="btn btn-o" onclick="nav_chapeau_open()">+ Ajouter une soirée</button>`;
+    document.querySelector('.content').scrollTop = 0;
     renderChapeau();
     return;
   }
@@ -1806,7 +1807,7 @@ function renderDashboard() {
           const isMCwanted = DISPOS_DATA[id]?.[key]?.mc;
           tbl += `<span class="perf-chip ${isMC?'mc':''}">
             <span class="${c.gender==='f'?'dot-f':'dot-m'}"></span>
-            ${isMC?'MC · ':''}${c?.name.split(' ')[0]} ${c?.name.split(' ')[1]?.[0]||''}.
+            ${isMC?'MC · ':''}${c?.name}
           </span>`;
         });
       } else {
@@ -3970,6 +3971,7 @@ if (savedTheme === 'light') {
 // Charger données — localStorage d'abord pour la vitesse
 const loaded = loadAll();
 if (loaded) console.log('✓ Données restaurées depuis localStorage');
+loadClubInfo();
 
 // Charger depuis Supabase — remplace TOUJOURS les comedians
 loadFromSupabase().then(ok => {
@@ -4237,6 +4239,22 @@ function saveChapeau() {
 }
 
 function chgWkChapeau(d) { weekOffset += d; renderChapeau(); }
+
+function saveClubInfo() {
+  const info = {
+    name: document.getElementById('s-club')?.value || 'BCC',
+    ville: document.querySelector('#view-reglages input[value="Lille"]')?.value || 'Lille',
+    deadline: document.getElementById('s-deadline')?.value || '15'
+  };
+  localStorage.setItem('stagely_club_info', JSON.stringify(info));
+  toast('✓ Infos du club sauvegardées');
+}
+
+function loadClubInfo() {
+  const info = JSON.parse(localStorage.getItem('stagely_club_info') || '{}');
+  if (info.name) { const el = document.getElementById('s-club'); if(el) el.value = info.name; }
+  if (info.deadline) { const el = document.getElementById('s-deadline'); if(el) el.value = info.deadline; }
+}
 
 function deleteChapeau(id) {
   if (!confirm('Supprimer cette entrée ?')) return;
