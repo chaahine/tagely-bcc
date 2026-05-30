@@ -3031,8 +3031,12 @@ function buildPlanningMessage(comedianId, keys) {
     return `📍 ${dateStr} à ${time}${isFirst?' 🎤 (MC)':''}`;
   }).join('\n');
 
-  const link = `https://tagely-bcc.vercel.app?code=${currentCode}&manage=${comedianId}`;
-  const mois = new Date().toLocaleDateString('fr-FR',{month:'long'});
+  const link = `https://tagely-bcc.vercel.app/portal.html`;
+  // Prendre le mois depuis les créneaux assignés, pas le mois actuel
+  const firstKey = sortedKeys[0];
+  const firstParts = firstKey.split('-');
+  const assignMonth = new Date(parseInt(firstParts[0]), parseInt(firstParts[1])-1, 1);
+  const mois = assignMonth.toLocaleDateString('fr-FR',{month:'long'});
   
   return `Bonjour ${prenom} ! 🎤
 
