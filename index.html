@@ -1873,7 +1873,9 @@ async function loadNotifications() {
           <span style="font-size:9px;color:var(--muted2)">${dateStr}</span>
         </div>
         <div style="font-size:11px;color:var(--muted);line-height:1.4">${m.text||''}</div>
-        ${isAlert ? `<button onclick="deleteNotif(${m.id});nav('planning')" style="margin-top:6px;padding:5px 14px;border-radius:6px;font-size:10px;font-weight:700;background:var(--o);color:#fff;border:none;cursor:pointer">🔄 Remplacer →</button>` : ''}
+        ${(isAlert || isMod) ? `<div style="display:flex;gap:6px;margin-top:6px">
+          <button onclick="nav('planning')" style="padding:5px 14px;border-radius:6px;font-size:10px;font-weight:700;background:var(--o);color:#fff;border:none;cursor:pointer">🔄 Remplacer →</button>
+        </div>` : ''}
       </div>`;
     }).join('');
   } catch(e) {
@@ -1885,6 +1887,62 @@ async function deleteNotif(id) {
   const el = document.getElementById('notif-'+id);
   if (el) el.style.display = 'none';
   await sbFetch('chat_messages', {method:'DELETE', params:`?id=eq.${id}`});
+}
+
+async function sendReplacementEmail(notifId) {
+  // Trouver le créneau concerné dans le texte de la notif
+  const notifEl = document.getElementById('notif-'+notifId);
+  if (!notifEl) return;
+  const text = notifEl.querySelector('div[style*="line-height"]')?.textContent || '';
+  
+  // Extraire les créneaux mentionnés — format "Mar 2 à 20:15" ou "Jeu 5 à 21:30"
+  const slotMatches = text.match(/(\w+)\s+(\d+)\s+à\s+(\d+:\d+)/g);
+  if (!slotMatches || !slotMatches.length) {
+    toast('⚠ Impossible de trouver le créneau');
+    nav('planning');
+    return;
+  }
+  
+  // Trouver les humoristes actuellement assignés sur ces créneaux
+  const now = new Date();
+  const nextM = (now.getMonth()+1) % 12;
+  const nextY = now.getMonth()===11 ? now.getFullYear()+1 : now.getFullYear();
+  
+  let sentCount = 0;
+  for (const [key, ids] of Object.entries(assignments)) {
+    if (!ids.length) continue;
+    const parts = key.split('-');
+    const slot = parts[3]?.replace('H',':');
+    const day = parseInt(parts[2]);
+    
+    // Vérifier si ce créneau correspond à la notif
+    const match = slotMatches.some(m => m.includes(slot) && m.includes(day));
+    if (!match) continue;
+    
+    // Envoyer à chaque humoriste assigné
+    for (const id of ids) {
+      if (id === 'mc_provisoire') continue;
+      const c = COMEDIANS.find(c=>c.id===id);
+      if (!c || !c.email) continue;
+      
+      const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, day);
+      const dayName = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'][d.getDay()];
+      const prenom = c.name.split(' ')[0];
+      
+      const msg = `Salut ${prenom} ! 🎤\n\nTu as été ajouté sur un nouveau créneau au BCC :\n\n📌 ${dayName} ${day} ${MOIS[d.getMonth()]} à ${slot}\n\n📱 Voir mes dates :\nhttps://tagely-bcc.vercel.app/portal.html\n\nÀ très vite sur scène !\nBroadway Comedy Club`;
+      
+      await sendEmail(c.email, `🎤 BCC — Nouveau créneau ${dayName} ${day}`, msg);
+      sentCount++;
+    }
+  }
+  
+  if (sentCount) {
+    toast(`✓ ${sentCount} email${sentCount>1?'s':''} envoyé${sentCount>1?'s':''} au${sentCount>1?'x':''} remplaçant${sentCount>1?'s':''}`);
+    deleteNotif(notifId);
+  } else {
+    toast('⚠ Aucun remplaçant assigné — va dans le planning pour assigner quelqu\'un');
+    nav('planning');
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -1963,6 +2021,7 @@ function renderPlanning() {
           <div class="ca-name">${c.name}</div>
           ${idx===0?`<span class="mc-b">MC</span>`:''}
           <span style="font-size:8px;color:rgba(34,197,94,.5);margin-left:auto">${c.duration||10}m</span>
+          <button onclick="event.stopPropagation();sendSlotEmail('${id}','${key}')" style="background:none;border:none;cursor:pointer;font-size:10px;padding:2px 4px;opacity:.5" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.5" title="Envoyer cette date">📧</button>
         </div>`;
       });
       if (asgnIds.length && available.length) html += `<div class="sc-sep"></div>`;
@@ -2099,6 +2158,29 @@ function unassign(key,id){
   // Supprimer de Supabase
   sbFetch('assignments', {method:'DELETE', params:`?slot_key=eq.${key}&comedian_id=eq.${id}`});
 }
+
+async function sendSlotEmail(comedianId, slotKey) {
+  const c = COMEDIANS.find(c=>c.id===comedianId);
+  if (!c) return;
+  if (!c.email) { toast('⚠ Pas d\'email pour ' + c.name); return; }
+  const parts = slotKey.split('-');
+  const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+  const dayName = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'][d.getDay()];
+  const slot = parts[3]?.replace('H',':') || '';
+  const prenom = c.name.split(' ')[0];
+  const isMC = (assignments[slotKey]||[])[0] === comedianId;
+  const msg = `Salut ${prenom} ! 🎤\n\nTu as été ajouté sur un créneau au BCC :\n\n📌 ${dayName} ${d.getDate()} ${MOIS[d.getMonth()]} à ${slot}${isMC ? ' (MC)' : ''}\n\n⏰ Tu as 24h pour modifier si besoin.\n\n📱 Voir mes dates :\nhttps://tagely-bcc.vercel.app/portal.html\n\nÀ très vite sur scène !\nBroadway Comedy Club`;
+  const r = await sendEmail(c.email, `🎤 BCC — Nouveau créneau ${dayName} ${d.getDate()}`, msg);
+  if (r.success) {
+    toast(`✓ Email envoyé à ${prenom}`);
+    const log = JSON.parse(localStorage.getItem('stagely_email_log') || '[]');
+    log.unshift({date:new Date().toISOString(), to:c.email, name:c.name, type:'remplacement', slots:1, status:'ok'});
+    localStorage.setItem('stagely_email_log', JSON.stringify(log.slice(0,500)));
+  } else {
+    toast('⚠ Erreur envoi email');
+  }
+}
+
 function clearAll(){
   assignments={};
   renderPlanning();
