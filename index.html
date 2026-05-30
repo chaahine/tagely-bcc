@@ -1866,17 +1866,25 @@ async function loadNotifications() {
       const isMod = (m.text||'').includes('MODIFICATION') || (m.text||'').includes('📝');
       const bgCol = isAlert ? 'rgba(239,68,68,.06)' : isMod ? 'rgba(245,158,11,.06)' : 'transparent';
       const borderCol = isAlert ? 'rgba(239,68,68,.15)' : isMod ? 'rgba(245,158,11,.15)' : 'var(--border)';
-      return `<div style="padding:8px 10px;border-bottom:1px solid ${borderCol};background:${bgCol};border-radius:4px;margin-bottom:4px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+      return `<div id="notif-${m.id}" style="padding:8px 10px;border-bottom:1px solid ${borderCol};background:${bgCol};border-radius:4px;margin-bottom:4px;position:relative">
+        <button onclick="deleteNotif(${m.id})" style="position:absolute;top:6px;right:8px;background:none;border:none;color:var(--muted2);cursor:pointer;font-size:14px;padding:2px 6px;opacity:.5" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.5">✕</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;padding-right:24px">
           <span style="font-size:10px;font-weight:700;color:var(--text)">${m.sender||'Système'}</span>
           <span style="font-size:9px;color:var(--muted2)">${dateStr}</span>
         </div>
         <div style="font-size:11px;color:var(--muted);line-height:1.4">${m.text||''}</div>
+        ${isAlert ? `<button onclick="deleteNotif(${m.id});nav('planning')" style="margin-top:6px;padding:5px 14px;border-radius:6px;font-size:10px;font-weight:700;background:var(--o);color:#fff;border:none;cursor:pointer">🔄 Remplacer →</button>` : ''}
       </div>`;
     }).join('');
   } catch(e) {
     el.innerHTML = '<div style="color:var(--r);font-size:10px">Erreur chargement</div>';
   }
+}
+
+async function deleteNotif(id) {
+  const el = document.getElementById('notif-'+id);
+  if (el) el.style.display = 'none';
+  await sbFetch('chat_messages', {method:'DELETE', params:`?id=eq.${id}`});
 }
 
 // ══════════════════════════════════════════════════
