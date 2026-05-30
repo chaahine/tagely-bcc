@@ -677,10 +677,29 @@ async function renderDates() {
 
 async function confirmDates() {
   const toRemove = Object.entries(manageDates).filter(([,v])=>!v).map(([k])=>k);
+  if (!toRemove.length) { document.getElementById('confirm-ok').style.display='block'; return; }
+  
+  // Supprimer les dates décochées
   for (const key of toRemove) {
     await sb('assignments',{method:'DELETE',params:`?slot_key=eq.${key}&comedian_id=eq.${user.id}`});
     if (assignments[key]) assignments[key]=assignments[key].filter(id=>id!==user.id);
   }
+  
+  // Notifier l'admin via chat_messages
+  const details = toRemove.map(key => {
+    const parts = key.split('-');
+    const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+    const dayName = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][d.getDay()];
+    const slot = parts[3]?.replace('H',':') || '';
+    return `${dayName} ${d.getDate()} à ${slot}`;
+  }).join(', ');
+  
+  await sb('chat_messages', {method:'POST', body:[{
+    sender: user.name,
+    sender_id: user.id,
+    text: `📝 MODIFICATION — ${user.name} a retiré ${toRemove.length} date${toRemove.length>1?'s':''} : ${details}`
+  }]});
+  
   document.getElementById('confirm-ok').style.display='block';
   document.getElementById('btn-confirm').style.display='none';
   await renderDates();

@@ -869,6 +869,12 @@ window.addEventListener('DOMContentLoaded', () => {
           <div id="dash-rel"></div>
         </div>
       </div>
+      
+      <!-- Notifications modifications -->
+      <div class="dash-card" style="margin-top:10px">
+        <div class="dc-title">🔔 Notifications <button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="loadNotifications()">↻ Rafraîchir</button></div>
+        <div id="dash-notifs" style="font-size:11px;color:var(--muted)">Chargement...</div>
+      </div>
     </div>
 
     <!-- PLANNING -->
@@ -1841,6 +1847,36 @@ function renderDashboard() {
   }).join('');
 
   updateBadge();
+  loadNotifications();
+}
+
+async function loadNotifications() {
+  const el = document.getElementById('dash-notifs');
+  if (!el) return;
+  try {
+    const msgs = await sbFetch('chat_messages', {params:'?order=created_at.desc&limit=20'});
+    if (!msgs || !msgs.length) {
+      el.innerHTML = '<div style="padding:10px 0;color:var(--muted2)">Aucune notification</div>';
+      return;
+    }
+    el.innerHTML = msgs.map(m => {
+      const d = new Date(m.created_at);
+      const dateStr = d.toLocaleDateString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+      const isAlert = (m.text||'').includes('ANNULATION') || (m.text||'').includes('🚨');
+      const isMod = (m.text||'').includes('MODIFICATION') || (m.text||'').includes('📝');
+      const bgCol = isAlert ? 'rgba(239,68,68,.06)' : isMod ? 'rgba(245,158,11,.06)' : 'transparent';
+      const borderCol = isAlert ? 'rgba(239,68,68,.15)' : isMod ? 'rgba(245,158,11,.15)' : 'var(--border)';
+      return `<div style="padding:8px 10px;border-bottom:1px solid ${borderCol};background:${bgCol};border-radius:4px;margin-bottom:4px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+          <span style="font-size:10px;font-weight:700;color:var(--text)">${m.sender||'Système'}</span>
+          <span style="font-size:9px;color:var(--muted2)">${dateStr}</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.4">${m.text||''}</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--r);font-size:10px">Erreur chargement</div>';
+  }
 }
 
 // ══════════════════════════════════════════════════
