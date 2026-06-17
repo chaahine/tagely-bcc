@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -68,8 +69,8 @@ window.addEventListener('load', () => {
 *{box-sizing:border-box;margin:0;padding:0;color:inherit}
 body{color:var(--text);font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:-.1px}
 :root{
-  --bg:#000000;--s1:#0a0a0c;--s2:#111114;--s3:#18181b;--s4:#222225;
-  --border:#1a1a1e;--border2:#252528;--border3:#333336;
+  --bg:#080808;--s1:#0f0f0f;--s2:#161616;--s3:#1e1e1e;--s4:#282828;
+  --border:#1a1a1a;--border2:#252525;--border3:#333;
   --text:#f0f0f0;--muted:#4a4a4a;--muted2:#2a2a2a;
   --g:#22c55e;--g2:rgba(34,197,94,.08);--gb:rgba(34,197,94,.25);
   --o:#f97316;--o2:rgba(249,115,22,.08);--ob:rgba(249,115,22,.25);
@@ -207,7 +208,7 @@ html.light{
 .btn-ghost:hover{color:var(--text);border-color:var(--border3)}
 .btn-r{background:var(--r2);color:var(--r);border:1px solid var(--rb)}
 .btn-b{background:var(--b2);color:var(--b);border:1px solid var(--bb)}
-.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
 .kpi{
   background:var(--s1);border:1px solid var(--border);
   border-radius:5px;padding:16px 18px;
@@ -842,18 +843,12 @@ window.addEventListener('DOMContentLoaded', () => {
         <div class="kpi"><div class="kpi-v" id="kv-asgn" style="color:var(--g)">8</div><div class="kpi-l">Assignés</div><div class="kpi-s" id="ks-asgn">sur 15 créneaux</div></div>
         <div class="kpi"><div class="kpi-v" id="kv-dispos" style="color:var(--b)">7</div><div class="kpi-l">Dispos reçues</div><div class="kpi-s" id="ks-dispos">8 en attente</div></div>
         <div class="kpi"><div class="kpi-v" id="kv-pres" style="color:var(--gold)">89%</div><div class="kpi-l">Présence moy.</div><div class="kpi-s">sur le groupe</div></div>
-        <div class="kpi"><div class="kpi-v" id="kv-jouent" style="color:var(--g)">0</div><div class="kpi-l">Jouent ce mois</div><div class="kpi-s" id="ks-jouent">humoristes</div></div>
       </div>
 
       <!-- Lineup chronologique -->
       <div class="lineup-wrap">
         <div class="lineup-head">
-          <div style="display:flex;align-items:center;gap:8px">
-            <button onclick="weekOffset--;renderDashboard()" style="background:none;border:1px solid var(--border2);color:var(--text);cursor:pointer;padding:2px 8px;border-radius:4px;font-size:12px">←</button>
-            <span class="lineup-title" id="dash-wk-label">Line-up de la semaine</span>
-            <button onclick="weekOffset++;renderDashboard()" style="background:none;border:1px solid var(--border2);color:var(--text);cursor:pointer;padding:2px 8px;border-radius:4px;font-size:12px">→</button>
-            <button onclick="weekOffset=0;renderDashboard()" style="background:none;border:1px solid var(--border2);color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:9px">Auj.</button>
-          </div>
+          <span class="lineup-title">Line-up de la semaine</span>
           <button class="btn btn-ghost" style="font-size:9px;padding:2px 7px" onclick="nav('planning')">Modifier →</button>
         </div>
         <table class="lineup-table" id="lineup-tbl"></table>
@@ -868,12 +863,6 @@ window.addEventListener('DOMContentLoaded', () => {
           <div class="dc-title">Top fiabilité</div>
           <div id="dash-rel"></div>
         </div>
-      </div>
-      
-      <!-- Notifications modifications -->
-      <div class="dash-card" style="margin-top:10px">
-        <div class="dc-title">🔔 Notifications <button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="loadNotifications()">↻ Rafraîchir</button></div>
-        <div id="dash-notifs" style="font-size:11px;color:var(--muted)">Chargement...</div>
       </div>
     </div>
 
@@ -928,7 +917,7 @@ window.addEventListener('DOMContentLoaded', () => {
             <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Nom du club</label><input class="fi" id="s-club" value="BCC" style="width:100%" oninput="document.getElementById('club-badge').textContent=this.value"></div>
             <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Ville</label><input class="fi" value="Lille" style="width:100%"></div>
             <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Deadline dispos (jour du mois)</label><input class="fi" id="s-deadline" type="number" value="15" min="1" max="28" style="width:100%"></div>
-            <button class="btn btn-o" onclick="saveClubInfo()" style="margin-top:4px;width:100%">💾 Sauvegarder</button>
+            <button class="btn btn-o" onclick="toast('✓ Sauvegardé')" style="margin-top:4px;width:100%">💾 Sauvegarder</button>
           </div>
 
           <!-- Lien portail -->
@@ -939,7 +928,9 @@ window.addEventListener('DOMContentLoaded', () => {
               <div style="flex:1;background:var(--s3);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--b);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">tagely-bcc.vercel.app/portal.html</div>
               <button class="btn btn-ghost" onclick="navigator.clipboard.writeText('https://tagely-bcc.vercel.app/portal.html');toast('✓ Lien copié')" style="font-size:10px;flex-shrink:0">📋 Copier</button>
             </div>
-            
+            <div style="font-size:9px;color:var(--muted);margin-bottom:8px">QR Code</div>
+            <div id="qr-wrap" style="display:inline-block;line-height:0"></div>
+            <div style="margin-top:8px"><button class="btn btn-ghost" onclick="downloadQR()" style="font-size:9px">↓ Télécharger le QR</button></div>
           </div>
 
           <!-- Séances -->
@@ -1545,6 +1536,31 @@ function getNextMonthSlots() {
   return getMonthSlots(year, month);
 }
 
+// Préfixe "YYYY-MM-" du mois actuellement ouvert aux dispos (le mois prochain)
+function getTargetMonthPrefix() {
+  const now = new Date();
+  const year = now.getMonth() === 11 ? now.getFullYear()+1 : now.getFullYear();
+  const month = (now.getMonth()+1) % 12; // 0-indexé
+  return `${year}-${String(month+1).padStart(2,'0')}-`;
+}
+
+// Un humoriste a-t-il vraiment rempli ses dispos pour le mois CIBLE actuel
+// (et pas seulement pour un mois précédent) ?
+function hasRepliedForTargetMonth(comedianId) {
+  const slots = DISPOS_DATA[comedianId];
+  if (!slots) return false;
+  const prefix = getTargetMonthPrefix();
+  return Object.keys(slots).some(k => k.startsWith(prefix) && slots[k]?.dispo);
+}
+
+// Statut "replied" réel — si la personne avait répondu le mois dernier mais
+// n'a rien rempli pour le mois cible actuel, on ne la compte plus comme "répondu"
+function effectiveDispoStatus(comedianId) {
+  const raw = DISPO_STATUS[comedianId] || 'none';
+  if (raw === 'replied' && !hasRepliedForTargetMonth(comedianId)) return 'none';
+  return raw;
+}
+
 function renderHvTable() {
   const slots = getNextMonthSlots();
   const DAY_NAMES_FR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
@@ -1653,7 +1669,7 @@ async function hvSubmit() {
 
 const PTITLES = {dashboard:'Dashboard',planning:'Planning',dispos:'Disponibilités',humoristes:'Humoristes',reglages:'Réglages',chapeau:'🎩 Chapeau'};
 const PACTIONS = {
-  planning:`<button class="btn btn-ghost" onclick="clearAll()">Réinitialiser</button><button class="btn btn-ghost" onclick="exportPDF()" style="font-size:9px">📄 PDF</button><button class="btn btn-ghost" onclick="exportLU()">↓ Exporter</button><button class="btn btn-ghost" onclick="generateWAMessages()" style="font-size:9px">📱 Messages WhatsApp</button><button class="btn btn-o" onclick="openSendPlanningModal()" style="font-weight:700">📲 Envoyer le planning</button>`,
+  planning:`<button class="btn btn-ghost" onclick="clearAll()">Réinitialiser</button><button class="btn btn-ghost" onclick="exportPDF()" style="font-size:9px">📄 PDF</button><button class="btn btn-ghost" onclick="exportLU()">↓ Exporter</button><button class="btn btn-o" onclick="openSendPlanningModal()" style="font-weight:700">📲 Envoyer le planning</button>`,
   dispos:`<button class="btn btn-b" onclick="relancerTous()">⏰ Relancer</button><button class="btn btn-o" onclick="openModal('modal-dispo')">✉ Demandes</button>`,
   humoristes:`<button class="btn btn-o" onclick="openModal('modal-add-hum')">+ Ajouter</button>`,
   reglages:`<button class="btn btn-o" onclick="toast('✓ Sauvegardé')">Sauvegarder</button>`,
@@ -1688,7 +1704,6 @@ function nav(id) {
     document.querySelectorAll('.ni').forEach(n=>{if(n.getAttribute('onclick')===`nav('chapeau')`) n.classList.add('on');});
     document.getElementById('ptitle').textContent = '🎩 Chapeau';
     document.getElementById('tactions').innerHTML = `<button class="btn btn-o" onclick="nav_chapeau_open()">+ Ajouter une soirée</button>`;
-    document.querySelector('.content').scrollTop = 0;
     renderChapeau();
     return;
   }
@@ -1751,7 +1766,7 @@ function toggleSidebar() {
 // ══════════════════════════════════════════════════
 
 function updateBadge() {
-  const n = COMEDIANS.filter(c=>DISPO_STATUS[c.id]!=='replied').length;
+  const n = COMEDIANS.filter(c=>effectiveDispoStatus(c.id)!=='replied').length;
   document.getElementById('bdg-dispos').textContent = n;
 }
 
@@ -1761,28 +1776,14 @@ function renderDashboard() {
   const asgn = Object.values(assignments).reduce((a,arr)=>a+arr.length,0);
   document.getElementById('kv-asgn').textContent = asgn;
   document.getElementById('ks-asgn').textContent = `sur ${total} créneaux`;
-  const replied = COMEDIANS.filter(c=>DISPO_STATUS[c.id]==='replied').length;
+  const replied = COMEDIANS.filter(c=>effectiveDispoStatus(c.id)==='replied').length;
   document.getElementById('kv-dispos').textContent = replied;
   document.getElementById('ks-dispos').textContent = `${COMEDIANS.length-replied} en attente`;
   const avg = Math.round(COMEDIANS.reduce((a,c)=>a+c.presence,0)/COMEDIANS.length);
   document.getElementById('kv-pres').textContent = avg+'%';
-  
-  // Humoristes qui jouent ce mois
-  const now2 = new Date();
-  const curMonth = `${now2.getFullYear()}-${String(now2.getMonth()+1).padStart(2,'0')}`;
-  const nextMonth = now2.getMonth()===11 ? `${now2.getFullYear()+1}-01` : `${now2.getFullYear()}-${String(now2.getMonth()+2).padStart(2,'0')}`;
-  const jouent = new Set();
-  Object.entries(assignments).forEach(([key, ids]) => {
-    if (key.startsWith(curMonth) || key.startsWith(nextMonth)) {
-      ids.forEach(id => { if(id !== 'mc_provisoire') jouent.add(id); });
-    }
-  });
-  document.getElementById('kv-jouent').textContent = jouent.size;
-  document.getElementById('ks-jouent').textContent = 'humoristes';
 
   // ── Lineup chronologique ──
   const weekStart = getWeekStart();
-  document.getElementById('dash-wk-label').textContent = `Line-up — ${getWkLabel()}`;
   let tbl = '';
   let prevDay = '';
   DAYS_CONFIG.forEach((day,di) => {
@@ -1813,7 +1814,7 @@ function renderDashboard() {
           const isMCwanted = DISPOS_DATA[id]?.[key]?.mc;
           tbl += `<span class="perf-chip ${isMC?'mc':''}">
             <span class="${c.gender==='f'?'dot-f':'dot-m'}"></span>
-            ${isMC?'MC · ':''}${c?.name}
+            ${isMC?'MC · ':''}${c?.name.split(' ')[0]} ${c?.name.split(' ')[1]?.[0]||''}.
           </span>`;
         });
       } else {
@@ -1825,10 +1826,10 @@ function renderDashboard() {
   document.getElementById('lineup-tbl').innerHTML = tbl;
 
   // Dispo status
-  const r=COMEDIANS.filter(c=>DISPO_STATUS[c.id]==='replied').length;
-  const p=COMEDIANS.filter(c=>DISPO_STATUS[c.id]==='pending').length;
-  const nn=COMEDIANS.filter(c=>DISPO_STATUS[c.id]==='none').length;
-  const noneList=COMEDIANS.filter(c=>DISPO_STATUS[c.id]==='none');
+  const r=COMEDIANS.filter(c=>effectiveDispoStatus(c.id)==='replied').length;
+  const p=COMEDIANS.filter(c=>effectiveDispoStatus(c.id)==='pending').length;
+  const nn=COMEDIANS.filter(c=>effectiveDispoStatus(c.id)==='none').length;
+  const noneList=COMEDIANS.filter(c=>effectiveDispoStatus(c.id)==='none');
   document.getElementById('dash-dispo').innerHTML=`
     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
       <span class="rs rs-r">✓ ${r}</span><span class="rs rs-p">⏳ ${p}</span><span class="rs rs-n">✕ ${nn}</span>
@@ -1847,154 +1848,6 @@ function renderDashboard() {
   }).join('');
 
   updateBadge();
-  loadNotifications();
-}
-
-async function loadNotifications() {
-  const el = document.getElementById('dash-notifs');
-  if (!el) return;
-  try {
-    const msgs = await sbFetch('chat_messages', {params:'?order=created_at.desc&limit=20'});
-    if (!msgs || !msgs.length) {
-      el.innerHTML = '<div style="padding:10px 0;color:var(--muted2)">Aucune notification</div>';
-      return;
-    }
-    el.innerHTML = msgs.map(m => {
-      const d = new Date(m.created_at);
-      const dateStr = d.toLocaleDateString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-      const isAlert = (m.text||'').includes('ANNULATION') || (m.text||'').includes('🚨');
-      const isMod = (m.text||'').includes('MODIFICATION') || (m.text||'').includes('📝');
-      const bgCol = isAlert ? 'rgba(239,68,68,.06)' : isMod ? 'rgba(245,158,11,.06)' : 'transparent';
-      const borderCol = isAlert ? 'rgba(239,68,68,.15)' : isMod ? 'rgba(245,158,11,.15)' : 'var(--border)';
-      return `<div id="notif-${m.id}" style="padding:8px 10px;border-bottom:1px solid ${borderCol};background:${bgCol};border-radius:4px;margin-bottom:4px;position:relative">
-        <button onclick="deleteNotif(${m.id})" style="position:absolute;top:6px;right:8px;background:none;border:none;color:var(--muted2);cursor:pointer;font-size:14px;padding:2px 6px;opacity:.5" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.5">✕</button>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;padding-right:24px">
-          <span style="font-size:10px;font-weight:700;color:var(--text)">${m.sender||'Système'}</span>
-          <span style="font-size:9px;color:var(--muted2)">${dateStr}</span>
-        </div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.4">${m.text||''}</div>
-        ${(isAlert || isMod) ? `<div style="display:flex;gap:6px;margin-top:6px">
-          <button onclick="goToSlotFromNotif(this)" style="padding:5px 14px;border-radius:6px;font-size:10px;font-weight:700;background:var(--o);color:#fff;border:none;cursor:pointer">🔄 Remplacer →</button>
-        </div>` : ''}
-      </div>`;
-    }).join('');
-  } catch(e) {
-    el.innerHTML = '<div style="color:var(--r);font-size:10px">Erreur chargement</div>';
-  }
-}
-
-async function deleteNotif(id) {
-  const el = document.getElementById('notif-'+id);
-  if (el) el.style.display = 'none';
-  await sbFetch('chat_messages', {method:'DELETE', params:`?id=eq.${id}`});
-}
-
-function goToSlotFromNotif(btn) {
-  // Extraire le texte de la notification
-  const notifDiv = btn.closest('[id^=notif-]');
-  const text = notifDiv?.querySelector('div[style*="line-height"]')?.textContent || '';
-  
-  // Trouver le jour mentionné (ex: "Mar 2", "Jeu 5", "Sam 13")
-  const dayMap = {Dim:0,Lun:1,Mar:2,Mer:3,Jeu:4,Ven:5,Sam:6};
-  const match = text.match(/(Dim|Lun|Mar|Mer|Jeu|Ven|Sam)\s+(\d+)/);
-  
-  if (match) {
-    const dayNum = parseInt(match[2]);
-    const now = new Date();
-    const nextM = (now.getMonth()+1) % 12;
-    const nextY = now.getMonth()===11 ? now.getFullYear()+1 : now.getFullYear();
-    const targetDate = new Date(nextY, nextM, dayNum);
-    
-    // Calculer le weekOffset pour cette date
-    const today = new Date();
-    const todayDay = today.getDay() || 7;
-    const thisMonday = new Date(today);
-    thisMonday.setDate(today.getDate() - todayDay + 1);
-    thisMonday.setHours(0,0,0,0);
-    
-    const targetDay = targetDate.getDay() || 7;
-    const targetMonday = new Date(targetDate);
-    targetMonday.setDate(targetDate.getDate() - targetDay + 1);
-    targetMonday.setHours(0,0,0,0);
-    
-    weekOffset = Math.round((targetMonday - thisMonday) / (7*24*60*60*1000));
-  }
-  
-  nav('planning');
-  
-  // Scroller vers le créneau après rendu
-  setTimeout(() => {
-    const match2 = text.match(/(\d+:\d+)/);
-    if (match2) {
-      const slot = match2[1];
-      const slotEl = document.querySelector(`.sc-time`);
-      const allSlots = document.querySelectorAll('.sc-time');
-      for (const el of allSlots) {
-        if (el.textContent.trim() === slot) {
-          el.closest('.slot-card')?.scrollIntoView({behavior:'smooth', block:'center'});
-          el.closest('.slot-card').style.outline = '2px solid var(--o)';
-          setTimeout(() => el.closest('.slot-card').style.outline = '', 3000);
-          break;
-        }
-      }
-    }
-  }, 300);
-}
-
-async function sendReplacementEmail(notifId) {
-  // Trouver le créneau concerné dans le texte de la notif
-  const notifEl = document.getElementById('notif-'+notifId);
-  if (!notifEl) return;
-  const text = notifEl.querySelector('div[style*="line-height"]')?.textContent || '';
-  
-  // Extraire les créneaux mentionnés — format "Mar 2 à 20:15" ou "Jeu 5 à 21:30"
-  const slotMatches = text.match(/(\w+)\s+(\d+)\s+à\s+(\d+:\d+)/g);
-  if (!slotMatches || !slotMatches.length) {
-    toast('⚠ Impossible de trouver le créneau');
-    nav('planning');
-    return;
-  }
-  
-  // Trouver les humoristes actuellement assignés sur ces créneaux
-  const now = new Date();
-  const nextM = (now.getMonth()+1) % 12;
-  const nextY = now.getMonth()===11 ? now.getFullYear()+1 : now.getFullYear();
-  
-  let sentCount = 0;
-  for (const [key, ids] of Object.entries(assignments)) {
-    if (!ids.length) continue;
-    const parts = key.split('-');
-    const slot = parts[3]?.replace('H',':');
-    const day = parseInt(parts[2]);
-    
-    // Vérifier si ce créneau correspond à la notif
-    const match = slotMatches.some(m => m.includes(slot) && m.includes(day));
-    if (!match) continue;
-    
-    // Envoyer à chaque humoriste assigné
-    for (const id of ids) {
-      if (id === 'mc_provisoire') continue;
-      const c = COMEDIANS.find(c=>c.id===id);
-      if (!c || !c.email) continue;
-      
-      const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, day);
-      const dayName = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'][d.getDay()];
-      const prenom = c.name.split(' ')[0];
-      
-      const msg = `Salut ${prenom} ! 🎤\n\nTu as été ajouté sur un nouveau créneau au BCC :\n\n📌 ${dayName} ${day} ${MOIS[d.getMonth()]} à ${slot}\n\n📱 Voir mes dates :\nhttps://tagely-bcc.vercel.app/portal.html\n\nÀ très vite sur scène !\nBroadway Comedy Club`;
-      
-      await sendEmail(c.email, `🎤 BCC — Nouveau créneau ${dayName} ${day}`, msg);
-      sentCount++;
-    }
-  }
-  
-  if (sentCount) {
-    toast(`✓ ${sentCount} email${sentCount>1?'s':''} envoyé${sentCount>1?'s':''} au${sentCount>1?'x':''} remplaçant${sentCount>1?'s':''}`);
-    deleteNotif(notifId);
-  } else {
-    toast('⚠ Aucun remplaçant assigné — va dans le planning pour assigner quelqu\'un');
-    nav('planning');
-  }
 }
 
 // ══════════════════════════════════════════════════
@@ -2073,7 +1926,6 @@ function renderPlanning() {
           <div class="ca-name">${c.name}</div>
           ${idx===0?`<span class="mc-b">MC</span>`:''}
           <span style="font-size:8px;color:rgba(34,197,94,.5);margin-left:auto">${c.duration||10}m</span>
-          <button onclick="event.stopPropagation();sendSlotEmail('${id}','${key}')" style="background:none;border:none;cursor:pointer;font-size:10px;padding:2px 4px;opacity:.5" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.5" title="Envoyer cette date">📧</button>
         </div>`;
       });
       if (asgnIds.length && available.length) html += `<div class="sc-sep"></div>`;
@@ -2088,15 +1940,6 @@ function renderPlanning() {
         </div>`;
       });
       if (!asgnIds.length && !available.length) html += `<div class="sc-empty">— aucun dispo</div>`;
-      // Bouton MC provisoire si pas encore de MC assigné
-      if (!asgnIds.length || !asgnIds.some(id => DISPOS_DATA[id]?.[key]?.mc)) {
-        html += `<div style="border-top:1px solid var(--border);padding:6px 10px;margin-top:4px">
-          <div onclick="addMCProvisoire('${key}')" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0;opacity:.7;transition:.15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7">
-            <span style="font-size:7px;font-weight:700;padding:2px 6px;border-radius:3px;background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3)">MC</span>
-            <span style="font-size:10px;color:var(--muted)">+ Ajouter MC provisoire</span>
-          </div>
-        </div>`;
-      }
       html += `</div></div>`;
     });
     html += `</div></div>`;
@@ -2112,134 +1955,14 @@ function planAsgn(id,key){
   assignments[key].push(id);
   toast(`✓ ${COMEDIANS.find(c=>c.id===id)?.name} assigné`);
   renderPlanning();
-  sbFetch('assignments', {method:'POST', params:'?on_conflict=slot_key,comedian_id', body:[{slot_key:key, comedian_id:id}]});
-}
-
-function generateWAMessages() {
-  const comedianSlots = {};
-  Object.entries(assignments).forEach(([key, ids]) => {
-    ids.forEach((id, idx) => {
-      if (!comedianSlots[id]) comedianSlots[id] = [];
-      comedianSlots[id].push({key, isMC: idx === 0});
-    });
-  });
-  
-  const assigned = Object.entries(comedianSlots).filter(([id]) => id !== 'mc_provisoire');
-  if (!assigned.length) { toast('Aucun humoriste assigné'); return; }
-  
-  const now = new Date();
-  const nextM = (now.getMonth()+1) % 12;
-  const nextY = now.getMonth()===11 ? now.getFullYear()+1 : now.getFullYear();
-  const mois = MOIS_FULL[nextM];
-  
-  let modalHtml = '<div style="max-height:70vh;overflow-y:auto;display:flex;flex-direction:column;gap:16px">';
-  
-  assigned.sort((a,b) => {
-    const na = COMEDIANS.find(c=>c.id===a[0])?.name||'';
-    const nb = COMEDIANS.find(c=>c.id===b[0])?.name||'';
-    return na.localeCompare(nb);
-  });
-  
-  assigned.forEach(([id, slots]) => {
-    const c = COMEDIANS.find(c=>c.id===id);
-    if (!c) return;
-    const prenom = c.name.split(' ')[0];
-    slots.sort((a,b) => a.key.localeCompare(b.key));
-    
-    let dateLines = '';
-    slots.forEach(({key, isMC}) => {
-      const parts = key.split('-');
-      const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-      const dayName = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'][d.getDay()];
-      const slot = parts[3]?.replace('H',':') || '';
-      dateLines += '📌 ' + dayName + ' ' + d.getDate() + ' ' + MOIS[d.getMonth()] + ' à ' + slot + (isMC?' (MC)':'') + '\n';
-    });
-    
-    const msg = 'Salut ' + prenom + ' ! 🎤\n\nVoici tes passages au BCC pour ' + mois + ' :\n\n' + dateLines + '\n⏰ Tu as 24h pour modifier tes dates.\n\n📱 Modifier mes dates :\nhttps://tagely-bcc.vercel.app/portal.html\n\nÀ très vite sur scène !\nBroadway Comedy Club';
-    
-    const phone = (c.phone||'').replace(/[^0-9]/g,'');
-    const waLink = phone ? 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg) : '';
-    const msgId = 'wamsg_' + id.replace(/[^a-z0-9]/g,'');
-    
-    modalHtml += '<div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:14px">' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
-        '<div style="font-size:13px;font-weight:700;color:var(--text)">' + c.name + ' <span style="font-size:10px;color:var(--muted)">(' + slots.length + ' créneaux)</span></div>' +
-        '<div style="display:flex;gap:6px">' +
-          (waLink ? '<a href="' + waLink + '" target="_blank" style="padding:5px 12px;border-radius:6px;font-size:10px;background:#25d366;color:#fff;text-decoration:none;font-weight:600">📱 WhatsApp</a>' : '<span style="font-size:9px;color:var(--r)">Pas de tel</span>') +
-          '<button onclick="const t=document.getElementById(\'' + msgId + '\');navigator.clipboard.writeText(t.innerText);toast(\'✓ Copié\')" style="padding:5px 12px;border-radius:6px;font-size:10px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer">📋 Copier</button>' +
-        '</div>' +
-      '</div>' +
-      '<pre id="' + msgId + '" style="font-family:Inter,sans-serif;font-size:10px;color:var(--muted);white-space:pre-wrap;line-height:1.6;max-height:120px;overflow-y:auto;background:var(--s3);border-radius:6px;padding:8px 10px;margin:0">' + msg + '</pre>' +
-    '</div>';
-  });
-  
-  modalHtml += '</div>';
-  
-  const overlay = document.createElement('div');
-  overlay.className = 'overlay';
-  overlay.style.cssText = 'display:flex;z-index:999';
-  overlay.innerHTML = '<div class="modal" style="width:600px;max-width:95vw">' +
-    '<div class="modal-title">📱 Messages WhatsApp — ' + assigned.length + ' humoristes</div>' +
-    modalHtml +
-    '<div class="ma" style="margin-top:14px"><button class="btn btn-ghost" onclick="this.closest(\'.overlay\').remove()">Fermer</button></div>' +
-  '</div>';
-  document.body.appendChild(overlay);
-}
-
-function addMCProvisoire(key) {
-  // Chercher ou créer l'humoriste "MC PROVISOIRE"
-  let mc = COMEDIANS.find(c => c.id === 'mc_provisoire');
-  if (!mc) {
-    mc = {id:'mc_provisoire', name:'MC PROVISOIRE', prio:'new', presence:100, gender:'m', duration:10, phone:'', email:'', active:true};
-    COMEDIANS.push(mc);
-    sbFetch('comedians', {method:'POST', params:'?on_conflict=id', body:[mc]});
-  }
-  // Assigner en première position (MC)
-  if (!assignments[key]) assignments[key] = [];
-  if (assignments[key].includes('mc_provisoire')) { toast('MC provisoire déjà ajouté'); return; }
-  assignments[key].unshift('mc_provisoire');
-  toast('✓ MC provisoire ajouté');
-  renderPlanning();
-  sbFetch('assignments', {method:'POST', params:'?on_conflict=slot_key,comedian_id', body:[{slot_key:key, comedian_id:'mc_provisoire'}]});
 }
 function unassign(key,id){
   assignments[key]=(assignments[key]||[]).filter(i=>i!==id);
   if(!assignments[key].length) delete assignments[key];
   toast(`✕ ${COMEDIANS.find(c=>c.id===id)?.name} retiré`);
   renderPlanning();
-  // Supprimer de Supabase
-  sbFetch('assignments', {method:'DELETE', params:`?slot_key=eq.${key}&comedian_id=eq.${id}`});
 }
-
-async function sendSlotEmail(comedianId, slotKey) {
-  const c = COMEDIANS.find(c=>c.id===comedianId);
-  if (!c) return;
-  if (!c.email) { toast('⚠ Pas d\'email pour ' + c.name); return; }
-  const parts = slotKey.split('-');
-  const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-  const dayName = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'][d.getDay()];
-  const slot = parts[3]?.replace('H',':') || '';
-  const prenom = c.name.split(' ')[0];
-  const isMC = (assignments[slotKey]||[])[0] === comedianId;
-  const msg = `Salut ${prenom} ! 🎤\n\nTu as été ajouté sur un créneau au BCC :\n\n📌 ${dayName} ${d.getDate()} ${MOIS[d.getMonth()]} à ${slot}${isMC ? ' (MC)' : ''}\n\n⏰ Tu as 24h pour modifier si besoin.\n\n📱 Voir mes dates :\nhttps://tagely-bcc.vercel.app/portal.html\n\nÀ très vite sur scène !\nBroadway Comedy Club`;
-  const r = await sendEmail(c.email, `🎤 BCC — Nouveau créneau ${dayName} ${d.getDate()}`, msg);
-  if (r.success) {
-    toast(`✓ Email envoyé à ${prenom}`);
-    const log = JSON.parse(localStorage.getItem('stagely_email_log') || '[]');
-    log.unshift({date:new Date().toISOString(), to:c.email, name:c.name, type:'remplacement', slots:1, status:'ok'});
-    localStorage.setItem('stagely_email_log', JSON.stringify(log.slice(0,500)));
-  } else {
-    toast('⚠ Erreur envoi email');
-  }
-}
-
-function clearAll(){
-  assignments={};
-  renderPlanning();
-  toast('Planning réinitialisé');
-  // Vider dans Supabase
-  sbFetch('assignments', {method:'DELETE', params:'?slot_key=neq.null'});
-}
+function clearAll(){assignments={};renderPlanning();toast('Planning réinitialisé');}
 function chgWk(d){weekOffset+=d;renderPlanning();}
 
 // ── EXPORT PDF ──
@@ -2403,11 +2126,13 @@ function renderDispos(){
     return true;
   });
 
+  const prefix = getTargetMonthPrefix();
   document.getElementById('d-tbody').innerHTML = uniqueComedians.map(c=>{
-    const st = DISPO_STATUS[c.id] || 'none';
+    const st = effectiveDispoStatus(c.id);
     const dd = DISPOS_DATA[c.id] || {};
-    const dSlots = Object.entries(dd).filter(([,v])=>v.dispo);
-    const mcCount = Object.entries(dd).filter(([,v])=>v.mc).length;
+    const ddMonth = Object.fromEntries(Object.entries(dd).filter(([k]) => k.startsWith(prefix)));
+    const dSlots = Object.entries(ddMonth).filter(([,v])=>v.dispo);
+    const mcCount = Object.entries(ddMonth).filter(([,v])=>v.mc).length;
     const stC = {replied:'rs-r', pending:'rs-p', none:'rs-n'}[st];
     const stL = {replied:'✓ Répondu', pending:'⏳ Envoyé', none:'✕ Pas envoyé'}[st];
 
@@ -2469,33 +2194,15 @@ function sendRem(id){
   renderDispos();renderDashboard();
   toast(`⏰ Relance → ${c?.name}`);
 }
-async function relancerTous(){
-  const n=COMEDIANS.filter(c=>DISPO_STATUS[c.id]!=='replied');
-  if(!n.length) { toast('Tous les humoristes ont déjà répondu !'); return; }
-  
-  const now = new Date();
-  const nextM = (now.getMonth()+1) % 12;
-  const nextY = now.getMonth()===11 ? now.getFullYear()+1 : now.getFullYear();
-  const mois = MOIS_FULL[nextM];
-  
-  let sent = 0;
-  for (const c of n) {
-    if (!c.email) continue;
-    const prenom = c.name.split(' ')[0];
-    const msg = `Salut ${prenom} !\n\nOn n'a pas encore reçu tes disponibilités pour ${mois} ${nextY} au BCC.\n\n📱 Remplis tes dispos ici :\nhttps://tagely-bcc.vercel.app/portal.html\n\nMerci ! 🎤`;
-    try {
-      await sendEmail(c.email, `BCC — Tes dispos pour ${mois}`, msg);
-      DISPO_STATUS[c.id]='pending';
-      sent++;
-    } catch(e) { console.warn('Email failed:', c.name, e); }
-  }
-  renderDispos();
-  toast(`⏰ ${sent} relance${sent>1?'s':''} envoyée${sent>1?'s':''}`);
+function relancerTous(){
+  const n=COMEDIANS.filter(c=>effectiveDispoStatus(c.id)!=='replied');
+  n.forEach(c=>DISPO_STATUS[c.id]='pending');
+  renderDispos();toast(`⏰ ${n.length} relances envoyées`);
 }
 async function sendDispos(){
   let t = COMEDIANS;
   const dest = document.getElementById('d-dest').value;
-  if(dest.includes('Non')) t = COMEDIANS.filter(c=>DISPO_STATUS[c.id]!=='replied');
+  if(dest.includes('Non')) t = COMEDIANS.filter(c=>effectiveDispoStatus(c.id)!=='replied');
   if(dest.includes('Head')) t = COMEDIANS.filter(c=>c.prio==='headliner');
 
   const msgTemplate = document.getElementById('d-msg')?.value || '';
@@ -2546,7 +2253,7 @@ function renderHumoristes(){
   const ppL={headliner:'Headliner',regular:'Régulier',new:'Nouveau'};
   document.getElementById('hcards').innerHTML=list.map(c=>{
     const pCol=c.presence>=90?'var(--g)':c.presence>=75?'var(--o)':'var(--r)';
-    const ds=DISPO_STATUS[c.id]||'none';
+    const ds=effectiveDispoStatus(c.id);
     const drdC={replied:'drd-r',pending:'drd-p',none:'drd-n'}[ds];
     const drdL={replied:'Dispos reçues',pending:'Demande envoyée',none:'Pas contacté'}[ds];
     return `<div class="hcard">
@@ -2561,8 +2268,6 @@ function renderHumoristes(){
       <div style="display:flex;gap:4px;margin-bottom:4px">
         ${c.email?`<span style="font-size:8px;color:var(--g);background:var(--g2);padding:1px 5px;border-radius:2px;border:1px solid var(--gb)">✉ Email</span>`:`<span style="font-size:8px;color:var(--muted2);background:var(--s3);padding:1px 5px;border-radius:2px">✉ Pas d'email</span>`}
         ${c.phone?`<span style="font-size:8px;color:var(--b);background:var(--b2);padding:1px 5px;border-radius:2px;border:1px solid var(--bb)">📱 WA</span>`:''}
-        <span style="font-size:8px;color:var(--o);background:var(--o2);padding:1px 5px;border-radius:2px;border:1px solid rgba(249,115,22,.3)">${Object.entries(assignments).filter(([,ids])=>ids.includes(c.id)).length} dates</span>
-        <span style="font-size:8px;color:var(--b);background:var(--b2);padding:1px 5px;border-radius:2px;border:1px solid var(--bb)">${Object.values(DISPOS_DATA[c.id]||{}).filter(v=>v.dispo).length} dispos</span>
       </div>
       <div class="pres-row">
         <span style="font-size:9px;color:var(--muted)">Présence</span>
@@ -2586,7 +2291,7 @@ function openFiche(id) {
 
   const ppL = {headliner:'Headliner',regular:'Régulier',new:'Nouveau'};
   const pCol = c.presence>=90?'var(--g)':c.presence>=75?'var(--o)':'var(--r)';
-  const ds = DISPO_STATUS[c.id]||'none';
+  const ds = effectiveDispoStatus(c.id);
   const dsL = {replied:'✓ Dispos reçues',pending:'⏳ Demande envoyée',none:'✕ Pas encore contacté'}[ds];
   const dsCol = {replied:'var(--g)',pending:'var(--gold)',none:'var(--r)'}[ds];
 
@@ -3230,12 +2935,8 @@ function buildPlanningMessage(comedianId, keys) {
     return `📍 ${dateStr} à ${time}${isFirst?' 🎤 (MC)':''}`;
   }).join('\n');
 
-  const link = `https://tagely-bcc.vercel.app/portal.html`;
-  // Prendre le mois depuis les créneaux assignés, pas le mois actuel
-  const firstKey = sortedKeys[0];
-  const firstParts = firstKey.split('-');
-  const assignMonth = new Date(parseInt(firstParts[0]), parseInt(firstParts[1])-1, 1);
-  const mois = assignMonth.toLocaleDateString('fr-FR',{month:'long'});
+  const link = `https://tagely-bcc.vercel.app?code=${currentCode}&manage=${comedianId}`;
+  const mois = new Date().toLocaleDateString('fr-FR',{month:'long'});
   
   return `Bonjour ${prenom} ! 🎤
 
@@ -3300,15 +3001,8 @@ async function sendPlanningToAll() {
   if (!list.length) { toast('Aucun humoriste assigné'); return; }
 
   closeModal('modal-send-planning');
-  
-  // Déterminer le mois depuis les assignements
-  const firstKey = Object.keys(assignments)[0] || '';
-  const firstParts = firstKey.split('-');
-  const assignMonth = firstParts.length >= 2 ? new Date(parseInt(firstParts[0]), parseInt(firstParts[1])-1, 1).toLocaleDateString('fr-FR',{month:'long'}) : 'à venir';
 
   let sent = 0, skipped = 0;
-  const emailLog = JSON.parse(localStorage.getItem('stagely_email_log') || '[]');
-  
   for (const [id, keys] of list) {
     const c = COMEDIANS.find(c=>c.id===id);
     if (!c) continue;
@@ -3316,26 +3010,20 @@ async function sendPlanningToAll() {
     const prenom = c.name.split(' ')[0];
 
     if (c.email && EMAIL_CONFIG.configured) {
-      const r = await sendEmail(c.email, `🎤 Tes dates BCC — ${assignMonth}`, msg);
-      if (r.success) { 
-        sent++; 
-        emailLog.unshift({date:new Date().toISOString(), to:c.email, name:c.name, type:'planning', slots:keys.length, status:'ok'});
-        logAction('notification', {humId:id, name:c.name, type:'email_planning'}); 
-      } else {
-        skipped++;
-        emailLog.unshift({date:new Date().toISOString(), to:c.email, name:c.name, type:'planning', status:'erreur'});
-      }
+      // Envoi par email
+      const r = await sendEmail(c.email, `🎤 Tes dates BCC — ${new Date().toLocaleDateString('fr-FR',{month:'long'})}`, msg);
+      if (r.success) { sent++; logAction('notification', {humId:id, name:c.name, type:'email_planning'}); }
+      else skipped++;
     } else if (c.phone && WA_CONFIG.configured) {
+      // Fallback WhatsApp
       const r = await sendWhatsAppText(c.phone, msg);
       if (r.success && !r.simulated) { sent++; logAction('notification', {humId:id, name:c.name, type:'wa_planning'}); }
       else skipped++;
     } else {
       skipped++;
-      emailLog.unshift({date:new Date().toISOString(), name:c.name, type:'planning', status:'pas de contact'});
     }
   }
 
-  localStorage.setItem('stagely_email_log', JSON.stringify(emailLog.slice(0, 500)));
   autoSave();
   toast(`✓ ${sent} envoyé${sent>1?'s':''}${skipped?` · ${skipped} sans contact`:''}`);
 }
@@ -3547,7 +3235,7 @@ const LS_KEY = 'stagely_bcc_v1';
 
 // ── SUPABASE CONFIG ──
 const SUPABASE_URL = 'https://dvdwfxytdsvwjtirxncz.supabase.co';
-const SUPABASE_KEY = localStorage.getItem('stagely_sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2ZHdmeHl0ZHN2d2p0aXJ4bmN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTY0MTMsImV4cCI6MjA5MjYzMjQxM30.7u70HAAepfCfU7T58IlN_u-b-rI5uBzqT7lISLQsrWY';
+const SUPABASE_KEY = localStorage.getItem('stagely_sb_key') || 'sb_publishable_vqmkY0rAQUpB0xtBrfDS8w_ceZqvo6K';
 let sbConnected = false;
 
 async function sbFetch(table, options = {}) {
@@ -3576,21 +3264,10 @@ async function sbFetch(table, options = {}) {
 async function loadFromSupabase() {
   showSaveIndicator('⏳ Chargement...');
   try {
-    // Charger toutes les dispos avec pagination (Supabase limite à 1000)
-    let allDispos = [];
-    let offset = 0;
-    const pageSize = 1000;
-    while (true) {
-      const page = await sbFetch('dispos', {params:`?order=id&limit=${pageSize}&offset=${offset}`});
-      if (!page || page.length === 0) break;
-      allDispos = allDispos.concat(page);
-      if (page.length < pageSize) break;
-      offset += pageSize;
-    }
-
-    const [comedians, asgn, statuses, msgs] = await Promise.all([
+    const [comedians, asgn, dispos, statuses, msgs] = await Promise.all([
       sbFetch('comedians', {params:'?order=name'}),
       sbFetch('assignments'),
+      sbFetch('dispos'),
       sbFetch('dispo_status'),
       sbFetch('chat_messages', {params:'?order=created_at&limit=100'})
     ]);
@@ -3598,6 +3275,7 @@ async function loadFromSupabase() {
 
     // Supabase est la source de vérité — remplacer TOUJOURS
     COMEDIANS.splice(0, COMEDIANS.length, ...comedians);
+    // Si Supabase est vide, vider aussi le localStorage
     if (comedians.length === 0) {
       const lsData = JSON.parse(localStorage.getItem(LS_KEY)||'{}');
       lsData.COMEDIANS = [];
@@ -3611,9 +3289,9 @@ async function loadFromSupabase() {
       if (!assignments[a.slot_key]) assignments[a.slot_key] = [];
       if (!assignments[a.slot_key].includes(a.comedian_id)) assignments[a.slot_key].push(a.comedian_id);
     });
-    // Dispos — toutes les pages chargées
+    // Dispos
     Object.keys(DISPOS_DATA).forEach(k => delete DISPOS_DATA[k]);
-    allDispos.forEach(d => {
+    dispos?.forEach(d => {
       if (!DISPOS_DATA[d.comedian_id]) DISPOS_DATA[d.comedian_id] = {};
       DISPOS_DATA[d.comedian_id][d.slot_key] = {dispo: d.dispo, mc: d.mc};
     });
@@ -3959,7 +3637,7 @@ function renderHistorique() {
         <tbody>${COMEDIANS.map(c => {
           const p = stats[c.id]?.passes || 0;
           const pCol = c.presence >= 90 ? 'var(--g)' : c.presence >= 75 ? 'var(--o)' : 'var(--r)';
-          const ds = DISPO_STATUS[c.id] || 'none';
+          const ds = effectiveDispoStatus(c.id);
           const dsLabel = {replied:'✓ Répondu',pending:'⏳ Envoyé',none:'—'}[ds];
           const dsCol = {replied:'var(--g)',pending:'var(--gold)',none:'var(--muted2)'}[ds];
           return `<tr style="border-bottom:1px solid var(--border)">
@@ -3970,27 +3648,6 @@ function renderHistorique() {
           </tr>`;
         }).join('')}</tbody>
       </table>
-    </div>
-    <div style="margin-top:20px">
-      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">📧 Historique des emails envoyés</div>
-      ${(() => {
-        const log = JSON.parse(localStorage.getItem('stagely_email_log') || '[]');
-        if (!log.length) return '<div style="font-size:11px;color:var(--muted2);padding:20px 0">Aucun email envoyé</div>';
-        return '<div style="display:flex;flex-direction:column;gap:4px">' + log.slice(0,50).map(e => {
-          const d = new Date(e.date);
-          const dateStr = d.toLocaleDateString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-          const statusCol = e.status==='ok' ? 'var(--g)' : 'var(--r)';
-          const statusIcon = e.status==='ok' ? '✓' : '✕';
-          return '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--s1);border:1px solid var(--border);border-radius:6px;font-size:10px">' +
-            '<span style="color:' + statusCol + ';font-weight:700;width:14px">' + statusIcon + '</span>' +
-            '<span style="flex:1;color:var(--text)">' + (e.name||'?') + '</span>' +
-            '<span style="color:var(--muted)">' + (e.to||'') + '</span>' +
-            '<span style="color:var(--o)">' + (e.type||'') + '</span>' +
-            (e.slots ? '<span style="color:var(--b)">' + e.slots + ' dates</span>' : '') +
-            '<span style="color:var(--muted2);font-size:9px">' + dateStr + '</span>' +
-          '</div>';
-        }).join('') + '</div>';
-      })()}
     </div>`;
 }
 
@@ -4149,7 +3806,6 @@ if (savedTheme === 'light') {
 // Charger données — localStorage d'abord pour la vitesse
 const loaded = loadAll();
 if (loaded) console.log('✓ Données restaurées depuis localStorage');
-loadClubInfo();
 
 // Charger depuis Supabase — remplace TOUJOURS les comedians
 loadFromSupabase().then(ok => {
@@ -4386,13 +4042,19 @@ function updateChapeauTotal() {
 
 function nav_chapeau_open() {
   document.getElementById('ch-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('ch-especes').value = '';
+  document.getElementById('ch-cb').value = '';
   document.getElementById('ch-par-personne').value = '';
+  document.getElementById('ch-total').textContent = '0€';
   openModal('modal-chapeau');
 }
 
 function openChapeauForSlot(date, slot) {
   document.getElementById('ch-date').value = date;
+  document.getElementById('ch-especes').value = '';
+  document.getElementById('ch-cb').value = '';
   document.getElementById('ch-par-personne').value = '';
+  document.getElementById('ch-total').textContent = '0€';
   const slotSel = document.getElementById('ch-slot');
   for (let i=0; i<slotSel.options.length; i++) {
     if (slotSel.options[i].value === slot) { slotSel.selectedIndex = i; break; }
@@ -4405,11 +4067,13 @@ function openChapeauForSlot(date, slot) {
 function saveChapeau() {
   const date = document.getElementById('ch-date').value;
   const slot = document.getElementById('ch-slot').value;
+  const especes = parseFloat(document.getElementById('ch-especes').value) || 0;
+  const cb = parseFloat(document.getElementById('ch-cb').value) || 0;
   const parPersonne = parseFloat(document.getElementById('ch-par-personne').value) || 0;
-  const montant = parPersonne;
+  const montant = especes + cb;
   if (!date) { toast('⚠ Ajoute une date'); return; }
   if (!montant) { toast('⚠ Saisis un montant'); return; }
-  chapeauData.unshift({id:Date.now(), date, slot, montant, parPersonne});
+  chapeauData.unshift({id:Date.now(), date, slot, montant, especes, cb, parPersonne});
   localStorage.setItem('stagely_chapeau', JSON.stringify(chapeauData));
   closeModal('modal-chapeau');
   renderChapeau();
@@ -4417,22 +4081,6 @@ function saveChapeau() {
 }
 
 function chgWkChapeau(d) { weekOffset += d; renderChapeau(); }
-
-function saveClubInfo() {
-  const info = {
-    name: document.getElementById('s-club')?.value || 'BCC',
-    ville: document.querySelector('#view-reglages input[value="Lille"]')?.value || 'Lille',
-    deadline: document.getElementById('s-deadline')?.value || '15'
-  };
-  localStorage.setItem('stagely_club_info', JSON.stringify(info));
-  toast('✓ Infos du club sauvegardées');
-}
-
-function loadClubInfo() {
-  const info = JSON.parse(localStorage.getItem('stagely_club_info') || '{}');
-  if (info.name) { const el = document.getElementById('s-club'); if(el) el.value = info.name; }
-  if (info.deadline) { const el = document.getElementById('s-deadline'); if(el) el.value = info.deadline; }
-}
 
 function deleteChapeau(id) {
   if (!confirm('Supprimer cette entrée ?')) return;
@@ -4516,7 +4164,7 @@ function renderChapeau(periode = 'semaine') {
         <div style="font-size:22px;font-weight:800;color:var(--text);font-family:monospace;min-width:70px">${slot2}</div>
         <!-- Artistes -->
         <div style="flex:1;font-size:11px;color:var(--muted)">
-          ${ids.length ? ids.map(id => {const c=COMEDIANS.find(c=>c.id===id); return c?c.name:'?';}).join(' · ') : '<span style="color:var(--muted2)">Aucun assigné</span>'}
+          ${ids.length ? ids.map(id => COMEDIANS.find(c=>c.id===id)?.name.split(' ')[0]||'?').join(', ') : 'Aucun assigné'}
         </div>
         <!-- Montant -->
         <div style="text-align:right;min-width:80px">
