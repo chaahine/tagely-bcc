@@ -1492,22 +1492,25 @@ function hvLogin() {
     if (email && !found.email) found.email = email;
   }
   hvUser = found;
-  // Charge les dispos existantes (clés génériques MAR-20H15)
+  // Charge UNIQUEMENT les dispos du mois cible actuel (le mois prochain)
+  // Évite de pré-cocher / désactiver le portail à cause de dispos d'un mois passé
   hvSlots = {};
   const existing = DISPOS_DATA[hvUser.id] || {};
+  const targetPrefix = getTargetMonthPrefix();
   Object.entries(existing).forEach(([k,v]) => {
-    // Ne charge que les clés génériques pour pré-cocher
-    if (!k.match(/^\d{4}-/)) hvSlots[k] = {dispo:v.dispo||false, mc:v.mc||false};
+    if (k.startsWith(targetPrefix)) hvSlots[k] = {dispo:v.dispo||false, mc:v.mc||false};
   });
-
-  // Charger ses dispos existantes
-  hvSlots = {};
-  if (DISPOS_DATA[hvUser.id]) {
-    Object.entries(DISPOS_DATA[hvUser.id]).forEach(([k,v]) => hvSlots[k] = {dispo:v.dispo||false, mc:v.mc||false});
-  }
 
   document.getElementById('hv-login').style.display = 'none';
   document.getElementById('hv-manage').style.display = 'none';
+
+  // RESET: à chaque login, on remet le bouton et le message à leur état initial.
+  // Sinon si un autre humoriste a soumis ses dispos depuis le même navigateur,
+  // le bouton reste désactivé et le message "déjà envoyé" reste affiché.
+  const okMsg = document.getElementById('hv-ok');
+  if (okMsg) okMsg.style.display = 'none';
+  const submitBtn = document.querySelector('#hv-tab-dispos .submit-btn');
+  if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ''; }
 
   if (hvLoginMode === 'manage') {
     showManageDates(hvUser.id);
