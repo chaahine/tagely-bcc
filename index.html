@@ -23,11 +23,29 @@ function nav(id) {
 <link rel="apple-touch-icon" href="/icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
-  });
-}
+// IMPORTANT — désactivation du service worker.
+// L'ancien sw.js servait une vieille version en cache (texte "Dispos déjà envoyées",
+// portail bloqué pour les humoristes). On le désinscrit et on vide tous les caches
+// au premier chargement. Une fois fait, on stocke un flag pour ne plus le refaire.
+(async () => {
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      const hadRegs = regs.length > 0;
+      for (const r of regs) await r.unregister();
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+      // Si on vient effectivement de virer un SW, on recharge une fois pour
+      // que la page se serve directement depuis le réseau, pas depuis l'ancien cache.
+      if (hadRegs && !sessionStorage.getItem('sw_cleared')) {
+        sessionStorage.setItem('sw_cleared', '1');
+        location.reload();
+      }
+    }
+  } catch(e) { console.warn('SW cleanup:', e); }
+})();
 
 // Demander permission notifications
 async function requestNotifPermission() {
@@ -37,26 +55,13 @@ async function requestNotifPermission() {
   return perm === 'granted';
 }
 
-// Envoyer une notification locale
+// Envoyer une notification locale (mode dégradé — sans SW c'est juste une notif standard)
 async function sendNotif(title, body, delay = 0) {
   const granted = await requestNotifPermission();
   if (!granted) return;
-  
-  if (delay === 0) {
-    // Notification immédiate
-    const reg = await navigator.serviceWorker.ready;
-    reg.showNotification(title, {
-      body,
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
-      vibrate: [200, 100, 200],
-      tag: title
-    });
-  } else {
-    // Notification différée via SW
-    const reg = await navigator.serviceWorker.ready;
-    reg.active?.postMessage({ type: 'SCHEDULE_NOTIF', title, body, delay, tag: title });
-  }
+  try {
+    new Notification(title, { body, icon: '/icon-192.png', tag: title });
+  } catch(e) { /* navigateur sans support notifications standard */ }
 }
 
 // Demander la permission au chargement
@@ -3950,17 +3955,7 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// ── SERVICE WORKER (rappels en arrière-plan) ──
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').then(reg => {
-    console.log('✓ Service Worker /sw.js actif');
-    navigator.serviceWorker.addEventListener('message', e => {
-      if (e.data?.type === 'reminder_fire') {
-        showAppNotif(e.data.payload?.body || e.data.body, 'var(--o)');
-      }
-    });
-  }).catch(e => console.warn('SW erreur:', e.message));
-}
+// ── SERVICE WORKER désactivé volontairement — voir nettoyage en tête de fichier ──
 
 // Demander permission notifications navigateur
 if ('Notification' in window && Notification.permission === 'default') {
