@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -460,21 +461,32 @@ async function renderDispos() {
   document.getElementById('d-sub').textContent = `Broadway Comedy Club · ${MOIS_FULL[nextM]} ${nextY}`;
   document.getElementById('d-deadline').textContent = `15 ${MOIS_FULL[nextM]} ${nextY}`;
 
-  // Vérifier si déjà envoyé
+  // Vérifier si déjà envoyé POUR LE MOIS CIBLE (pas pour la vie entière).
+  // Bug d'origine : on regardait dispo_status qui ne se reset jamais, donc un
+  // humoriste ayant répondu pour juin restait bloqué pour juillet, août, etc.
   let alreadySent = false;
   try {
-    const status = await sb('dispo_status', {params:`?comedian_id=eq.${user.id}`});
-    alreadySent = status && status.length > 0 && status[0].status === 'replied';
-    // Charger les dispos déjà envoyées
-    if (alreadySent) {
-      const savedDispos = await sb('dispos', {params:`?comedian_id=eq.${user.id}`});
-      if (savedDispos && savedDispos.length) {
-        savedDispos.forEach(d => { hvSlots[d.slot_key] = {dispo:d.dispo, mc:d.mc||false}; });
+    const targetPrefix = `${nextY}-${String(nextM+1).padStart(2,'0')}-`;
+    const allDispos = await sb('dispos', {params:`?comedian_id=eq.${user.id}`});
+    if (allDispos && allDispos.length) {
+      const monthDispos = allDispos.filter(d => d.slot_key && d.slot_key.startsWith(targetPrefix) && d.dispo);
+      alreadySent = monthDispos.length > 0;
+      // Pré-cocher les dispos du mois cible (pour qu'il puisse voir ce qu'il a envoyé)
+      if (alreadySent) {
+        monthDispos.forEach(d => { hvSlots[d.slot_key] = {dispo:d.dispo, mc:d.mc||false}; });
       }
+    }
+    if (alreadySent) {
       document.getElementById('btn-submit').disabled = true;
       document.getElementById('btn-submit').style.opacity = '.4';
       document.getElementById('btn-submit').textContent = '✓ Dispos déjà envoyées';
       document.getElementById('d-ok').style.display = 'block';
+    } else {
+      // Reset si l'humoriste n'a pas encore rempli pour ce mois
+      document.getElementById('btn-submit').disabled = false;
+      document.getElementById('btn-submit').style.opacity = '';
+      document.getElementById('btn-submit').textContent = 'Envoyer mes disponibilités';
+      document.getElementById('d-ok').style.display = 'none';
     }
   } catch(e) { console.warn('Status check:', e); }
 
@@ -560,9 +572,14 @@ async function doSubmit() {
   const n = Object.values(hvSlots).filter(v=>v.dispo).length;
   if (!n) { alert('Coche au moins un créneau'); return; }
 
-  // Vérifier si déjà envoyé
-  const status = await sb('dispo_status', {params:`?comedian_id=eq.${user.id}`});
-  if (status && status.length && status[0].status === 'replied') {
+  // Vérifier si déjà envoyé POUR LE MOIS CIBLE (pas pour la vie entière)
+  const _now = new Date();
+  const _nextM = (_now.getMonth()+1) % 12;
+  const _nextY = _now.getMonth()===11 ? _now.getFullYear()+1 : _now.getFullYear();
+  const _targetPrefix = `${_nextY}-${String(_nextM+1).padStart(2,'0')}-`;
+  const allDispos = await sb('dispos', {params:`?comedian_id=eq.${user.id}`});
+  const monthDispos = (allDispos||[]).filter(d => d.slot_key && d.slot_key.startsWith(_targetPrefix) && d.dispo);
+  if (monthDispos.length > 0) {
     alert('Tu as déjà envoyé tes disponibilités pour ce mois. Plus de modification possible.');
     document.getElementById('btn-submit').disabled=true;
     document.getElementById('btn-submit').style.opacity='.4';
