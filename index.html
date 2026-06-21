@@ -2136,21 +2136,35 @@ function renderDispos(){
   const prefix = getDispoMonthPrefix();
   document.getElementById('d-month').textContent=`${MOIS_FULL[month]} ${year}`;
 
-  // Dédupliquer les humoristes par nom
-  const seen = new Set();
-  const uniqueComedians = COMEDIANS.filter(c => {
-    const key = c.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
+  const monthSlotsFor = (id) => Object.entries(DISPOS_DATA[id] || {}).filter(([k,v]) => k.startsWith(prefix) && v.dispo);
+  const normalizeName = (name) => (name || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  const byId = new Map(COMEDIANS.map(c => [c.id, c]));
+  Object.keys(DISPOS_DATA).forEach(id => {
+    if (!byId.has(id) && monthSlotsFor(id).length) {
+      byId.set(id, {id, name:id.replace(/_/g,' ').toUpperCase(), prio:'new', presence:100, gender:'m', duration:10, phone:'', email:''});
+    }
+  });
+
+  // Dédupliquer par nom, en gardant toujours la fiche qui contient le plus de dispos du mois cible.
+  const byName = new Map();
+  [...byId.values()].forEach(c => {
+    const key = normalizeName(c.name) || c.id;
+    const current = byName.get(key);
+    const cCount = monthSlotsFor(c.id).length;
+    const currentCount = current ? monthSlotsFor(current.id).length : -1;
+    if (!current || cCount > currentCount) byName.set(key, c);
+  });
+  const uniqueComedians = [...byName.values()].sort((a,b) => {
+    const aCount = monthSlotsFor(a.id).length;
+    const bCount = monthSlotsFor(b.id).length;
+    if (!!bCount !== !!aCount) return bCount - aCount;
+    return a.name.localeCompare(b.name);
   });
 
   document.getElementById('d-tbody').innerHTML = uniqueComedians.map(c=>{
     const st = effectiveDispoStatus(c.id);
-    const dd = DISPOS_DATA[c.id] || {};
-    const ddMonth = Object.fromEntries(Object.entries(dd).filter(([k]) => k.startsWith(prefix)));
-    const dSlots = Object.entries(ddMonth).filter(([,v])=>v.dispo);
-    const mcCount = Object.entries(ddMonth).filter(([,v])=>v.mc).length;
+    const dSlots = monthSlotsFor(c.id);
+    const mcCount = dSlots.filter(([,v])=>v.mc).length;
     const stC = {replied:'rs-r', pending:'rs-p', none:'rs-n'}[st];
     const stL = {replied:'✓ Répondu', pending:'⏳ Envoyé', none:'✕ Pas envoyé'}[st];
 
@@ -3253,7 +3267,7 @@ const LS_KEY = 'stagely_bcc_v1';
 
 // ── SUPABASE CONFIG ──
 const SUPABASE_URL = 'https://dvdwfxytdsvwjtirxncz.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2ZHdmeHl0ZHN2d2p0aXJ4bmN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTY0MTMsImV4cCI6MjA5MjYzMjQxM30.7u70HAAepfCfU7T58IlN_u-b-rI5uBzqT7lISLQsrWY';
+const SUPABASE_KEY = 'sb_publishable_vqmkY0rAQUpB0xtBrfDS8w_ceZqvo6K';
 localStorage.removeItem('stagely_sb_key');
 let sbConnected = false;
 
@@ -3283,13 +3297,13 @@ async function sbFetch(table, options = {}) {
 async function loadFromSupabase() {
   showSaveIndicator('⏳ Chargement...');
   try {
-    const [comedians, asgn, dispos, statuses, msgs] = await Promise.all([
-      sbFetch('comedians', {params:'?order=name'}),
-      sbFetch('assignments'),
-      sbFetch('dispos'),
-      sbFetch('dispo_status'),
-      sbFetch('chat_messages', {params:'?order=created_at&limit=100'})
-    ]);
+	    const [comedians, asgn, dispos, statuses, msgs] = await Promise.all([
+	      sbFetch('comedians', {params:'?order=name'}),
+	      sbFetch('assignments'),
+	      sbFetch('dispos', {params:`?slot_key=like.${getDispoMonthPrefix()}*&order=slot_key`}),
+	      sbFetch('dispo_status'),
+	      sbFetch('chat_messages', {params:'?order=created_at&limit=100'})
+	    ]);
     if (!comedians) return false;
 
     // Supabase est la source de vérité — remplacer TOUJOURS
