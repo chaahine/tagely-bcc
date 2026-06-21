@@ -3253,7 +3253,8 @@ const LS_KEY = 'stagely_bcc_v1';
 
 // ── SUPABASE CONFIG ──
 const SUPABASE_URL = 'https://dvdwfxytdsvwjtirxncz.supabase.co';
-const SUPABASE_KEY = localStorage.getItem('stagely_sb_key') || 'sb_publishable_vqmkY0rAQUpB0xtBrfDS8w_ceZqvo6K';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2ZHdmeHl0ZHN2d2p0aXJ4bmN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTY0MTMsImV4cCI6MjA5MjYzMjQxM30.7u70HAAepfCfU7T58IlN_u-b-rI5uBzqT7lISLQsrWY';
+localStorage.removeItem('stagely_sb_key');
 let sbConnected = false;
 
 async function sbFetch(table, options = {}) {
