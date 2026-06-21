@@ -3828,7 +3828,12 @@ if (loaded) console.log('✓ Données restaurées depuis localStorage');
 // Charger depuis Supabase — remplace TOUJOURS les comedians
 loadFromSupabase().then(ok => {
   if (ok) {
-    renderDashboard();
+    const activeView = document.querySelector('.view.on')?.id?.replace('view-', '') || 'dashboard';
+    if (activeView === 'dashboard') renderDashboard();
+    else if (activeView === 'planning') renderPlanning();
+    else if (activeView === 'dispos') renderDispos();
+    else if (activeView === 'humoristes') renderHumoristes();
+    else renderDashboard();
     console.log('✓ Données synchronisées depuis Supabase');
   }
 }).catch(() => {});
