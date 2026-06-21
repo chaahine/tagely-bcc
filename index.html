@@ -1535,12 +1535,22 @@ function hvLogin() {
   }
 }
 
-// Génère tous les créneaux du mois prochain
-// Chaque entrée a: key (générique MAR-20H15), dateStr (Mardi 6 mai), date réelle
-function getNextMonthSlots() {
+function getDispoTargetMonth() {
   const now = new Date();
   const year = now.getMonth() === 11 ? now.getFullYear()+1 : now.getFullYear();
   const month = (now.getMonth()+1) % 12;
+  return { year, month };
+}
+
+function getDispoMonthPrefix() {
+  const { year, month } = getDispoTargetMonth();
+  return `${year}-${String(month+1).padStart(2,'0')}-`;
+}
+
+// Génère tous les créneaux du mois prochain
+// Chaque entrée a: key (date exacte), dateStr (Mardi 6 mai), date réelle
+function getNextMonthSlots() {
+  const { year, month } = getDispoTargetMonth();
   return getMonthSlots(year, month);
 }
 
@@ -2122,8 +2132,9 @@ function closeGS(){ document.getElementById('global-search-box')?.remove(); }
 // ══════════════════════════════════════════════════
 
 function renderDispos(){
-  const now=new Date();
-  document.getElementById('d-month').textContent=`${MOIS[now.getMonth()]} ${now.getFullYear()}`;
+  const { year, month } = getDispoTargetMonth();
+  const prefix = getDispoMonthPrefix();
+  document.getElementById('d-month').textContent=`${MOIS_FULL[month]} ${year}`;
 
   // Dédupliquer les humoristes par nom
   const seen = new Set();
@@ -2134,7 +2145,6 @@ function renderDispos(){
     return true;
   });
 
-  const prefix = getTargetMonthPrefix();
   document.getElementById('d-tbody').innerHTML = uniqueComedians.map(c=>{
     const st = effectiveDispoStatus(c.id);
     const dd = DISPOS_DATA[c.id] || {};
