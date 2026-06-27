@@ -1972,15 +1972,17 @@ function planAsgn(id,key){
   if(assignments[key].includes(id)) return;
   assignments[key].push(id);
   toast(`✓ ${COMEDIANS.find(c=>c.id===id)?.name} assigné`);
+  saveToSupabase();
   renderPlanning();
 }
 function unassign(key,id){
   assignments[key]=(assignments[key]||[]).filter(i=>i!==id);
   if(!assignments[key].length) delete assignments[key];
   toast(`✕ ${COMEDIANS.find(c=>c.id===id)?.name} retiré`);
+  saveToSupabase();
   renderPlanning();
 }
-function clearAll(){assignments={};renderPlanning();toast('Planning réinitialisé');}
+function clearAll(){assignments={};saveToSupabase();renderPlanning();toast('Planning réinitialisé');}
 function chgWk(d){weekOffset+=d;renderPlanning();}
 
 // ── EXPORT PDF ──
@@ -2640,6 +2642,7 @@ async function cancelSlot(key, slot, dateLabel) {
   cancelledSlots[key] = { slot, dateLabel, cancelledAt: new Date().toISOString() };
 
   logAction('slot_cancel', { key, slot, dateLabel, notified: asgnIds.length });
+  saveToSupabase();
   autoSave();
   renderPlanning();
 
@@ -2675,6 +2678,7 @@ function dropOnSlot(e, toKey) {
   if (!assignments[toKey].includes(humId)) assignments[toKey].push(humId);
   const c = COMEDIANS.find(c=>c.id===humId);
   logAction('assignment', { humId, name: c?.name, key: toKey, from: fromKey });
+  saveToSupabase();
   autoSave();
   renderPlanning();
   toast(`↕ ${c?.name} déplacé`);
@@ -3350,6 +3354,7 @@ async function loadFromSupabase() {
 // Sauvegarder dans Supabase
 async function saveToSupabase() {
   if (!sbConnected) return;
+  showSaveIndicator('⏳ Sauvegarde...');
   try {
     // Upsert humoristes
     if (COMEDIANS.length) {
@@ -3387,7 +3392,8 @@ async function saveToSupabase() {
       });
     });
     if (dispoRows.length) await sbFetch('dispos', {method:'POST', params:'?on_conflict=comedian_id,slot_key', body:dispoRows});
-  } catch(e) { console.warn('Supabase save failed:', e); }
+    showSaveIndicator('✓ Sauvegardé');
+  } catch(e) { console.warn('Supabase save failed:', e); showSaveIndicator('✕ Erreur sauvegarde'); }
 }
 
 function saveAll() {
