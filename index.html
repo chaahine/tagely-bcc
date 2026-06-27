@@ -3328,17 +3328,34 @@ async function sbFetch(table, options = {}) {
   }
 }
 
+// Charger les dispos depuis Supabase avec pagination (limite Supabase = 1000 lignes/requête)
+async function loadDisposPaginated(dateFrom, dateTo) {
+  const PAGE = 1000;
+  let offset = 0;
+  let allRows = [];
+  while (true) {
+    const rows = await sbFetch('dispos', {
+      params: `?slot_key=gte.${dateFrom}&slot_key=lt.${dateTo}&order=slot_key&limit=${PAGE}&offset=${offset}`
+    });
+    if (!rows || !rows.length) break;
+    allRows = allRows.concat(rows);
+    if (rows.length < PAGE) break; // dernière page
+    offset += PAGE;
+  }
+  return allRows;
+}
+
 // Charger depuis Supabase
 async function loadFromSupabase() {
   showSaveIndicator('⏳ Chargement...');
   try {
-	    const [comedians, asgn, dispos, statuses, msgs] = await Promise.all([
-	      sbFetch('comedians', {params:'?order=name'}),
-	      sbFetch('assignments'),
-	      sbFetch('dispos', {params:`?slot_key=gte.${getDisposDateFrom()}&slot_key=lt.${getDisposDateTo()}&order=slot_key`}),
-	      sbFetch('dispo_status'),
-	      sbFetch('chat_messages', {params:'?order=created_at&limit=100'})
-	    ]);
+    const [comedians, asgn, dispos, statuses, msgs] = await Promise.all([
+      sbFetch('comedians', {params:'?order=name'}),
+      sbFetch('assignments'),
+      loadDisposPaginated(getDisposDateFrom(), getDisposDateTo()),
+      sbFetch('dispo_status'),
+      sbFetch('chat_messages', {params:'?order=created_at&limit=100'})
+    ]);
     if (!comedians) return false;
 
     // Supabase est la source de vérité — remplacer TOUJOURS
