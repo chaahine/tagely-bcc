@@ -1974,6 +1974,7 @@ function planAsgn(id,key){
   toast(`✓ ${COMEDIANS.find(c=>c.id===id)?.name} assigné`);
   saveToSupabase();
   renderPlanning();
+  if(document.getElementById('view-humoristes')?.classList.contains('on')) renderHumoristes();
 }
 function unassign(key,id){
   assignments[key]=(assignments[key]||[]).filter(i=>i!==id);
@@ -1981,6 +1982,7 @@ function unassign(key,id){
   toast(`✕ ${COMEDIANS.find(c=>c.id===id)?.name} retiré`);
   saveToSupabase();
   renderPlanning();
+  if(document.getElementById('view-humoristes')?.classList.contains('on')) renderHumoristes();
 }
 function clearAll(){assignments={};saveToSupabase();renderPlanning();toast('Planning réinitialisé');}
 function chgWk(d){weekOffset+=d;renderPlanning();}
@@ -2275,6 +2277,10 @@ async function sendDispos(){
 // HUMORISTES
 // ══════════════════════════════════════════════════
 
+function countAssignments(id){
+  return Object.values(assignments).filter(arr=>arr.includes(id)).length;
+}
+
 function renderHumoristes(){
   const bdg = document.getElementById('bdg-humoristes');
   if (bdg) bdg.textContent = COMEDIANS.length;
@@ -2290,9 +2296,10 @@ function renderHumoristes(){
     const ds=effectiveDispoStatus(c.id);
     const drdC={replied:'drd-r',pending:'drd-p',none:'drd-n'}[ds];
     const drdL={replied:'Dispos reçues',pending:'Demande envoyée',none:'Pas contacté'}[ds];
+    const asgCount = countAssignments(c.id);
     return `<div class="hcard">
       <button class="del-btn" onclick="delH('${c.id}')">✕</button>
-      <div class="hcard-name"><span class="gdot g${c.gender}" style="width:8px;height:8px"></span>${c.name}</div>
+      <div class="hcard-name"><span class="gdot g${c.gender}" style="width:8px;height:8px"></span>${c.name}${asgCount>0?` <span style="font-size:10px;font-weight:700;color:var(--o);background:var(--o2);padding:1px 6px;border-radius:10px;border:1px solid var(--ob);margin-left:4px">${asgCount}</span>`:''}</div>
       <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
         <span class="pp ${ppC[c.prio]}">${ppL[c.prio]}</span>
         <span style="font-size:9px;color:var(--muted);background:var(--s3);padding:1px 5px;border-radius:2px">${c.duration||10} min</span>
