@@ -1553,6 +1553,24 @@ function getDispoMonthPrefix() {
   return `${year}-${String(month+1).padStart(2,'0')}-`;
 }
 
+// Borne inférieure pour charger les dispos Supabase : "YYYY-MM-01" du mois en cours
+function getDisposDateFrom() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+}
+
+// Borne supérieure exclusive pour charger les dispos Supabase : premier jour du mois APRÈS le mois cible
+// ex. si on est en juin → cible = juillet → borne = "2026-08-01"
+function getDisposDateTo() {
+  const { year, month } = getDispoTargetMonth(); // month 0-indexed
+  // month suivant le mois cible
+  const nextM = month + 1; // 0-indexed
+  if (nextM > 11) {
+    return `${year+1}-01-01`;
+  }
+  return `${year}-${String(nextM+1).padStart(2,'0')}-01`;
+}
+
 // Génère tous les créneaux du mois prochain
 // Chaque entrée a: key (date exacte), dateStr (Mardi 6 mai), date réelle
 function getNextMonthSlots() {
@@ -3317,7 +3335,7 @@ async function loadFromSupabase() {
 	    const [comedians, asgn, dispos, statuses, msgs] = await Promise.all([
 	      sbFetch('comedians', {params:'?order=name'}),
 	      sbFetch('assignments'),
-	      sbFetch('dispos', {params:`?or=(slot_key.like.${getCurrentMonthPrefix()}*,slot_key.like.${getDispoMonthPrefix()}*)&order=slot_key`}),
+	      sbFetch('dispos', {params:`?slot_key=gte.${getDisposDateFrom()}&slot_key=lt.${getDisposDateTo()}&order=slot_key`}),
 	      sbFetch('dispo_status'),
 	      sbFetch('chat_messages', {params:'?order=created_at&limit=100'})
 	    ]);
