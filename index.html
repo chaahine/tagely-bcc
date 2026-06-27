@@ -2971,11 +2971,29 @@ function confirmSlot(di,inp){
 // ENVOI PLANNING + GESTION DATES
 // ══════════════════════════════════════════════════
 
-// Collecte les passages assignés par humoriste sur le mois en cours
+// Détermine le préfixe "YYYY-MM" du mois cible pour l'export :
+// si on est le 20 ou après dans le mois courant, on cible le mois suivant
+// (le planning est déjà constitué pour le mois prochain) ; sinon le mois courant.
+function getTargetMonthPrefix() {
+  const now = new Date();
+  const day = now.getDate();
+  let y = now.getFullYear();
+  let m = now.getMonth(); // 0-indexed
+  if (day >= 20) {
+    m += 1;
+    if (m > 11) { m = 0; y += 1; }
+  }
+  const mm = String(m + 1).padStart(2, '0'); // 1-indexed pour le format de clé YYYY-MM-DD-HHhMM
+  return `${y}-${mm}`;
+}
+
+// Collecte les passages assignés par humoriste, filtrés sur le mois cible uniquement
 function getAssignmentsByComedian() {
+  const prefix = getTargetMonthPrefix();
   const byComedian = {};
   Object.entries(assignments).forEach(([key, ids]) => {
     if (cancelledSlots[key]) return;
+    if (!key.startsWith(prefix)) return; // Filtre : mois cible seulement
     ids.forEach(id => {
       if (!byComedian[id]) byComedian[id] = [];
       byComedian[id].push(key);
