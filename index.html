@@ -3003,8 +3003,14 @@ function buildPlanningMessage(comedianId, keys) {
   }).join('\n');
 
   const link = `https://tagely-bcc.vercel.app?code=${currentCode}&manage=${comedianId}`;
-  const mois = new Date().toLocaleDateString('fr-FR',{month:'long'});
-  
+  // Dériver le mois depuis les clés réelles du planning (ex: "2026-07-07-20H15" → juillet 2026)
+  // et non depuis new Date() qui renverrait le mois courant au lieu du mois planifié
+  const firstKeyParts = sortedKeys[0]?.split('-') || [];
+  const planningDate = firstKeyParts.length >= 3
+    ? new Date(parseInt(firstKeyParts[0]), parseInt(firstKeyParts[1])-1, parseInt(firstKeyParts[2]))
+    : new Date();
+  const mois = planningDate.toLocaleDateString('fr-FR',{month:'long'});
+
   return `Bonjour ${prenom} ! 🎤
 
 Voici tes passages au BCC pour ${mois} :
@@ -3077,8 +3083,15 @@ async function sendPlanningToAll() {
     const prenom = c.name.split(' ')[0];
 
     if (c.email && EMAIL_CONFIG.configured) {
+      // Objet de l'email : mois issu des créneaux planifiés (pas new Date() qui renverrait le mois courant)
+      const sortedKForSubject = [...keys].sort();
+      const skParts = sortedKForSubject[0]?.split('-') || [];
+      const skDate = skParts.length >= 3
+        ? new Date(parseInt(skParts[0]), parseInt(skParts[1])-1, parseInt(skParts[2]))
+        : new Date();
+      const moisLabel = skDate.toLocaleDateString('fr-FR',{month:'long'});
       // Envoi par email
-      const r = await sendEmail(c.email, `🎤 Tes dates BCC — ${new Date().toLocaleDateString('fr-FR',{month:'long'})}`, msg);
+      const r = await sendEmail(c.email, `🎤 Tes dates BCC — ${moisLabel}`, msg);
       if (r.success) { sent++; logAction('notification', {humId:id, name:c.name, type:'email_planning'}); }
       else skipped++;
     } else if (c.phone && WA_CONFIG.configured) {
@@ -3302,7 +3315,7 @@ const LS_KEY = 'stagely_bcc_v1';
 
 // ── SUPABASE CONFIG ──
 const SUPABASE_URL = 'https://dvdwfxytdsvwjtirxncz.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_vqmkY0rAQUpB0xtBrfDS8w_ceZqvo6K';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2ZHdmeHl0ZHN2d2p0aXJ4bmN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTY0MTMsImV4cCI6MjA5MjYzMjQxM30.7u70HAAepfCfU7T58IlN_u-b-rI5uBzqT7lISLQsrWY';
 localStorage.removeItem('stagely_sb_key');
 let sbConnected = false;
 
@@ -3337,11 +3350,15 @@ async function loadDisposPaginated(dateFrom, dateTo) {
     const rows = await sbFetch('dispos', {
       params: `?slot_key=gte.${dateFrom}&slot_key=lt.${dateTo}&order=slot_key&limit=${PAGE}&offset=${offset}`
     });
-    if (!rows || !rows.length) break;
+    if (!rows || !rows.length) {
+      console.log(`loadDisposPaginated: arrêt à offset=${offset} (${rows === null ? 'erreur réseau' : 'tableau vide'})`);
+      break;
+    }
     allRows = allRows.concat(rows);
     if (rows.length < PAGE) break; // dernière page
     offset += PAGE;
   }
+  console.log(`Dispos chargées depuis Supabase : ${allRows.length} (de ${dateFrom} à ${dateTo})`);
   return allRows;
 }
 
@@ -3349,14 +3366,18 @@ async function loadDisposPaginated(dateFrom, dateTo) {
 async function loadFromSupabase() {
   showSaveIndicator('⏳ Chargement...');
   try {
+    const dateFrom = getDisposDateFrom();
+    const dateTo = getDisposDateTo();
+    console.log(`[Stagely] Chargement dispos Supabase : ${dateFrom} → ${dateTo}`);
     const [comedians, asgn, dispos, statuses, msgs] = await Promise.all([
       sbFetch('comedians', {params:'?order=name'}),
       sbFetch('assignments'),
-      loadDisposPaginated(getDisposDateFrom(), getDisposDateTo()),
+      loadDisposPaginated(dateFrom, dateTo),
       sbFetch('dispo_status'),
       sbFetch('chat_messages', {params:'?order=created_at&limit=100'})
     ]);
-    if (!comedians) return false;
+    if (!comedians) { console.warn('[Stagely] Échec chargement comedians'); return false; }
+    console.log(`[Stagely] Chargés : ${comedians.length} comédiens, ${asgn?.length||0} assignments, ${dispos?.length||0} dispos`);
 
     // Supabase est la source de vérité — remplacer TOUJOURS
     COMEDIANS.splice(0, COMEDIANS.length, ...comedians);
@@ -3380,6 +3401,8 @@ async function loadFromSupabase() {
       if (!DISPOS_DATA[d.comedian_id]) DISPOS_DATA[d.comedian_id] = {};
       DISPOS_DATA[d.comedian_id][d.slot_key] = {dispo: d.dispo, mc: d.mc};
     });
+    const nbComediansDispo = Object.keys(DISPOS_DATA).length;
+    console.log(`[Stagely] DISPOS_DATA peuplé : ${nbComediansDispo} comédiens avec dispos`);
     // Statuses
     statuses?.forEach(s => DISPO_STATUS[s.comedian_id] = s.status);
     // Chat
