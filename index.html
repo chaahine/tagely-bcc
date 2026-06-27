@@ -1542,6 +1542,12 @@ function getDispoTargetMonth() {
   return { year, month };
 }
 
+// Préfixe "YYYY-MM-" du mois EN COURS (pour charger les dispos du mois courant dans Supabase)
+function getCurrentMonthPrefix() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-`;
+}
+
 function getDispoMonthPrefix() {
   const { year, month } = getDispoTargetMonth();
   return `${year}-${String(month+1).padStart(2,'0')}-`;
@@ -3311,7 +3317,7 @@ async function loadFromSupabase() {
 	    const [comedians, asgn, dispos, statuses, msgs] = await Promise.all([
 	      sbFetch('comedians', {params:'?order=name'}),
 	      sbFetch('assignments'),
-	      sbFetch('dispos', {params:`?slot_key=like.${getDispoMonthPrefix()}*&order=slot_key`}),
+	      sbFetch('dispos', {params:`?or=(slot_key.like.${getCurrentMonthPrefix()}*,slot_key.like.${getDispoMonthPrefix()}*)&order=slot_key`}),
 	      sbFetch('dispo_status'),
 	      sbFetch('chat_messages', {params:'?order=created_at&limit=100'})
 	    ]);
