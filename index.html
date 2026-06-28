@@ -1501,7 +1501,7 @@ function hvLogin() {
   // Évite de pré-cocher / désactiver le portail à cause de dispos d'un mois passé
   hvSlots = {};
   const existing = DISPOS_DATA[hvUser.id] || {};
-  const targetPrefix = getTargetMonthPrefix();
+  const targetPrefix = getDisposTargetMonthPrefix();
   Object.entries(existing).forEach(([k,v]) => {
     if (k.startsWith(targetPrefix)) hvSlots[k] = {dispo:v.dispo||false, mc:v.mc||false};
   });
@@ -1578,8 +1578,9 @@ function getNextMonthSlots() {
   return getMonthSlots(year, month);
 }
 
-// Préfixe "YYYY-MM-" du mois actuellement ouvert aux dispos (le mois prochain)
-function getTargetMonthPrefix() {
+// Préfixe "YYYY-MM-" du mois actuellement ouvert aux dispos (TOUJOURS le mois prochain).
+// Distinct de getTargetMonthPrefix() qui sert à l'export et tient compte du jour du mois.
+function getDisposTargetMonthPrefix() {
   const now = new Date();
   const year = now.getMonth() === 11 ? now.getFullYear()+1 : now.getFullYear();
   const month = (now.getMonth()+1) % 12; // 0-indexé
@@ -1591,7 +1592,7 @@ function getTargetMonthPrefix() {
 function hasRepliedForTargetMonth(comedianId) {
   const slots = DISPOS_DATA[comedianId];
   if (!slots) return false;
-  const prefix = getTargetMonthPrefix();
+  const prefix = getDisposTargetMonthPrefix();
   return Object.keys(slots).some(k => k.startsWith(prefix) && slots[k]?.dispo);
 }
 
@@ -3050,7 +3051,11 @@ function openSendPlanningModal() {
   const preview = document.getElementById('send-planning-preview');
 
   if (Object.keys(byComedian).length === 0) {
-    toast('Aucun humoriste assigné dans le planning');
+    // Calcul du mois cible pour un message explicite
+    const _now = new Date();
+    const _tgt = new Date(_now.getFullYear(), _now.getMonth() + (_now.getDate() >= 20 ? 1 : 0), 1);
+    const _moisLabel = _tgt.toLocaleDateString('fr-FR', {month: 'long', year: 'numeric'});
+    toast(`Aucune assignation pour ${_moisLabel}`);
     return;
   }
 
