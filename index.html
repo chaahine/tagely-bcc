@@ -887,6 +887,7 @@ window.addEventListener('DOMContentLoaded', () => {
           <button class="btn btn-o" onclick="exportLU()">↓ Exporter</button>
         </div>
       </div>
+      <div id="planning-counters" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 12px 10px;border-bottom:1px solid var(--border2)"></div>
       <div class="board-wrap"><div class="board" id="board"></div></div>
     </div>
 
@@ -1029,8 +1030,9 @@ window.addEventListener('DOMContentLoaded', () => {
 <div class="overlay" id="modal-send-planning">
   <div class="modal" style="width:540px;max-height:85vh">
     <div class="modal-title">📲 Envoyer le planning aux humoristes</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Chaque humoriste assigné reçoit ses dates + un lien pour signaler une indisponibilité.</div>
-    <div id="send-planning-list" style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto;margin-bottom:14px"></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Chaque humoriste assigné reçoit ses dates + un lien pour signaler une indisponibilité.</div>
+    <div id="export-month-bar" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center"></div>
+    <div id="send-planning-list" style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;margin-bottom:14px"></div>
     <div style="background:var(--s2);border:1px solid var(--border2);border-radius:4px;padding:10px 12px;margin-bottom:14px">
       <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Aperçu du message</div>
       <div id="send-planning-preview" style="font-size:11px;color:var(--text);line-height:1.7;white-space:pre-wrap"></div>
@@ -1195,6 +1197,18 @@ function makeKey(dayIndex, slot, wkOffset) {
 
 let assignments = {};
 let cancelledSlots = {};
+let exportMonthOverride = null;
+
+// ── EMAIL SENT TRACKING (localStorage) ──
+function getEmailSentKey(comedianId, monthPrefix) {
+  return `emailSent_${currentCode||'default'}_${monthPrefix}_${comedianId}`;
+}
+function markEmailSent(comedianId, monthPrefix) {
+  localStorage.setItem(getEmailSentKey(comedianId, monthPrefix), '1');
+}
+function wasEmailSent(comedianId, monthPrefix) {
+  return !!localStorage.getItem(getEmailSentKey(comedianId, monthPrefix));
+}
 
 (function() {
   const demo = {
@@ -1988,6 +2002,46 @@ function renderPlanning() {
     html += `</div></div>`;
   });
   document.getElementById('board').innerHTML = html;
+  renderPlanningCounters();
+}
+
+// Compteur de créneaux par humoriste pour le mois affiché
+function renderPlanningCounters() {
+  const container = document.getElementById('planning-counters');
+  if (!container) return;
+  const weekStart = getWeekStart();
+  const y = weekStart.getFullYear();
+  const m = String(weekStart.getMonth() + 1).padStart(2, '0');
+  const monthPrefix = `${y}-${m}`;
+
+  // Compter les assignations par humoriste pour ce mois
+  const counts = {};
+  Object.entries(assignments).forEach(([key, ids]) => {
+    if (!key.startsWith(monthPrefix)) return;
+    ids.forEach(id => { counts[id] = (counts[id] || 0) + 1; });
+  });
+
+  const comedianCounts = COMEDIANS
+    .map(c => ({ c, n: counts[c.id] || 0 }))
+    .filter(x => x.n > 0)
+    .sort((a, b) => b.n - a.n);
+
+  if (comedianCounts.length === 0) {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+
+  const monthLabel = new Date(y, parseInt(m) - 1, 1).toLocaleDateString('fr-FR', {month:'long'});
+  container.style.display = 'flex';
+  container.innerHTML = `<span style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;align-self:center;margin-right:2px;flex-shrink:0">${monthLabel}</span>`
+    + comedianCounts.map(({c, n}) =>
+      `<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;
+        background:${c.gender==='f'?'rgba(244,114,182,.12)':'rgba(59,130,246,.12)'};
+        border:1px solid ${c.gender==='f'?'rgba(244,114,182,.3)':'rgba(59,130,246,.3)'};
+        color:${c.gender==='f'?'#f472b6':'#93c5fd'};white-space:nowrap"
+      >${c.name.split(' ')[0]} <strong style="color:var(--o)">${n}</strong></span>`
+    ).join('');
 }
 
 function planAsgn(id,key){
@@ -2989,8 +3043,8 @@ function getTargetMonthPrefix() {
 }
 
 // Collecte les passages assignés par humoriste, filtrés sur le mois cible uniquement
-function getAssignmentsByComedian() {
-  const prefix = getTargetMonthPrefix();
+function getAssignmentsByComedian(prefixOverride) {
+  const prefix = prefixOverride || getTargetMonthPrefix();
   const byComedian = {};
   Object.entries(assignments).forEach(([key, ids]) => {
     if (cancelledSlots[key]) return;
@@ -3046,16 +3100,63 @@ L'équipe Broadway Comedy Club`;
 }
 
 function openSendPlanningModal() {
-  const byComedian = getAssignmentsByComedian();
-  const list = document.getElementById('send-planning-list');
-  const preview = document.getElementById('send-planning-preview');
+  const now = new Date();
+  // Initialiser le mois sélectionné au mois cible par défaut
+  exportMonthOverride = getTargetMonthPrefix();
+
+  // Construire le sélecteur de mois : mois courant + mois suivant
+  const months = [0, 1].map(offset => {
+    const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+    const prefix = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const label = d.toLocaleDateString('fr-FR', {month:'long', year:'numeric'});
+    return { prefix, label };
+  });
+  const monthBar = document.getElementById('export-month-bar');
+  monthBar.innerHTML = `<span style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-right:4px">Mois :</span>`
+    + months.map(m =>
+      `<button onclick="setExportMonth('${m.prefix}')" id="mth-btn-${m.prefix}"
+        style="font-size:10px;padding:3px 10px;border-radius:3px;cursor:pointer;border:1px solid ${m.prefix===exportMonthOverride?'var(--o)':'var(--border2)'};
+        background:${m.prefix===exportMonthOverride?'var(--o)':'var(--s2)'};
+        color:${m.prefix===exportMonthOverride?'#fff':'var(--text)'};font-weight:${m.prefix===exportMonthOverride?700:400}"
+      >${m.label}</button>`
+    ).join('');
+
+  const byComedian = getAssignmentsByComedian(exportMonthOverride);
 
   if (Object.keys(byComedian).length === 0) {
-    // Calcul du mois cible pour un message explicite
-    const _now = new Date();
-    const _tgt = new Date(_now.getFullYear(), _now.getMonth() + (_now.getDate() >= 20 ? 1 : 0), 1);
-    const _moisLabel = _tgt.toLocaleDateString('fr-FR', {month: 'long', year: 'numeric'});
-    toast(`Aucune assignation pour ${_moisLabel}`);
+    // Afficher la modale quand même pour que l'utilisateur puisse changer de mois
+    _renderSendPlanningList(byComedian);
+    openModal('modal-send-planning');
+    return;
+  }
+
+  _renderSendPlanningList(byComedian);
+  openModal('modal-send-planning');
+}
+
+function setExportMonth(prefix) {
+  exportMonthOverride = prefix;
+  // Mettre à jour les boutons du sélecteur
+  document.querySelectorAll('[id^="mth-btn-"]').forEach(btn => {
+    const active = btn.id === `mth-btn-${prefix}`;
+    btn.style.background = active ? 'var(--o)' : 'var(--s2)';
+    btn.style.color = active ? '#fff' : 'var(--text)';
+    btn.style.fontWeight = active ? '700' : '400';
+    btn.style.borderColor = active ? 'var(--o)' : 'var(--border2)';
+  });
+  _renderSendPlanningList(getAssignmentsByComedian(prefix));
+}
+
+function _renderSendPlanningList(byComedian) {
+  const list = document.getElementById('send-planning-list');
+  const preview = document.getElementById('send-planning-preview');
+  const activePrefix = exportMonthOverride || getTargetMonthPrefix();
+
+  if (Object.keys(byComedian).length === 0) {
+    const moisLabel = new Date(parseInt(activePrefix.split('-')[0]), parseInt(activePrefix.split('-')[1])-1, 1)
+      .toLocaleDateString('fr-FR', {month:'long', year:'numeric'});
+    list.innerHTML = `<div style="font-size:11px;color:var(--muted);text-align:center;padding:20px 0">Aucune assignation pour ${moisLabel}.</div>`;
+    if (preview) preview.textContent = '';
     return;
   }
 
@@ -3066,12 +3167,16 @@ function openSendPlanningModal() {
     if (!c) return;
     const hasEmail = !!c.email;
     const hasPhone = !!c.phone;
+    const emailSent = wasEmailSent(id, activePrefix);
     const msg = buildPlanningMessage(id, keys);
     if (idx === 0) firstMsg = msg;
-    html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--s2);border:1px solid var(--border2);border-radius:4px">
+    html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--border2);border-radius:4px">
       <span style="width:7px;height:7px;border-radius:50%;background:${c.gender==='f'?'#f472b6':'#3b82f6'};flex-shrink:0"></span>
       <span style="font-size:11px;font-weight:600;flex:1">${c.name}</span>
       <span style="font-size:10px;color:var(--muted)">${keys.length} date${keys.length>1?'s':''}</span>
+      ${emailSent
+        ? `<span style="font-size:9px;color:var(--g);background:var(--g2);padding:1px 6px;border-radius:2px;border:1px solid var(--gb);font-weight:700" title="Mail envoyé ce mois">✓ Envoyé</span>`
+        : `<span style="font-size:9px;color:var(--muted);background:var(--s3);padding:1px 6px;border-radius:2px;border:1px solid var(--border2)" title="Mail pas encore envoyé">En attente</span>`}
       ${hasEmail
         ? `<span style="font-size:9px;color:var(--g);background:var(--g2);padding:1px 6px;border-radius:2px;border:1px solid var(--gb)">✓ Email</span>`
         : `<span style="font-size:9px;color:var(--r);background:var(--r2);padding:1px 6px;border-radius:2px;border:1px solid var(--rb)">Pas d'email</span>`}
@@ -3081,18 +3186,17 @@ function openSendPlanningModal() {
   });
 
   list.innerHTML = html;
-  preview.textContent = firstMsg;
-  openModal('modal-send-planning');
+  if (preview && firstMsg) preview.textContent = firstMsg;
 }
 
 function previewMsg(id) {
-  const byComedian = getAssignmentsByComedian();
+  const byComedian = getAssignmentsByComedian(exportMonthOverride);
   const keys = byComedian[id] || [];
   document.getElementById('send-planning-preview').textContent = buildPlanningMessage(id, keys);
 }
 
 async function sendPlanningToAll() {
-  const byComedian = getAssignmentsByComedian();
+  const byComedian = getAssignmentsByComedian(exportMonthOverride);
   const list = Object.entries(byComedian);
   if (!list.length) { toast('Aucun humoriste assigné'); return; }
 
@@ -3115,12 +3219,19 @@ async function sendPlanningToAll() {
       const moisLabel = skDate.toLocaleDateString('fr-FR',{month:'long'});
       // Envoi par email
       const r = await sendEmail(c.email, `🎤 Tes dates BCC — ${moisLabel}`, msg);
-      if (r.success) { sent++; logAction('notification', {humId:id, name:c.name, type:'email_planning'}); }
-      else skipped++;
+      if (r.success) {
+        sent++;
+        logAction('notification', {humId:id, name:c.name, type:'email_planning'});
+        markEmailSent(id, exportMonthOverride || getTargetMonthPrefix());
+      } else skipped++;
     } else if (c.phone && WA_CONFIG.configured) {
       // Fallback WhatsApp
       const r = await sendWhatsAppText(c.phone, msg);
-      if (r.success && !r.simulated) { sent++; logAction('notification', {humId:id, name:c.name, type:'wa_planning'}); }
+      if (r.success && !r.simulated) {
+        sent++;
+        logAction('notification', {humId:id, name:c.name, type:'wa_planning'});
+        markEmailSent(id, exportMonthOverride || getTargetMonthPrefix());
+      }
       else skipped++;
     } else {
       skipped++;
