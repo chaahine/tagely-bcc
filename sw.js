@@ -1,4 +1,4 @@
-const CACHE = 'stagely-v192';
+const CACHE = 'stagely-v195';
 
 self.addEventListener('install', e => {
   self.skipWaiting();

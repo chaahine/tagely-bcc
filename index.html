@@ -4484,7 +4484,10 @@ function renderChapeau(periode = 'semaine') {
         <option>20:15</option><option>21:30</option><option>19:00</option><option>20:30</option><option>21:45</option><option>23:00</option>
       </select>
     </div>
-    <div><label class="fl">💰 Montant par personne (€)</label><input class="fi" id="ch-par-personne" type="number" placeholder="0" min="0" style="font-size:18px;font-weight:700;text-align:center"></div>
+    <div class="fr"><label class="fl">💵 Espèces (€)</label><input class="fi" id="ch-especes" type="number" placeholder="0" min="0" oninput="updateChapeauTotal()"></div>
+    <div class="fr"><label class="fl">💳 CB (€)</label><input class="fi" id="ch-cb" type="number" placeholder="0" min="0" oninput="updateChapeauTotal()"></div>
+    <div class="fr"><label class="fl">Total collecté</label><div id="ch-total" style="font-size:20px;font-weight:800;color:var(--gold)">0€</div></div>
+    <div class="fr"><label class="fl">👤 Montant par personne (€)</label><input class="fi" id="ch-par-personne" type="number" placeholder="0" min="0"></div>
     <div class="ma">
       <button class="btn btn-ghost" onclick="closeModal('modal-chapeau')">Annuler</button>
       <button class="btn btn-o" onclick="saveChapeau()">Enregistrer</button>
