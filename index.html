@@ -4309,7 +4309,7 @@ function saveChapeau() {
   const especes = parseFloat(document.getElementById('ch-especes').value) || 0;
   const cb = parseFloat(document.getElementById('ch-cb').value) || 0;
   const parPersonne = parseFloat(document.getElementById('ch-par-personne').value) || 0;
-  const montant = especes + cb;
+  const montant = (especes + cb) || parPersonne;
   if (!date) { toast('⚠ Ajoute une date'); return; }
   if (!montant) { toast('⚠ Saisis un montant'); return; }
   chapeauData.unshift({id:Date.now(), date, slot, montant, especes, cb, parPersonne});
