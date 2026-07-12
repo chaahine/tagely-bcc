@@ -558,7 +558,8 @@ html.light{
 </div>
 
 <script>
-const ADMIN_PWD = 'Hendeck59190@';
+// Mot de passe admin stocké sous forme de hash SHA-256 (jamais en clair dans le source)
+const ADMIN_PWD_HASH = '85d68d9dcfa242682cd25d93231bf7e92fcb0e757f2759760de31e463a8c3d70';
 
 function showHomeScreen() {
   document.getElementById('home-screen').style.display = 'flex';
@@ -577,9 +578,12 @@ function showHumoristPortal() {
   window.location.href = '/portal.html';
 }
 
-function checkAdminPwd() {
+async function checkAdminPwd() {
   const val = document.getElementById('admin-pwd').value;
-  if (val === ADMIN_PWD) {
+  const encoder = new TextEncoder();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(val));
+  const hashHex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+  if (hashHex === ADMIN_PWD_HASH) {
     localStorage.setItem('stagely_admin_auth', '1');
     document.getElementById('admin-login-screen').style.display = 'none';
     document.getElementById('home-screen').style.display = 'none';
