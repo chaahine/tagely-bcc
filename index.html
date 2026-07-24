@@ -558,8 +558,24 @@ html.light{
 </div>
 
 <script>
-// Mot de passe admin stocké sous forme de hash SHA-256 (jamais en clair dans le source)
-const ADMIN_PWD_HASH = '85d68d9dcfa242682cd25d93231bf7e92fcb0e757f2759760de31e463a8c3d70';
+// Auth admin : le mot de passe n'est plus comparé côté client. checkAdminPwd()
+// envoie le mot de passe à /api/admin-login qui le hash en SHA-256 côté serveur
+// et le compare à process.env.ADMIN_PWD_HASH. En cas de succès, un token signé
+// (HMAC, 12h) est renvoyé et stocké ici — il est envoyé en header Authorization
+// sur toutes les écritures admin (voir adminWrite() plus bas dans le fichier).
+const ADMIN_SESSION_KEY = 'stagely_admin_session';
+
+function getAdminSession() {
+  try { return JSON.parse(localStorage.getItem(ADMIN_SESSION_KEY) || 'null'); } catch(e) { return null; }
+}
+function isAdminSessionValid() {
+  const s = getAdminSession();
+  return !!(s && s.token && s.expiresAt && Date.now() < s.expiresAt);
+}
+function clearAdminSession() {
+  localStorage.removeItem(ADMIN_SESSION_KEY);
+  localStorage.removeItem('stagely_admin_auth'); // nettoie l'ancien flag (pré-v198)
+}
 
 function showHomeScreen() {
   document.getElementById('home-screen').style.display = 'flex';
@@ -580,18 +596,33 @@ function showHumoristPortal() {
 
 async function checkAdminPwd() {
   const val = document.getElementById('admin-pwd').value;
-  const encoder = new TextEncoder();
-  const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(val));
-  const hashHex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-  if (hashHex === ADMIN_PWD_HASH) {
-    localStorage.setItem('stagely_admin_auth', '1');
-    document.getElementById('admin-login-screen').style.display = 'none';
-    document.getElementById('home-screen').style.display = 'none';
-    document.getElementById('admin-screen').style.removeProperty('display');
-  } else {
-    document.getElementById('admin-pwd-err').style.display = 'block';
-    document.getElementById('admin-pwd').value = '';
-    document.getElementById('admin-pwd').focus();
+  const btn = document.querySelector('#admin-login-screen button[onclick="checkAdminPwd()"]');
+  const errEl = document.getElementById('admin-pwd-err');
+  errEl.style.display = 'none';
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch('/api/admin-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: val })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success && data.token) {
+      localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({ token: data.token, expiresAt: data.expiresAt }));
+      document.getElementById('admin-login-screen').style.display = 'none';
+      document.getElementById('home-screen').style.display = 'none';
+      document.getElementById('admin-screen').style.removeProperty('display');
+    } else {
+      errEl.textContent = res.status === 401 ? '⚠ Mot de passe incorrect' : '⚠ Erreur de connexion, réessaie';
+      errEl.style.display = 'block';
+      document.getElementById('admin-pwd').value = '';
+      document.getElementById('admin-pwd').focus();
+    }
+  } catch (e) {
+    errEl.textContent = '⚠ Erreur réseau, réessaie';
+    errEl.style.display = 'block';
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -600,7 +631,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const isPortal = params.get('code') || location.hash.startsWith('#/portal');
   if (isPortal) {
     showHumoristPortal();
-  } else if (localStorage.getItem('stagely_admin_auth')) {
+  } else if (isAdminSessionValid()) {
     document.getElementById('home-screen').style.display = 'none';
     document.getElementById('admin-login-screen').style.display = 'none';
     document.getElementById('admin-screen').style.removeProperty('display');
@@ -1699,23 +1730,24 @@ async function hvSubmit() {
   DISPO_STATUS[hvUser.id] = 'replied';
   updateBadge();
 
-  // Sauvegarder dans Supabase
+  // Sauvegarder dans Supabase (vue "aperçu portail" admin — passe par le proxy admin-write)
   try {
     // Créer l'humoriste dans Supabase seulement s'il n'existe pas
     const existing = await sbFetch('comedians', {params:`?id=eq.${hvUser.id}`});
-    if (!existing || existing.length === 0) {
-      await sbFetch('comedians', {method:'POST', params:'?on_conflict=id', body:[{
-        id:hvUser.id, name:hvUser.name, prio:hvUser.prio||'new',
-        presence:hvUser.presence||100, gender:hvUser.gender||'m',
-        duration:hvUser.duration||10, phone:hvUser.phone||'',
-        email:hvUser.email||'', active:true
-      }]});
-    }
+    const comedians = (!existing || existing.length === 0) ? [{
+      id:hvUser.id, name:hvUser.name, prio:hvUser.prio||'new',
+      presence:hvUser.presence||100, gender:hvUser.gender||'m',
+      duration:hvUser.duration||10, phone:hvUser.phone||'',
+      email:hvUser.email||'', active:true
+    }] : undefined;
     const dispoRows = Object.entries(DISPOS_DATA[hvUser.id]).map(([slot_key, v]) => ({
       comedian_id:hvUser.id, slot_key, dispo:v.dispo, mc:v.mc||false
     }));
-    if (dispoRows.length) await sbFetch('dispos', {method:'POST', params:'?on_conflict=comedian_id,slot_key', body:dispoRows});
-    await sbFetch('dispo_status', {method:'POST', params:'?on_conflict=comedian_id', body:[{comedian_id:hvUser.id, status:'replied'}]});
+    await adminWrite('sync', {
+      ...(comedians ? {comedians} : {}),
+      dispoStatus: [{comedian_id:hvUser.id, status:'replied'}],
+      ...(dispoRows.length ? {dispos: dispoRows} : {})
+    });
   } catch(e) { console.warn('Supabase save:', e); }
 
   document.getElementById('hv-ok').style.display = 'block';
@@ -2505,10 +2537,8 @@ async function saveFiche() {
   saveAll();
   // Forcer upsert immédiat dans Supabase
   if (sbConnected) {
-    await sbFetch('comedians', {
-      method: 'POST',
-      params: '?on_conflict=id',
-      body: [{
+    await adminWrite('sync', {
+      comedians: [{
         id: c.id, name: c.name, prio: c.prio, presence: c.presence,
         gender: c.gender, duration: c.duration, phone: c.phone||'',
         email: c.email||'', notes: c.notes||'', active: c.active!==false
@@ -2524,10 +2554,7 @@ async function saveFiche() {
 async function deleteAllComedians() {
   if (!confirm(`Supprimer les ${COMEDIANS.length} humoristes définitivement ?`)) return;
   // Supprimer dans Supabase
-  await sbFetch('assignments', {method:'DELETE', params:'?comedian_id=neq.null'});
-  await sbFetch('dispos', {method:'DELETE', params:'?comedian_id=neq.null'});
-  await sbFetch('dispo_status', {method:'DELETE', params:'?comedian_id=neq.null'});
-  await sbFetch('comedians', {method:'DELETE', params:'?id=neq.null'});
+  await adminWrite('clearAll', {});
   // Vider en mémoire
   COMEDIANS.splice(0, COMEDIANS.length);
   Object.keys(assignments).forEach(k => delete assignments[k]);
@@ -2545,10 +2572,7 @@ async function delH(id){
   
   // Supprimer dans Supabase EN PREMIER
   if (sbConnected) {
-    await sbFetch('comedians', {method:'DELETE', params:`?id=eq.${id}`});
-    await sbFetch('dispos', {method:'DELETE', params:`?comedian_id=eq.${id}`});
-    await sbFetch('dispo_status', {method:'DELETE', params:`?comedian_id=eq.${id}`});
-    await sbFetch('assignments', {method:'DELETE', params:`?comedian_id=eq.${id}`});
+    await adminWrite('deleteComedian', {id});
   }
   
   // Supprimer en mémoire
@@ -3479,6 +3503,36 @@ async function sbFetch(table, options = {}) {
   }
 }
 
+// ── Écritures admin : passent par /api/admin-write (clé service_role côté serveur) ──
+// sbFetch() ci-dessus reste utilisé UNIQUEMENT pour les lectures (GET), couvertes
+// par une policy RLS "lecture publique" côté Supabase. Toute écriture admin (upsert
+// comédiens, sync planning/dispos, suppression, chat) passe par ici avec le token
+// signé obtenu via checkAdminPwd()/adminWrite. Voir api/admin-write.js.
+async function adminWrite(action, payload) {
+  const session = getAdminSession();
+  if (!session || !session.token) {
+    showSaveIndicator('✕ Session admin expirée — reconnecte-toi');
+    return false;
+  }
+  try {
+    const res = await fetch('/api/admin-write', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.token}` },
+      body: JSON.stringify({ action, payload })
+    });
+    if (res.status === 401) {
+      clearAdminSession();
+      showSaveIndicator('✕ Session expirée — reconnecte-toi');
+      return false;
+    }
+    if (!res.ok) { const e = await res.text(); throw new Error(e); }
+    return await res.json();
+  } catch(e) {
+    console.warn(`adminWrite ${action}:`, e.message);
+    return false;
+  }
+}
+
 // Charger les dispos depuis Supabase avec pagination (limite Supabase = 1000 lignes/requête)
 async function loadDisposPaginated(dateFrom, dateTo) {
   const PAGE = 1000;
@@ -3565,34 +3619,16 @@ async function saveToSupabase() {
   if (!sbConnected) return;
   showSaveIndicator('⏳ Sauvegarde...');
   try {
-    // Upsert humoristes
-    if (COMEDIANS.length) {
-      await sbFetch('comedians', {
-        method: 'POST',
-        params: '?on_conflict=id',
-        body: COMEDIANS.map(c => ({
-          id: c.id, name: c.name, prio: c.prio, presence: c.presence,
-          gender: c.gender, duration: c.duration, phone: c.phone||'',
-          email: c.email||'', notes: c.notes||'', active: c.active!==false
-        }))
-      });
-    }
-    // Assignments — delete all then insert
-    await sbFetch('assignments', {method:'DELETE', params:'?id=gte.0'});
     const asgnRows = [];
     Object.entries(assignments).forEach(([slot_key, ids]) => {
       ids.forEach(comedian_id => asgnRows.push({slot_key, comedian_id}));
     });
-    if (asgnRows.length) await sbFetch('assignments', {method:'POST', body:asgnRows});
 
-    // Dispo status — seulement pour les humoristes existants
     const existingIds = COMEDIANS.map(c => c.id);
     const statusRows = Object.entries(DISPO_STATUS)
       .filter(([comedian_id]) => existingIds.includes(comedian_id))
       .map(([comedian_id, status]) => ({comedian_id, status}));
-    if (statusRows.length) await sbFetch('dispo_status', {method:'POST', params:'?on_conflict=comedian_id', body:statusRows});
 
-    // Dispos — seulement pour les humoristes existants
     const dispoRows = [];
     Object.entries(DISPOS_DATA).forEach(([comedian_id, slots]) => {
       if (!existingIds.includes(comedian_id)) return;
@@ -3600,7 +3636,18 @@ async function saveToSupabase() {
         dispoRows.push({comedian_id, slot_key, dispo:v.dispo||false, mc:v.mc||false});
       });
     });
-    if (dispoRows.length) await sbFetch('dispos', {method:'POST', params:'?on_conflict=comedian_id,slot_key', body:dispoRows});
+
+    const result = await adminWrite('sync', {
+      ...(COMEDIANS.length ? {comedians: COMEDIANS.map(c => ({
+        id: c.id, name: c.name, prio: c.prio, presence: c.presence,
+        gender: c.gender, duration: c.duration, phone: c.phone||'',
+        email: c.email||'', notes: c.notes||'', active: c.active!==false
+      }))} : {}),
+      assignments: asgnRows, // toujours présent : remplace intégralement (reflète clearAll aussi)
+      ...(statusRows.length ? {dispoStatus: statusRows} : {}),
+      ...(dispoRows.length ? {dispos: dispoRows} : {})
+    });
+    if (result === false) throw new Error('adminWrite sync a échoué');
     showSaveIndicator('✓ Sauvegardé');
   } catch(e) { console.warn('Supabase save failed:', e); showSaveIndicator('✕ Erreur sauvegarde'); }
 }
@@ -4272,7 +4319,7 @@ async function sendUrgenceAlert() {
   const alertMsg = `🚨 REMPLACEMENT URGENT — ${dateStr} à ${slot}${message?' : '+message:''}`;
   sendNotif('🚨 Remplacement urgent BCC', `${dateStr} à ${slot}`);
   showAppNotif(alertMsg, 'var(--r)');
-  await sbFetch('chat_messages', {method:'POST', body:{sender:'ADMIN', sender_id:'admin', text: alertMsg}});
+  await adminWrite('chatSend', {text: alertMsg});
   closeModal('modal-urgence');
   toast('✓ Alerte envoyée');
 }

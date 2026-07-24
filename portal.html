@@ -302,7 +302,10 @@ let assignments = {};
 let comedians = [];
 let manageDates = {};
 
-// ── SUPABASE ──
+// ── SUPABASE (lecture seule) ──
+// Les écritures ne passent plus par ici (clé anon) mais par /api/portal-write
+// (clé service_role côté serveur, cf portalWrite() plus bas). Les lectures
+// restent directes vers Supabase, couvertes par une policy RLS "lecture publique".
 async function sb(table, opts={}) {
   const {method='GET', params='', body} = opts;
   try {
@@ -312,6 +315,20 @@ async function sb(table, opts={}) {
     const r = await fetch(SB_URL+'/rest/v1/'+table+params, {method, headers:h, body:body?JSON.stringify(body):undefined});
     return method==='GET' ? await r.json() : r.ok;
   } catch(e) { return method==='GET'?[]:false; }
+}
+
+// ── Proxy d'écriture serveur (api/portal-write.js) ──
+async function portalWrite(action, payload) {
+  try {
+    const r = await fetch('/api/portal-write', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({action, payload})
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) { console.warn('portalWrite', action, data.error); return null; }
+    return data;
+  } catch(e) { console.warn('portalWrite', action, e.message); return null; }
 }
 
 // ── NAVIGATION ──
@@ -413,10 +430,15 @@ async function doLogin() {
   if (!found) found = comedians.find(c => normalize(c.name) === normalize(fullName));
   
   if (!found) {
-    // ID unique basé sur email
-    const id = email.toLowerCase().replace(/[^a-z0-9]/g,'_').slice(0,50);
-    found = {id, name:fullName, prio:'new', presence:100, gender:'m', duration:10, phone, email, active:true};
-    await sb('comedians', {method:'POST', params:'?on_conflict=id', body:[found]});
+    const result = await portalWrite('ensureComedian', {
+      newComedian: {name: fullName, email, phone, gender:'m', duration:10}
+    });
+    if (!result || !result.comedian) {
+      document.getElementById('f-err').textContent = '⚠ Erreur de connexion, réessaie';
+      document.getElementById('f-err').style.display = 'block';
+      return;
+    }
+    found = result.comedian;
     comedians.push(found);
   }
   
@@ -587,19 +609,16 @@ async function doSubmit() {
     return;
   }
 
-  const rows = Object.entries(hvSlots).filter(([,v])=>v.dispo).map(([k,v])=>({comedian_id:user.id,slot_key:k,dispo:true,mc:v.mc||false}));
-  
-  // Sauvegarder les dispos
-  const result = await sb('dispos',{method:'POST',params:'?on_conflict=comedian_id,slot_key',body:rows});
-  
+  const rows = Object.entries(hvSlots).filter(([,v])=>v.dispo).map(([k,v])=>({slot_key:k,dispo:true,mc:v.mc||false}));
+
+  // Sauvegarder les dispos + statut via le proxy serveur
+  const result = await portalWrite('submitDispos', {comedianId:user.id, dispoRows:rows});
+
   // Vérifier que ça a marché
   if (!result) {
     alert('Erreur lors de l\'envoi. Réessaie.');
     return;
   }
-  
-  // Sauvegarder le statut seulement si les dispos sont bien enregistrées
-  await sb('dispo_status',{method:'POST',params:'?on_conflict=comedian_id',body:[{comedian_id:user.id,status:'replied'}]});
   
   document.getElementById('d-ok').style.display='block';
   document.getElementById('btn-submit').disabled=true;
@@ -695,14 +714,7 @@ async function renderDates() {
 async function confirmDates() {
   const toRemove = Object.entries(manageDates).filter(([,v])=>!v).map(([k])=>k);
   if (!toRemove.length) { document.getElementById('confirm-ok').style.display='block'; return; }
-  
-  // Supprimer les dates décochées
-  for (const key of toRemove) {
-    await sb('assignments',{method:'DELETE',params:`?slot_key=eq.${key}&comedian_id=eq.${user.id}`});
-    if (assignments[key]) assignments[key]=assignments[key].filter(id=>id!==user.id);
-  }
-  
-  // Notifier l'admin via chat_messages
+
   const details = toRemove.map(key => {
     const parts = key.split('-');
     const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
@@ -710,13 +722,16 @@ async function confirmDates() {
     const slot = parts[3]?.replace('H',':') || '';
     return `${dayName} ${d.getDate()} à ${slot}`;
   }).join(', ');
-  
-  await sb('chat_messages', {method:'POST', body:[{
-    sender: user.name,
-    sender_id: user.id,
-    text: `📝 MODIFICATION — ${user.name} a retiré ${toRemove.length} date${toRemove.length>1?'s':''} : ${details}`
-  }]});
-  
+
+  const result = await portalWrite('cancelDates', {
+    comedianId: user.id, comedianName: user.name,
+    slotKeys: toRemove, mode: 'modify', details
+  });
+
+  if (result) {
+    toRemove.forEach(key => { if (assignments[key]) assignments[key]=assignments[key].filter(id=>id!==user.id); });
+  }
+
   document.getElementById('confirm-ok').style.display='block';
   document.getElementById('btn-confirm').style.display='none';
   await renderDates();
@@ -755,10 +770,11 @@ async function sendCancelAlert() {
   const parts=key.split('-');
   const date=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
   const slot=parts[3]?.replace('H',':');
-  const dateStr=`${DAYS_FR[date.getDay()]} ${date.getDate()} ${MOIS[date.getMonth()]} à ${slot}`;
-  const msg=`🚨 ANNULATION — ${user.name} ne peut plus assurer le ${dateStr}${reason?' : '+reason:''}`;
-  await sb('chat_messages',{method:'POST',body:{sender:user.name,sender_id:user.id,text:msg}});
-  await sb('assignments',{method:'DELETE',params:`?slot_key=eq.${key}&comedian_id=eq.${user.id}`});
+  const dateStr=`le ${DAYS_FR[date.getDay()]} ${date.getDate()} ${MOIS[date.getMonth()]} à ${slot}`;
+  await portalWrite('cancelDates', {
+    comedianId: user.id, comedianName: user.name,
+    slotKeys: [key], mode: 'cancel', details: dateStr, reason
+  });
   document.getElementById('cancel-ok').style.display='block';
   setTimeout(() => { document.getElementById('modal-cancel').classList.remove('open'); renderDates(); }, 2000);
 }
