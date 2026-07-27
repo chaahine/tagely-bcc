@@ -282,6 +282,14 @@ input,select,textarea,button{font-family:'Inter',sans-serif}
 // ── CONFIG ──
 const SB_URL = 'https://dvdwfxytdsvwjtirxncz.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2ZHdmeHl0ZHN2d2p0aXJ4bmN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTY0MTMsImV4cCI6MjA5MjYzMjQxM30.7u70HAAepfCfU7T58IlN_u-b-rI5uBzqT7lISLQsrWY';
+
+// Chantier multitenant, étape B : le code d'accès portail (ex. 'BCCD25') est
+// désormais envoyé au serveur (api/portal-write.js) à chaque écriture, qui le
+// résout en club_id. Lu depuis l'URL (?code=...) comme prévu par le lien/QR
+// généré côté admin (index.html) ; repli sur le code BCC actuel si absent,
+// pour ne rien casser tant qu'un seul club existe (aucun lien historique ne
+// deviendra invalide avec ce repli).
+const PORTAL_CODE = new URLSearchParams(location.search).get('code') || 'BCCD25';
 const MOIS = ['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','nov','déc'];
 const MOIS_FULL = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const DAYS = ['DIM','LUN','MAR','MER','JEU','VEN','SAM'];
@@ -323,7 +331,7 @@ async function portalWrite(action, payload) {
     const r = await fetch('/api/portal-write', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({action, payload})
+      body: JSON.stringify({action, payload: {...payload, code: PORTAL_CODE}})
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) { console.warn('portalWrite', action, data.error); return null; }

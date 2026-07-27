@@ -14,7 +14,7 @@
 //  - clearAll      : vide entièrement les 4 tables (reset total, très destructif)
 //  - chatSend      : insère un message admin dans chat_messages (alerte urgence)
 
-import { applyCors, sbAdmin, verifyAdminToken, isNonEmptyString, SLOT_KEY_RE } from './_lib.js';
+import { applyCors, sbAdmin, verifyAdminToken, isNonEmptyString, SLOT_KEY_RE, clubOrFilter } from './_lib.js';
 
 const MAX_BULK = 5000; // garde-fou anti-abus sur les upserts en masse
 
@@ -66,9 +66,12 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  if (!verifyAdminToken(req)) {
+  const auth = verifyAdminToken(req);
+  if (!auth) {
     return res.status(401).json({ error: 'Non autorisé — reconnecte-toi en admin' });
   }
+  const clubId = auth.club_id;
+  const scope = clubOrFilter(clubId); // cf. api/_lib.js — inclut le repli club_id IS NULL tant que le BCC n'est pas backfillé
 
   const { action, payload } = req.body || {};
 
@@ -79,7 +82,8 @@ export default async function handler(req, res) {
         const out = {};
 
         if (Array.isArray(p.comedians)) {
-          const rows = p.comedians.map(sanitizeComedian).filter(Boolean).slice(0, MAX_BULK);
+          const rows = p.comedians.map(sanitizeComedian).filter(Boolean).slice(0, MAX_BULK)
+            .map(r => ({ ...r, club_id: clubId }));
           if (rows.length) await sbAdmin('comedians', { method: 'POST', params: '?on_conflict=id', body: rows });
           out.comedians = rows.length;
         }
@@ -87,20 +91,25 @@ export default async function handler(req, res) {
         if (Array.isArray(p.assignments)) {
           // Remplacement complet — même comportement que saveToSupabase() côté client :
           // on vide la table puis on réinsère l'état courant (y compris si vide = planning reset).
-          await sbAdmin('assignments', { method: 'DELETE', params: '?id=gte.0' });
-          const rows = p.assignments.map(sanitizeAssignment).filter(Boolean).slice(0, MAX_BULK);
+          // Scopé au club authentifié uniquement — avant ce correctif, ce DELETE n'avait
+          // aucun filtre (?id=gte.0) et effaçait TOUTE la table, tous clubs confondus.
+          await sbAdmin('assignments', { method: 'DELETE', params: `?${scope}` });
+          const rows = p.assignments.map(sanitizeAssignment).filter(Boolean).slice(0, MAX_BULK)
+            .map(r => ({ ...r, club_id: clubId }));
           if (rows.length) await sbAdmin('assignments', { method: 'POST', body: rows });
           out.assignments = rows.length;
         }
 
         if (Array.isArray(p.dispoStatus)) {
-          const rows = p.dispoStatus.map(sanitizeDispoStatus).filter(Boolean).slice(0, MAX_BULK);
+          const rows = p.dispoStatus.map(sanitizeDispoStatus).filter(Boolean).slice(0, MAX_BULK)
+            .map(r => ({ ...r, club_id: clubId }));
           if (rows.length) await sbAdmin('dispo_status', { method: 'POST', params: '?on_conflict=comedian_id', body: rows });
           out.dispoStatus = rows.length;
         }
 
         if (Array.isArray(p.dispos)) {
-          const rows = p.dispos.map(sanitizeDispo).filter(Boolean).slice(0, MAX_BULK);
+          const rows = p.dispos.map(sanitizeDispo).filter(Boolean).slice(0, MAX_BULK)
+            .map(r => ({ ...r, club_id: clubId }));
           if (rows.length) await sbAdmin('dispos', { method: 'POST', params: '?on_conflict=comedian_id,slot_key', body: rows });
           out.dispos = rows.length;
         }
@@ -112,18 +121,23 @@ export default async function handler(req, res) {
         const id = payload?.id;
         if (!isNonEmptyString(id, 100)) return res.status(400).json({ error: 'id requis' });
         const eid = encodeURIComponent(id);
-        await sbAdmin('comedians', { method: 'DELETE', params: `?id=eq.${eid}` });
-        await sbAdmin('dispos', { method: 'DELETE', params: `?comedian_id=eq.${eid}` });
-        await sbAdmin('dispo_status', { method: 'DELETE', params: `?comedian_id=eq.${eid}` });
-        await sbAdmin('assignments', { method: 'DELETE', params: `?comedian_id=eq.${eid}` });
+        // Filtré par club_id en plus de l'id : empêche un admin d'un club de
+        // supprimer, même par erreur ou en devinant un id, un comédien d'un autre club.
+        await sbAdmin('comedians', { method: 'DELETE', params: `?id=eq.${eid}&${scope}` });
+        await sbAdmin('dispos', { method: 'DELETE', params: `?comedian_id=eq.${eid}&${scope}` });
+        await sbAdmin('dispo_status', { method: 'DELETE', params: `?comedian_id=eq.${eid}&${scope}` });
+        await sbAdmin('assignments', { method: 'DELETE', params: `?comedian_id=eq.${eid}&${scope}` });
         return res.status(200).json({ success: true });
       }
 
       case 'clearAll': {
-        await sbAdmin('assignments', { method: 'DELETE', params: '?comedian_id=neq.null' });
-        await sbAdmin('dispos', { method: 'DELETE', params: '?comedian_id=neq.null' });
-        await sbAdmin('dispo_status', { method: 'DELETE', params: '?comedian_id=neq.null' });
-        await sbAdmin('comedians', { method: 'DELETE', params: '?id=neq.null' });
+        // Scopé au club authentifié — avant ce correctif, ces 4 DELETE n'avaient
+        // aucun filtre club (juste un ?xxx=neq.null bidon pour satisfaire l'exigence
+        // Supabase d'un filtre) et vidaient les tables pour TOUS les clubs.
+        await sbAdmin('assignments', { method: 'DELETE', params: `?${scope}` });
+        await sbAdmin('dispos', { method: 'DELETE', params: `?${scope}` });
+        await sbAdmin('dispo_status', { method: 'DELETE', params: `?${scope}` });
+        await sbAdmin('comedians', { method: 'DELETE', params: `?${scope}` });
         return res.status(200).json({ success: true });
       }
 
@@ -132,7 +146,7 @@ export default async function handler(req, res) {
         if (!isNonEmptyString(text, 2000)) return res.status(400).json({ error: 'text requis' });
         await sbAdmin('chat_messages', {
           method: 'POST',
-          body: { sender: 'ADMIN', sender_id: 'admin', text: String(text).slice(0, 2000) },
+          body: { sender: 'ADMIN', sender_id: 'admin', text: String(text).slice(0, 2000), club_id: clubId },
         });
         return res.status(200).json({ success: true });
       }

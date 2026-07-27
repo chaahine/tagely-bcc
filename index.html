@@ -591,7 +591,11 @@ function showAdminLogin() {
 }
 
 function showHumoristPortal() {
-  window.location.href = '/portal.html';
+  // Conserve ?code=... (et tout autre param) lors de la redirection vers le
+  // portail — nécessaire pour que le code d'accès résolu côté serveur
+  // (api/portal-write.js, chantier multitenant étape B) soit bien celui du
+  // club, pas seulement le repli par défaut.
+  window.location.href = '/portal.html' + location.search;
 }
 
 async function checkAdminPwd() {

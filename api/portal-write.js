@@ -23,19 +23,48 @@
 // de ces routes ne vérifie l'identité de l'appelant au-delà de la forme des
 // données : ce n'est pas une authentification, seulement une réduction de la
 // surface d'écriture par rapport à l'accès direct Supabase (anon) actuel.
+//
+// Chantier multitenant, étape B : chaque appel doit désormais porter un champ
+// `code` dans le payload (le code d'accès portail, ex. 'BCCD25'). Le serveur
+// le résout en club_id (voir resolveClubId() plus bas) et scope dessus toutes
+// les lectures/écritures — un id de comédien deviné/fuité d'un club A ne
+// permet plus d'agir sur les données d'un club B. Voir aussi le TODO(étape C)
+// sur resolveClubId() : le mapping code→club est en dur tant que la table
+// `clubs` n'a pas de vraies données.
 
-import { applyCors, sbAdmin, isNonEmptyString, SLOT_KEY_RE, idFromEmail } from './_lib.js';
+import { applyCors, sbAdmin, isNonEmptyString, SLOT_KEY_RE, idFromEmail, BCC_CLUB_ID, clubOrFilter } from './_lib.js';
 
 const MAX_ROWS = 500;
 
-async function findComedianById(id) {
-  const rows = await sbAdmin('comedians', { params: `?id=eq.${encodeURIComponent(id)}&select=id,name` });
+// ── Résolution code portail → club (chantier multitenant, étape B) ──
+// Le portail n'a pas de token admin : chaque appel envoie le "code" d'accès
+// (le même que celui affiché/QR côté admin — CLUB_CODE dans index.html,
+// aujourd'hui 'BCCD25'). Le serveur ne fait JAMAIS confiance à un club_id
+// envoyé par le client : il re-résout le code à chaque appel.
+// Cible finale (étape C) : SELECT id FROM clubs WHERE portal_code = code AND
+// status != 'suspended'. Tant que la table `clubs` n'a pas de vraies données,
+// on résout en dur le seul code existant aujourd'hui (celui du BCC) vers
+// BCC_CLUB_ID. Tout code inconnu est rejeté — pas de repli permissif.
+// TODO(étape C) : remplacer ce bloc par une vraie lecture de clubs.portal_code.
+const BCC_PORTAL_CODE = 'BCCD25'; // valeur de CLUB_CODE, index.html ligne ~1152
+
+function resolveClubId(code) {
+  if (typeof code === 'string' && code.trim().toUpperCase() === BCC_PORTAL_CODE) {
+    return BCC_CLUB_ID;
+  }
+  return null;
+}
+
+async function findComedianById(id, clubId) {
+  const rows = await sbAdmin('comedians', {
+    params: `?id=eq.${encodeURIComponent(id)}&${clubOrFilter(clubId)}&select=id,name`,
+  });
   return Array.isArray(rows) && rows.length ? rows[0] : null;
 }
 
-async function findComedianByEmail(email) {
+async function findComedianByEmail(email, clubId) {
   const rows = await sbAdmin('comedians', {
-    params: `?email=eq.${encodeURIComponent(email.toLowerCase())}&select=id,name`,
+    params: `?email=eq.${encodeURIComponent(email.toLowerCase())}&${clubOrFilter(clubId)}&select=id,name`,
   });
   return Array.isArray(rows) && rows.length ? rows[0] : null;
 }
@@ -58,6 +87,14 @@ export default async function handler(req, res) {
 
   const { action, payload } = req.body || {};
 
+  // Le club est résolu à partir du code envoyé dans le payload, jamais fait
+  // confiance autrement. Toutes les actions du portail passent par ici — un
+  // code manquant/inconnu est rejeté avant toute lecture/écriture.
+  const clubId = resolveClubId(payload?.code);
+  if (!clubId) {
+    return res.status(403).json({ error: 'Code d\'accès invalide' });
+  }
+
   try {
     switch (action) {
       case 'ensureComedian': {
@@ -66,7 +103,7 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: 'name, email, phone requis' });
         }
         const email = nc.email.trim().toLowerCase();
-        let comedian = await findComedianByEmail(email);
+        let comedian = await findComedianByEmail(email, clubId);
         let created = false;
         if (!comedian) {
           const comedianId = idFromEmail(email);
@@ -80,6 +117,7 @@ export default async function handler(req, res) {
             phone: String(nc.phone).slice(0, 40),
             email,
             active: true,
+            club_id: clubId,
           };
           await sbAdmin('comedians', { method: 'POST', params: '?on_conflict=id', body: [row] });
           comedian = row;
@@ -92,11 +130,11 @@ export default async function handler(req, res) {
         const p = payload || {};
         const comedianId = isNonEmptyString(p.comedianId, 100) ? String(p.comedianId) : null;
         if (!comedianId) return res.status(400).json({ error: 'comedianId requis' });
-        const comedian = await findComedianById(comedianId);
+        const comedian = await findComedianById(comedianId, clubId);
         if (!comedian) return res.status(404).json({ error: 'Comédien introuvable — reconnecte-toi' });
 
         const dispoRows = Array.isArray(p.dispoRows)
-          ? p.dispoRows.map((r) => sanitizeDispoRow(r, comedianId)).filter(Boolean).slice(0, MAX_ROWS)
+          ? p.dispoRows.map((r) => sanitizeDispoRow(r, comedianId)).filter(Boolean).slice(0, MAX_ROWS).map((r) => ({ ...r, club_id: clubId }))
           : [];
 
         if (dispoRows.length) {
@@ -105,7 +143,7 @@ export default async function handler(req, res) {
         await sbAdmin('dispo_status', {
           method: 'POST',
           params: '?on_conflict=comedian_id',
-          body: [{ comedian_id: comedianId, status: 'replied' }],
+          body: [{ comedian_id: comedianId, status: 'replied', club_id: clubId }],
         });
 
         return res.status(200).json({ success: true, comedianId, comedianName: comedian.name, dispoCount: dispoRows.length });
@@ -118,7 +156,7 @@ export default async function handler(req, res) {
         if (!isNonEmptyString(comedianId, 100) || !isNonEmptyString(comedianName, 200)) {
           return res.status(400).json({ error: 'comedianId et comedianName requis' });
         }
-        const comedian = await findComedianById(comedianId);
+        const comedian = await findComedianById(comedianId, clubId);
         if (!comedian) return res.status(404).json({ error: 'Comédien introuvable' });
 
         const slotKeys = Array.isArray(p.slotKeys)
@@ -126,10 +164,11 @@ export default async function handler(req, res) {
           : [];
         if (!slotKeys.length) return res.status(400).json({ error: 'slotKeys requis' });
 
+        const scope = clubOrFilter(clubId);
         for (const key of slotKeys) {
           await sbAdmin('assignments', {
             method: 'DELETE',
-            params: `?slot_key=eq.${encodeURIComponent(key)}&comedian_id=eq.${encodeURIComponent(comedianId)}`,
+            params: `?slot_key=eq.${encodeURIComponent(key)}&comedian_id=eq.${encodeURIComponent(comedianId)}&${scope}`,
           });
         }
 
@@ -144,7 +183,7 @@ export default async function handler(req, res) {
 
         await sbAdmin('chat_messages', {
           method: 'POST',
-          body: { sender: comedianName, sender_id: comedianId, text: text.slice(0, 2000) },
+          body: { sender: comedianName, sender_id: comedianId, text: text.slice(0, 2000), club_id: clubId },
         });
 
         return res.status(200).json({ success: true, removed: slotKeys.length });
