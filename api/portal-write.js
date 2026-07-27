@@ -24,35 +24,33 @@
 // données : ce n'est pas une authentification, seulement une réduction de la
 // surface d'écriture par rapport à l'accès direct Supabase (anon) actuel.
 //
-// Chantier multitenant, étape B : chaque appel doit désormais porter un champ
-// `code` dans le payload (le code d'accès portail, ex. 'BCCD25'). Le serveur
-// le résout en club_id (voir resolveClubId() plus bas) et scope dessus toutes
-// les lectures/écritures — un id de comédien deviné/fuité d'un club A ne
-// permet plus d'agir sur les données d'un club B. Voir aussi le TODO(étape C)
-// sur resolveClubId() : le mapping code→club est en dur tant que la table
-// `clubs` n'a pas de vraies données.
+// Chantier multitenant, étape B/C : chaque appel doit désormais porter un
+// champ `code` dans le payload (le code d'accès portail, ex. 'BCCD25'). Le
+// serveur le résout en club_id (voir resolveClubId() plus bas, lecture réelle
+// de clubs.portal_code depuis l'étape C) et scope dessus toutes les
+// lectures/écritures — un id de comédien deviné/fuité d'un club A ne permet
+// plus d'agir sur les données d'un club B.
 
-import { applyCors, sbAdmin, isNonEmptyString, SLOT_KEY_RE, idFromEmail, BCC_CLUB_ID, clubOrFilter } from './_lib.js';
+import { applyCors, sbAdmin, isNonEmptyString, SLOT_KEY_RE, idFromEmail, clubOrFilter } from './_lib.js';
 
 const MAX_ROWS = 500;
 
-// ── Résolution code portail → club (chantier multitenant, étape B) ──
+// ── Résolution code portail → club (chantier multitenant, étape C) ──
 // Le portail n'a pas de token admin : chaque appel envoie le "code" d'accès
 // (le même que celui affiché/QR côté admin — CLUB_CODE dans index.html,
 // aujourd'hui 'BCCD25'). Le serveur ne fait JAMAIS confiance à un club_id
-// envoyé par le client : il re-résout le code à chaque appel.
-// Cible finale (étape C) : SELECT id FROM clubs WHERE portal_code = code AND
-// status != 'suspended'. Tant que la table `clubs` n'a pas de vraies données,
-// on résout en dur le seul code existant aujourd'hui (celui du BCC) vers
-// BCC_CLUB_ID. Tout code inconnu est rejeté — pas de repli permissif.
-// TODO(étape C) : remplacer ce bloc par une vraie lecture de clubs.portal_code.
-const BCC_PORTAL_CODE = 'BCCD25'; // valeur de CLUB_CODE, index.html ligne ~1152
-
-function resolveClubId(code) {
-  if (typeof code === 'string' && code.trim().toUpperCase() === BCC_PORTAL_CODE) {
-    return BCC_CLUB_ID;
-  }
-  return null;
+// envoyé par le client : il re-résout le code à chaque appel, désormais par
+// une vraie lecture de clubs.portal_code (peuplée par la migration de
+// l'étape C). Un code inconnu, ou un club suspendu, est rejeté — pas de repli
+// permissif.
+async function resolveClubId(code) {
+  if (typeof code !== 'string' || !code.trim()) return null;
+  const rows = await sbAdmin('clubs', {
+    params: `?portal_code=eq.${encodeURIComponent(code.trim().toUpperCase())}&select=id,status`,
+  });
+  const club = Array.isArray(rows) && rows.length ? rows[0] : null;
+  if (!club || club.status === 'suspended') return null;
+  return club.id;
 }
 
 async function findComedianById(id, clubId) {
@@ -90,7 +88,12 @@ export default async function handler(req, res) {
   // Le club est résolu à partir du code envoyé dans le payload, jamais fait
   // confiance autrement. Toutes les actions du portail passent par ici — un
   // code manquant/inconnu est rejeté avant toute lecture/écriture.
-  const clubId = resolveClubId(payload?.code);
+  let clubId;
+  try {
+    clubId = await resolveClubId(payload?.code);
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
   if (!clubId) {
     return res.status(403).json({ error: 'Code d\'accès invalide' });
   }

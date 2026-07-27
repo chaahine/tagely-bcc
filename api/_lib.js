@@ -55,14 +55,15 @@ function timingSafeEqualStr(a, b) {
 // ── Token admin signé — HMAC-SHA256(ADMIN_TOKEN_SECRET), expiration 12h ──
 const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 
-// ── Repli mono-club (chantier multitenant, étape B) ──
-// Tant que la table `clubs` n'a pas de vraies données (étape C — migration
-// réelle — pas encore faite), un seul club existe : le Beer Comedy Club.
-// Cet uuid fixe deviendra l'id réel de la ligne `clubs` (slug='bcc') créée à
-// l'étape C — choisi à l'avance pour qu'aucune donnée déjà écrite avec ce
-// club_id n'ait besoin d'être réécrite au moment de la bascule.
-// TODO(étape C) : une fois `clubs` peuplée, ce repli disparaît des points
-// d'entrée (admin-login.js, portal-write.js) qui liront alors la vraie table.
+// ── Club BCC (chantier multitenant, étape C) ──
+// Depuis l'étape C, la table `clubs` a une vraie ligne (slug='bcc') dont
+// l'id EST cette constante — choisie à l'avance à l'étape B pour qu'aucune
+// donnée déjà écrite avec ce club_id n'ait eu besoin d'être réécrite au
+// moment du backfill. admin-login.js et portal-write.js ne s'appuient plus
+// sur cette constante pour émettre un token/résoudre un code — ils lisent la
+// table `clubs` en base — mais elle reste utilisée par verifyAdminToken()
+// (repli pour un très vieux token émis avant l'étape B, sans club_id dans son
+// payload) et par les tests.
 export const BCC_CLUB_ID = '00000000-0000-4000-a000-0000000000bc';
 
 export function issueAdminToken(clubId) {
@@ -104,31 +105,31 @@ export function verifyAdminToken(req) {
   return { role: data.role, club_id, exp: data.exp };
 }
 
-// ── Filtre de scoping club, avec repli legacy tant que le backfill (étape C)
-// n'a pas eu lieu ──
-// Les 5 tables existantes ont une colonne club_id NULLABLE (ajoutée à l'étape
-// A) : toutes les lignes actuelles ont club_id = NULL puisque le backfill ne
-// se fait qu'à l'étape C. Pour ne rien casser pour le BCC pendant cette
-// fenêtre, le scope "BCC" doit aussi matcher club_id IS NULL — ces lignes
-// NULL ne peuvent aujourd'hui appartenir qu'au BCC (seul club existant).
-// Un vrai 2ᵉ club (club_id réel, jamais BCC_CLUB_ID) ne matche lui QUE ses
-// propres lignes : aucune ambiguïté, aucune fuite cross-tenant possible via
-// ce repli, qui ne s'applique qu'au cas particulier BCC_CLUB_ID.
-// TODO(étape C) : une fois le backfill fait (plus aucune ligne club_id NULL),
-// supprimer le cas particulier et ne garder que `club_id=eq.<id>` pour tous.
+// ── Filtre de scoping club ──
+// Depuis l'étape C, le backfill a donné un club_id non-NULL à toutes les
+// lignes existantes (voir stagely-migrate-bcc.sql) : il n'y a plus de ligne
+// club_id IS NULL en base, donc plus aucune ambiguïté à couvrir. Le repli
+// legacy `or=(club_id.eq.<id>,club_id.is.null)` qui existait le temps de la
+// fenêtre entre l'étape B (scoping serveur) et l'étape C (backfill réel) a
+// été retiré : chaque club, BCC compris, ne matche plus que ses propres
+// lignes.
 export function clubOrFilter(clubId) {
-  const eid = encodeURIComponent(clubId);
-  if (clubId === BCC_CLUB_ID) {
-    return `or=(club_id.eq.${eid},club_id.is.null)`;
-  }
-  return `club_id=eq.${eid}`;
+  return `club_id=eq.${encodeURIComponent(clubId)}`;
 }
 
-export function checkPassword(candidate) {
-  const expected = (process.env.ADMIN_PWD_HASH || '').trim().toLowerCase();
+// Compare un mot de passe candidat à un hash sha256 hex attendu (constant-time).
+// Utilisé à la fois pour l'ancien chemin (env var ADMIN_PWD_HASH, gardé pour
+// compat) et pour le nouveau chemin étape C (colonne clubs.admin_pwd_hash lue
+// en base par admin-login.js).
+export function verifyPasswordHash(candidate, expectedHash) {
+  const expected = (expectedHash || '').trim().toLowerCase();
   if (!expected || typeof candidate !== 'string' || !candidate) return false;
   const got = sha256Hex(candidate).toLowerCase();
   return timingSafeEqualStr(got, expected);
+}
+
+export function checkPassword(candidate) {
+  return verifyPasswordHash(candidate, process.env.ADMIN_PWD_HASH);
 }
 
 // ── Validateurs communs ──

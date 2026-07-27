@@ -71,7 +71,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Non autorisé — reconnecte-toi en admin' });
   }
   const clubId = auth.club_id;
-  const scope = clubOrFilter(clubId); // cf. api/_lib.js — inclut le repli club_id IS NULL tant que le BCC n'est pas backfillé
+  const scope = clubOrFilter(clubId); // cf. api/_lib.js — club_id=eq.<id>, plus de repli IS NULL depuis le backfill de l'étape C
 
   const { action, payload } = req.body || {};
 
