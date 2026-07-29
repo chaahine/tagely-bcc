@@ -26,32 +26,19 @@
 //
 // Chantier multitenant, étape B/C : chaque appel doit désormais porter un
 // champ `code` dans le payload (le code d'accès portail, ex. 'BCCD25'). Le
-// serveur le résout en club_id (voir resolveClubId() plus bas, lecture réelle
-// de clubs.portal_code depuis l'étape C) et scope dessus toutes les
+// serveur le résout en club_id (voir resolveClubIdByPortalCode() dans
+// _lib.js, lecture réelle de clubs.portal_code depuis l'étape C) et scope dessus toutes les
 // lectures/écritures — un id de comédien deviné/fuité d'un club A ne permet
 // plus d'agir sur les données d'un club B.
 
-import { applyCors, sbAdmin, isNonEmptyString, SLOT_KEY_RE, idFromEmail, clubOrFilter } from './_lib.js';
+import { applyCors, sbAdmin, isNonEmptyString, SLOT_KEY_RE, idFromEmail, clubOrFilter, resolveClubIdByPortalCode } from './_lib.js';
 
 const MAX_ROWS = 500;
 
-// ── Résolution code portail → club (chantier multitenant, étape C) ──
-// Le portail n'a pas de token admin : chaque appel envoie le "code" d'accès
-// (le même que celui affiché/QR côté admin — CLUB_CODE dans index.html,
-// aujourd'hui 'BCCD25'). Le serveur ne fait JAMAIS confiance à un club_id
-// envoyé par le client : il re-résout le code à chaque appel, désormais par
-// une vraie lecture de clubs.portal_code (peuplée par la migration de
-// l'étape C). Un code inconnu, ou un club suspendu, est rejeté — pas de repli
-// permissif.
-async function resolveClubId(code) {
-  if (typeof code !== 'string' || !code.trim()) return null;
-  const rows = await sbAdmin('clubs', {
-    params: `?portal_code=eq.${encodeURIComponent(code.trim().toUpperCase())}&select=id,status`,
-  });
-  const club = Array.isArray(rows) && rows.length ? rows[0] : null;
-  if (!club || club.status === 'suspended') return null;
-  return club.id;
-}
+// Résolution code portail → club : voir resolveClubIdByPortalCode() dans
+// api/_lib.js (chantier multitenant, étape C/D) — factorisée là-bas pour
+// être réutilisée telle quelle par api/portal-resolve.js (étape D, lecture
+// seule côté portail).
 
 async function findComedianById(id, clubId) {
   const rows = await sbAdmin('comedians', {
@@ -90,7 +77,7 @@ export default async function handler(req, res) {
   // code manquant/inconnu est rejeté avant toute lecture/écriture.
   let clubId;
   try {
-    clubId = await resolveClubId(payload?.code);
+    clubId = await resolveClubIdByPortalCode(payload?.code);
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
   }

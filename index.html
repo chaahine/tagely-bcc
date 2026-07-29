@@ -1160,14 +1160,74 @@ if (!localStorage.getItem('stagely_club_code')) {
 }
 let currentCode = localStorage.getItem('stagely_club_code') || CLUB_CODE;
 
-let DAYS_CONFIG = [
-  {name:'MAR',label:'Mardi',   slots:['20H15','21H30']},
-  {name:'MER',label:'Mercredi',slots:['20H15','21H30']},
-  {name:'JEU',label:'Jeudi',   slots:['20H15','21H30']},
-  {name:'VEN',label:'Vendredi',slots:['19H00','20H15','21H30']},
-  {name:'SAM',label:'Samedi',  slots:['19H00','20H30','21H45','23H00']},
-  {name:'DIM',label:'Dimanche',slots:['20H15','21H30']},
+// ── Grille hebdomadaire (chantier multitenant, étape D) ──
+// Source de vérité désormais : la table `schedule_templates` (scopée par
+// club_id, chargée dans loadFromSupabase() ci-dessous). DEFAULT_DAYS_CONFIG
+// n'est qu'un REPLI, utilisé tant que schedule_templates est vide ou
+// inaccessible pour ce club (avant backfill DB, ou policy RLS pas encore
+// activée) — exactement la grille codée en dur historique du BCC, pour
+// garantir un comportement identique tant que la DB n'a pas pris le relais.
+// `wd` = index Date.getDay() (0=dimanche...6=samedi), aligné sur
+// schedule_templates.weekday. `slotIds` fait le lien suffix "20H15" -> id de
+// la ligne DB correspondante, rempli seulement quand les données viennent
+// réellement de schedule_templates (voir buildDaysConfigFromTemplates) —
+// nécessaire à rmSlot()/confirmSlot() pour écrire en base.
+// ── TEST-EXTRACT-START: grid ──
+// (tests/schedule-grid-client.test.mjs extrait tel quel ce bloc pour tester
+// le VRAI code shippé, sans navigateur — ne pas retirer ces marqueurs.)
+const DEFAULT_DAYS_CONFIG = [
+  {wd:2, name:'MAR',label:'Mardi',   slots:['20H15','21H30']},
+  {wd:3, name:'MER',label:'Mercredi',slots:['20H15','21H30']},
+  {wd:4, name:'JEU',label:'Jeudi',   slots:['20H15','21H30']},
+  {wd:5, name:'VEN',label:'Vendredi',slots:['19H00','20H15','21H30']},
+  {wd:6, name:'SAM',label:'Samedi',  slots:['19H00','20H30','21H45','23H00']},
+  {wd:0, name:'DIM',label:'Dimanche',slots:['20H15','21H30']},
 ];
+const DAY_NAMES_BY_WD = ['DIM','LUN','MAR','MER','JEU','VEN','SAM'];
+const DAY_LABELS_BY_WD = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+
+function cloneDefaultDaysConfig() {
+  return DEFAULT_DAYS_CONFIG.map(d => ({ ...d, slots: [...d.slots], slotIds: {} }));
+}
+
+// "20:15" (format DB, colonne schedule_templates.time) -> "20H15" (format
+// suffix de slot_key déjà utilisé partout ailleurs — ne JAMAIS changer ce
+// format, cf. règle métier sur les clés de créneaux).
+function timeToSuffix(t) {
+  return String(t).replace(':', 'H').toUpperCase();
+}
+
+// Convertit les lignes schedule_templates (scopées club) en la même forme
+// que DEFAULT_DAYS_CONFIG, en conservant l'ordre d'affichage historique
+// (MAR,MER,JEU,VEN,SAM,DIM — pas l'ordre calendaire qui commencerait par
+// DIM) pour qu'aucune régression visuelle n'apparaisse pour le BCC.
+// `previousDays` (optionnel) : la grille affichée avant ce rechargement —
+// sert seulement à garder visible, dans Réglages > Grille, la ligne d'un
+// jour qui vient de perdre son dernier créneau (sinon la ligne entière
+// disparaîtrait de renderSlotsCfg() au lieu de rester avec juste le bouton
+// "+ séance", cassant la possibilité d'en rajouter un pour ce jour-là).
+function buildDaysConfigFromTemplates(rows, previousDays) {
+  const byWd = {};
+  (previousDays || []).forEach(d => {
+    if (typeof d.wd === 'number') byWd[d.wd] = { wd: d.wd, slots: [], slotIds: {} };
+  });
+  (rows || []).filter(r => r.active !== false).forEach(r => {
+    const wd = Number(r.weekday);
+    if (!(wd >= 0 && wd <= 6)) return;
+    if (!byWd[wd]) byWd[wd] = { wd, slots: [], slotIds: {} };
+    const suffix = timeToSuffix(r.time);
+    if (!(suffix in byWd[wd].slotIds)) byWd[wd].slots.push(suffix);
+    byWd[wd].slotIds[suffix] = r.id;
+  });
+  const order = Object.keys(byWd).map(Number).sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b));
+  return order.map(wd => ({
+    wd, name: DAY_NAMES_BY_WD[wd], label: DAY_LABELS_BY_WD[wd],
+    slots: byWd[wd].slots.sort(), slotIds: byWd[wd].slotIds,
+  }));
+}
+// ── TEST-EXTRACT-END: grid ──
+
+let DAYS_CONFIG = cloneDefaultDaysConfig();
 
 const BASE_WEEK = new Date(2025,4,5);
 let weekOffset = 0;
@@ -3022,10 +3082,27 @@ function renderSlotsCfg(){
       </div>
     </div>`).join('');
 }
-function rmSlot(di,si){
-  delete assignments[`${DAYS_CONFIG[di].name}-${DAYS_CONFIG[di].slots[si]}`];
-  DAYS_CONFIG[di].slots.splice(si,1);
+// Chantier multitenant, étape D : la grille vit en base (schedule_templates),
+// scopée par club. rmSlot() reste optimiste côté UI (retire immédiatement,
+// comme avant) mais propage désormais la suppression au serveur si on
+// connaît l'id DB du créneau (day.slotIds — absent seulement pour un créneau
+// jamais synchronisé, càd venu du repli DEFAULT_DAYS_CONFIG avant tout
+// chargement réussi de schedule_templates : suppression locale seule alors,
+// comme le comportement historique).
+async function rmSlot(di,si){
+  const day = DAYS_CONFIG[di];
+  const suffix = day.slots[si];
+  const id = day.slotIds && day.slotIds[suffix];
+  delete assignments[`${day.name}-${suffix}`];
+  day.slots.splice(si,1);
+  if (id) delete day.slotIds[suffix];
   renderSlotsCfg();toast(`✕ Séance supprimée`);
+  if (id) {
+    const result = await adminWrite('removeScheduleSlot', {id});
+    if (!result || !result.success) toast('⚠ Suppression non confirmée côté serveur — recharge la page');
+  } else {
+    console.warn('[Stagely] rmSlot: pas d\'id DB pour ce créneau (repli local, jamais synchronisé) — suppression locale uniquement');
+  }
 }
 function showAddSlot(di){
   const el=document.getElementById(`sct-${di}`);
@@ -3043,15 +3120,25 @@ function restoreSlot(key) {
   toast('✓ Séance rétablie');
 }
 
-function confirmSlot(di,inp){
+async function confirmSlot(di,inp){
   let v=inp.value.trim().replace(':','H').toUpperCase();
   if(!v.match(/^\d{1,2}H\d{2}$/)){toast('Format : 20:00');return;}
   const[h,m]=v.split('H');v=`${h}H${m.padStart(2,'0')}`;
-  if(DAYS_CONFIG[di].slots.includes(v)){toast('Déjà existant');return;}
-  DAYS_CONFIG[di].slots.push(v);DAYS_CONFIG[di].slots.sort();
-  autoSave(); // Sauvegarde pour que le portail humoriste voit le nouveau créneau
+  const day = DAYS_CONFIG[di];
+  if(day.slots.includes(v)){toast('Déjà existant');return;}
+  // Chantier multitenant, étape D : écrit désormais réellement en base
+  // (schedule_templates, scopée club) — avant, ce commentaire ("disponible
+  // sur le portail") était trompeur : portal.html avait sa PROPRE copie
+  // codée en dur (DAYS_CFG) jamais synchronisée avec celle-ci. Maintenant
+  // c'est vrai : les deux se chargent depuis la même table.
+  const time = `${h.padStart(2,'0')}:${m.padStart(2,'0')}`;
+  const result = await adminWrite('addScheduleSlot', {weekday: day.wd, time, label: day.label});
+  if (!result || !result.success) { toast('✕ Erreur — créneau non enregistré'); return; }
+  day.slots.push(v);day.slots.sort();
+  if (!day.slotIds) day.slotIds = {};
+  if (result.template && result.template.id) day.slotIds[v] = result.template.id;
   renderSlotsCfg();
-  toast(`✓ Séance ${DAYS_CONFIG[di].name} ${v.replace('H',':')} ajoutée — disponible sur le portail`);
+  toast(`✓ Séance ${day.name} ${v.replace('H',':')} ajoutée — disponible sur le portail`);
 }
 
 // ══════════════════════════════════════════════════
@@ -3485,6 +3572,48 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 localStorage.removeItem('stagely_sb_key');
 let sbConnected = false;
 
+// ── club_id courant, décodé depuis le token admin (lecture seule — chantier
+// multitenant, étape D) ──
+// Le token admin (émis par /api/admin-login, voir issueAdminToken() dans
+// api/_lib.js) a la forme "payload.signature" où payload est le JSON
+// {role, club_id, exp} encodé en base64url. On le décode ici UNIQUEMENT
+// pour savoir quel club_id demander en lecture — la signature n'est jamais
+// revérifiée côté client (inutile : elle protège les écritures, qui
+// repassent de toute façon par le serveur via adminWrite()/verifyAdminToken).
+// Un attaquant qui falsifierait ce payload dans son propre navigateur ne
+// verrait au pire que ses propres données déjà accessibles, ou rien —
+// jamais celles d'un autre club, puisque aucune écriture n'en dépend.
+//
+// Repli sur BCC_CLUB_ID si aucune session admin valide n'est trouvée (même
+// logique de repli que verifyAdminToken() côté serveur pour un vieux token
+// sans club_id) : sans ça, les lectures directes depuis le vestige de
+// portail intégré à index.html (hv-screen, remplacé par portal.html mais
+// pas encore retiré du code) ou un état de session incohérent renverraient
+// silencieusement zéro ligne.
+// ── TEST-EXTRACT-START: club-id-decode ──
+// (tests/schedule-grid-client.test.mjs extrait tel quel ce bloc — ne pas
+// retirer ces marqueurs. Dépend de getAdminSession(), fourni par le sandbox
+// de test ; en prod c'est la fonction définie plus haut dans ce fichier.)
+const BCC_CLUB_ID = '00000000-0000-4000-a000-0000000000bc';
+
+function b64urlDecode(str) {
+  const padded = str.replace(/-/g, '+').replace(/_/g, '/').padEnd(str.length + (4 - str.length % 4) % 4, '=');
+  return decodeURIComponent(atob(padded).split('').map(c => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join(''));
+}
+
+function getCurrentClubId() {
+  try {
+    const session = getAdminSession();
+    const token = session && session.token;
+    if (token && token.includes('.')) {
+      const payload = JSON.parse(b64urlDecode(token.split('.')[0]));
+      if (payload && typeof payload.club_id === 'string' && payload.club_id) return payload.club_id;
+    }
+  } catch (e) { /* payload illisible — repli ci-dessous */ }
+  return BCC_CLUB_ID;
+}
+// ── TEST-EXTRACT-END: club-id-decode ──
+
 async function sbFetch(table, options = {}) {
   const { method='GET', body, params='' } = options;
   try {
@@ -3495,7 +3624,14 @@ async function sbFetch(table, options = {}) {
     };
     if (method === 'POST') headers['Prefer'] = 'resolution=merge-duplicates';
     if (method === 'DELETE') headers['Prefer'] = 'return=minimal';
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, {
+    // Chantier multitenant, étape D : toute lecture directe (clé anon) est
+    // désormais scopée par club_id, comme le sont déjà les écritures côté
+    // serveur (voir clubOrFilter() dans api/_lib.js). sbFetch() n'est utilisé
+    // QUE pour des lectures (cf. commentaire plus haut) donc ce filtre
+    // s'applique systématiquement, pas seulement pour method==='GET'.
+    const clubFilter = `club_id=eq.${encodeURIComponent(getCurrentClubId())}`;
+    const finalParams = params ? `${params}&${clubFilter}` : `?${clubFilter}`;
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${finalParams}`, {
       method, headers,
       body: body ? JSON.stringify(body) : undefined
     });
@@ -3565,12 +3701,13 @@ async function loadFromSupabase() {
     const dateFrom = getDisposDateFrom();
     const dateTo = getDisposDateTo();
     console.log(`[Stagely] Chargement dispos Supabase : ${dateFrom} → ${dateTo}`);
-    const [comedians, asgn, dispos, statuses, msgs] = await Promise.all([
+    const [comedians, asgn, dispos, statuses, msgs, templates] = await Promise.all([
       sbFetch('comedians', {params:'?order=name'}),
       sbFetch('assignments'),
       loadDisposPaginated(dateFrom, dateTo),
       sbFetch('dispo_status'),
-      sbFetch('chat_messages', {params:'?order=created_at&limit=100'})
+      sbFetch('chat_messages', {params:'?order=created_at&limit=100'}),
+      sbFetch('schedule_templates', {params:'?order=weekday,time'})
     ]);
     if (!comedians) { console.warn('[Stagely] Échec chargement comedians'); return false; }
     console.log(`[Stagely] Chargés : ${comedians.length} comédiens, ${asgn?.length||0} assignments, ${dispos?.length||0} dispos`);
@@ -3608,6 +3745,15 @@ async function loadFromSupabase() {
         time: new Date(m.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
         date: "Aujourd'hui"
       })));
+    }
+    // Grille hebdomadaire (schedule_templates) — repli sur la grille par
+    // défaut codée en dur si la table est vide/inaccessible pour ce club
+    // (voir commentaire sur DEFAULT_DAYS_CONFIG plus haut dans le fichier).
+    if (Array.isArray(templates) && templates.length) {
+      DAYS_CONFIG.splice(0, DAYS_CONFIG.length, ...buildDaysConfigFromTemplates(templates, DAYS_CONFIG));
+    } else {
+      console.warn('[Stagely] schedule_templates vide/inaccessible — repli sur la grille par défaut codée en dur');
+      DAYS_CONFIG.splice(0, DAYS_CONFIG.length, ...cloneDefaultDaysConfig());
     }
     sbConnected = true;
     showSaveIndicator('✓ Supabase connecté');
@@ -3659,8 +3805,9 @@ async function saveToSupabase() {
 function saveAll() {
   try {
     const data = {
-      // COMEDIANS et assignments viennent uniquement de Supabase
-      cancelledSlots, chatMessages, DAYS_CONFIG, currentCode, historique,
+      // COMEDIANS, assignments et DAYS_CONFIG viennent uniquement de Supabase
+      // (DAYS_CONFIG depuis schedule_templates, chantier multitenant étape D)
+      cancelledSlots, chatMessages, currentCode, historique,
       lastSaved: new Date().toISOString()
     };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
@@ -3679,7 +3826,9 @@ function loadAll() {
     // NE PAS charger assignments depuis localStorage — Supabase est la source de vérité
     // if (data.assignments) Object.assign(assignments, data.assignments);
     if (data.chatMessages) chatMessages.splice(0, chatMessages.length, ...data.chatMessages);
-    if (data.DAYS_CONFIG) DAYS_CONFIG.splice(0, DAYS_CONFIG.length, ...data.DAYS_CONFIG);
+    // NE PAS charger DAYS_CONFIG depuis localStorage — vient de schedule_templates
+    // (Supabase) depuis l'étape D ; un ancien snapshot localStorage ne doit plus
+    // jamais écraser la grille fraîchement chargée en DB.
     if (data.currentCode) currentCode = data.currentCode;
     if (data.cancelledSlots) Object.assign(cancelledSlots, data.cancelledSlots);
     return true;

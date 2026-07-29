@@ -6,17 +6,41 @@
 // service_role. Whitelist stricte des actions ci-dessous — tout le reste → 403.
 //
 // Actions :
-//  - sync          : upsert comédiens / remplacement complet des assignments /
-//                     upsert dispo_status / upsert dispos (reflète saveToSupabase()
-//                     et saveHumoristeFiche() côté client — un seul point d'entrée
-//                     pour toutes les sauvegardes "planning courant")
-//  - deleteComedian: supprime un comédien + toutes ses lignes liées
-//  - clearAll      : vide entièrement les 4 tables (reset total, très destructif)
-//  - chatSend      : insère un message admin dans chat_messages (alerte urgence)
+//  - sync             : upsert comédiens / remplacement complet des assignments /
+//                        upsert dispo_status / upsert dispos (reflète saveToSupabase()
+//                        et saveHumoristeFiche() côté client — un seul point d'entrée
+//                        pour toutes les sauvegardes "planning courant")
+//  - deleteComedian   : supprime un comédien + toutes ses lignes liées
+//  - clearAll         : vide entièrement les 4 tables (reset total, très destructif)
+//  - chatSend         : insère un message admin dans chat_messages (alerte urgence)
+//  - addScheduleSlot  : ajoute un créneau récurrent à la grille (schedule_templates),
+//                        chantier multitenant étape D — remplace la mutation locale
+//                        de DAYS_CONFIG par une écriture DB scopée au club
+//  - removeScheduleSlot : supprime un créneau récurrent (par id)
 
-import { applyCors, sbAdmin, verifyAdminToken, isNonEmptyString, SLOT_KEY_RE, clubOrFilter } from './_lib.js';
+import { applyCors, sbAdmin, verifyAdminToken, isNonEmptyString, SLOT_KEY_RE, clubOrFilter, newId } from './_lib.js';
 
 const MAX_BULK = 5000; // garde-fou anti-abus sur les upserts en masse
+
+// aligné sur Date.getDay() (0=dimanche ... 6=samedi), même convention que
+// schedule_templates.weekday (cf. stagely-multitenant-schema.sql) et que
+// DAY_NAMES côté client (index.html/portal.html)
+const TIME_RE = /^\d{2}:\d{2}$/;
+
+// Un club (BCC compris) peut ne pas encore avoir de ligne `rooms` (ex. club
+// migré avant que la notion de salle existe, ou tout juste créé). On ne
+// bloque jamais l'ajout d'un créneau pour cette raison : on crée une salle
+// par défaut à la volée plutôt que d'exposer ce détail interne à l'UI admin
+// (qui n'a aujourd'hui aucun concept de "salle").
+async function resolveDefaultRoomId(clubId) {
+  const rows = await sbAdmin('rooms', {
+    params: `?club_id=eq.${encodeURIComponent(clubId)}&active=eq.true&select=id&order=id&limit=1`,
+  });
+  if (Array.isArray(rows) && rows.length) return rows[0].id;
+  const room = { id: newId(), club_id: clubId, name: 'Salle principale', active: true };
+  await sbAdmin('rooms', { method: 'POST', body: [room] });
+  return room.id;
+}
 
 function sanitizeComedian(row) {
   if (!row || typeof row !== 'object') return null;
@@ -138,6 +162,47 @@ export default async function handler(req, res) {
         await sbAdmin('dispos', { method: 'DELETE', params: `?${scope}` });
         await sbAdmin('dispo_status', { method: 'DELETE', params: `?${scope}` });
         await sbAdmin('comedians', { method: 'DELETE', params: `?${scope}` });
+        return res.status(200).json({ success: true });
+      }
+
+      case 'addScheduleSlot': {
+        const p = payload || {};
+        const weekday = Number(p.weekday);
+        const time = p.time;
+        if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) {
+          return res.status(400).json({ error: 'weekday requis (0-6)' });
+        }
+        if (typeof time !== 'string' || !TIME_RE.test(time)) {
+          return res.status(400).json({ error: 'time requis au format HH:MM' });
+        }
+        const label = isNonEmptyString(p.label, 100) ? String(p.label).slice(0, 100) : null;
+
+        // Idempotent : un créneau déjà présent (même jour + heure, même club)
+        // n'est pas dupliqué — renvoie la ligne existante. L'UI admin fait
+        // déjà cette vérification côté client (DAYS_CONFIG[di].slots.includes),
+        // mais on ne fait jamais confiance au client seul pour l'intégrité DB.
+        const existing = await sbAdmin('schedule_templates', {
+          params: `?weekday=eq.${weekday}&time=eq.${encodeURIComponent(time)}&${scope}&select=id,club_id,room_id,weekday,time,label,active&limit=1`,
+        });
+        if (Array.isArray(existing) && existing.length) {
+          return res.status(200).json({ success: true, alreadyExists: true, template: existing[0] });
+        }
+
+        const roomId = await resolveDefaultRoomId(clubId);
+        const row = { id: newId(), club_id: clubId, room_id: roomId, weekday, time, label, active: true };
+        await sbAdmin('schedule_templates', { method: 'POST', body: [row] });
+        return res.status(200).json({ success: true, template: row });
+      }
+
+      case 'removeScheduleSlot': {
+        const id = payload?.id;
+        if (!isNonEmptyString(id, 100)) return res.status(400).json({ error: 'id requis' });
+        // Scopé au club authentifié — empêche un admin d'un club de supprimer
+        // (même en devinant un id) un créneau d'un autre club.
+        await sbAdmin('schedule_templates', {
+          method: 'DELETE',
+          params: `?id=eq.${encodeURIComponent(id)}&${scope}`,
+        });
         return res.status(200).json({ success: true });
       }
 

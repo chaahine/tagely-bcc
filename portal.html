@@ -294,7 +294,21 @@ const MOIS = ['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','
 const MOIS_FULL = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const DAYS = ['DIM','LUN','MAR','MER','JEU','VEN','SAM'];
 const DAYS_FR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
-const DAYS_CFG = [
+const DAY_LABELS_BY_WD = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+
+// ── Grille hebdomadaire (chantier multitenant, étape D) ──
+// Source de vérité désormais : la table `schedule_templates` (scopée par
+// club_id, chargée dans init() ci-dessous). DEFAULT_DAYS_CFG n'est qu'un
+// REPLI — la grille codée en dur historique du BCC, utilisée tant que
+// schedule_templates est vide/inaccessible pour ce club, pour garantir un
+// comportement identique tant que la DB n'a pas pris le relais. Même
+// contenu que DEFAULT_DAYS_CONFIG côté index.html (les deux copies étaient
+// dupliquées avant cette étape — désormais elles se rejoignent via la même
+// table DB, ceci n'est plus qu'un filet de sécurité local à chaque fichier).
+// ── TEST-EXTRACT-START: grid ──
+// (tests/schedule-grid-client.test.mjs extrait tel quel ce bloc pour tester
+// le VRAI code shippé, sans navigateur — ne pas retirer ces marqueurs.)
+const DEFAULT_DAYS_CFG = [
   {n:'MAR',l:'Mardi',s:['20H15','21H30']},
   {n:'MER',l:'Mercredi',s:['20H15','21H30']},
   {n:'JEU',l:'Jeudi',s:['20H15','21H30']},
@@ -302,6 +316,30 @@ const DAYS_CFG = [
   {n:'SAM',l:'Samedi',s:['19H00','20H30','21H45','23H00']},
   {n:'DIM',l:'Dimanche',s:['20H15','21H30']}
 ];
+const DAYS_CFG = DEFAULT_DAYS_CFG.map(d => ({...d, s:[...d.s]}));
+
+// "20:15" (format DB) -> "20H15" (format suffix de slot_key — ne jamais
+// changer, cf. règle métier sur les clés de créneaux).
+function timeToSuffix(t) {
+  return String(t).replace(':', 'H').toUpperCase();
+}
+
+// Même logique/ordre d'affichage que buildDaysConfigFromTemplates() côté
+// index.html (voir ce fichier pour le détail des commentaires) : ordre
+// historique MAR,MER,JEU,VEN,SAM,DIM, pas l'ordre calendaire.
+function buildDaysCfgFromTemplates(rows) {
+  const byWd = {};
+  (rows || []).filter(r => r.active !== false).forEach(r => {
+    const wd = Number(r.weekday);
+    if (!(wd >= 0 && wd <= 6)) return;
+    if (!byWd[wd]) byWd[wd] = [];
+    const suffix = timeToSuffix(r.time);
+    if (!byWd[wd].includes(suffix)) byWd[wd].push(suffix);
+  });
+  const order = Object.keys(byWd).map(Number).sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b));
+  return order.map(wd => ({ n: DAYS[wd], l: DAY_LABELS_BY_WD[wd], s: byWd[wd].sort() }));
+}
+// ── TEST-EXTRACT-END: grid ──
 
 let user = null;
 let mode = 'dispos';
@@ -310,17 +348,45 @@ let assignments = {};
 let comedians = [];
 let manageDates = {};
 
+// ── Résolution club_id (chantier multitenant, étape D) ──
+// Le portail n'a pas de token admin, seulement PORTAL_CODE (lu dans l'URL).
+// On résout ce code en club_id UNE fois via une route serveur publique en
+// lecture seule (api/portal-resolve.js, réutilise la même logique que
+// api/portal-write.js) — jamais deviné/fabriqué côté client. Le résultat est
+// mis en cache (une seule requête réseau, même si sb() est appelé plusieurs
+// fois avant que la résolution soit terminée : tous les appels partagent la
+// même promesse). Si le code est invalide, clubIdPromise résout à null et
+// les lectures ci-dessous filtrent alors sur club_id=eq.<vide> — zéro ligne
+// renvoyée plutôt qu'une fuite cross-tenant.
+let clubIdPromise = null;
+function getClubId() {
+  if (!clubIdPromise) {
+    clubIdPromise = fetch('/api/portal-resolve', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({code: PORTAL_CODE})
+    }).then(r => r.json()).then(d => (d && d.club_id) || null).catch(() => null);
+  }
+  return clubIdPromise;
+}
+
 // ── SUPABASE (lecture seule) ──
 // Les écritures ne passent plus par ici (clé anon) mais par /api/portal-write
 // (clé service_role côté serveur, cf portalWrite() plus bas). Les lectures
-// restent directes vers Supabase, couvertes par une policy RLS "lecture publique".
+// restent directes vers Supabase, couvertes par une policy RLS "lecture
+// publique" — mais scopées par club_id depuis l'étape D (voir getClubId()
+// ci-dessus) : indispensable dès qu'un 2e club existera, sinon un comédien
+// du club A verrait les données du club B.
 async function sb(table, opts={}) {
   const {method='GET', params='', body} = opts;
   try {
     const h = {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
     if (method==='POST') h['Prefer']='resolution=merge-duplicates';
     if (method==='DELETE') h['Prefer']='return=minimal';
-    const r = await fetch(SB_URL+'/rest/v1/'+table+params, {method, headers:h, body:body?JSON.stringify(body):undefined});
+    const clubId = await getClubId();
+    const clubFilter = 'club_id=eq.' + encodeURIComponent(clubId || '');
+    const finalParams = params ? params + '&' + clubFilter : '?' + clubFilter;
+    const r = await fetch(SB_URL+'/rest/v1/'+table+finalParams, {method, headers:h, body:body?JSON.stringify(body):undefined});
     return method==='GET' ? await r.json() : r.ok;
   } catch(e) { return method==='GET'?[]:false; }
 }
@@ -355,13 +421,24 @@ function showTab(name) {
 // ── INIT ──
 async function init() {
   // Charger données
-  const [c, a] = await Promise.all([sb('comedians',{params:'?order=name'}), sb('assignments')]);
+  const [c, a, tmpl] = await Promise.all([
+    sb('comedians',{params:'?order=name'}),
+    sb('assignments'),
+    sb('schedule_templates',{params:'?order=weekday,time'})
+  ]);
   comedians = c||[];
   assignments = {};
   (a||[]).forEach(r => {
     if (!assignments[r.slot_key]) assignments[r.slot_key]=[];
     assignments[r.slot_key].push(r.comedian_id);
   });
+  // Grille hebdomadaire (schedule_templates) — repli sur DEFAULT_DAYS_CFG si
+  // vide/inaccessible pour ce club (voir commentaire plus haut dans le fichier).
+  if (Array.isArray(tmpl) && tmpl.length) {
+    DAYS_CFG.splice(0, DAYS_CFG.length, ...buildDaysCfgFromTemplates(tmpl));
+  } else {
+    console.warn('[Stagely] schedule_templates vide/inaccessible — repli sur la grille par défaut codée en dur');
+  }
 
   // Charger infos sauvegardées
   const saved = localStorage.getItem('stagely_hv');

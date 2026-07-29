@@ -145,3 +145,31 @@ export function isNonEmptyString(v, max = 300) {
 export function idFromEmail(email) {
   return String(email).toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 50);
 }
+
+// Génère un id aléatoire pour les lignes créées côté serveur (rooms,
+// schedule_templates, ...) qui n'ont pas d'id "naturel" comme les comédiens
+// (idFromEmail). crypto.randomUUID() est disponible nativement sur le
+// runtime Node des fonctions Vercel, pas de dépendance supplémentaire.
+export function newId() {
+  return crypto.randomUUID();
+}
+
+// ── Résolution code portail → club (chantier multitenant, étape C/D) ──
+// Partagée par api/portal-write.js (écritures) et api/portal-resolve.js
+// (lecture seule, étape D) : un seul endroit qui décide ce qu'est un code
+// d'accès valide, pour ne jamais laisser diverger les deux routes. Le
+// portail n'a pas de token admin : chaque appel envoie le "code" d'accès
+// (le même que celui affiché/QR côté admin — CLUB_CODE dans index.html,
+// aujourd'hui 'BCCD25'). Le serveur ne fait JAMAIS confiance à un club_id
+// envoyé par le client : il re-résout le code à chaque appel, par une
+// lecture de clubs.portal_code. Un code inconnu, ou un club suspendu, est
+// rejeté — pas de repli permissif.
+export async function resolveClubIdByPortalCode(code) {
+  if (typeof code !== 'string' || !code.trim()) return null;
+  const rows = await sbAdmin('clubs', {
+    params: `?portal_code=eq.${encodeURIComponent(code.trim().toUpperCase())}&select=id,status`,
+  });
+  const club = Array.isArray(rows) && rows.length ? rows[0] : null;
+  if (!club || club.status === 'suspended') return null;
+  return club.id;
+}
