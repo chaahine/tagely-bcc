@@ -549,20 +549,27 @@ html.light{
       <div style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:22px;color:#f97316;letter-spacing:4px;margin-bottom:8px">STAGELY</div>
       <div style="font-size:12px;color:#555">Accès administrateur</div>
     </div>
-    <input type="password" id="admin-pwd" placeholder="Mot de passe"
+    <input type="email" id="admin-email" placeholder="Email" autocomplete="username"
+      style="width:100%;background:#111;border:1px solid #222;border-radius:10px;padding:13px 16px;color:#f0f0f0;font-size:14px;margin-bottom:12px;box-sizing:border-box"
+      onkeydown="if(event.key==='Enter') document.getElementById('admin-pwd').focus()">
+    <input type="password" id="admin-pwd" placeholder="Mot de passe" autocomplete="current-password"
       style="width:100%;background:#111;border:1px solid #222;border-radius:10px;padding:13px 16px;color:#f0f0f0;font-size:14px;margin-bottom:12px;box-sizing:border-box"
       onkeydown="if(event.key==='Enter') checkAdminPwd()">
-    <div id="admin-pwd-err" style="display:none;font-size:11px;color:#ef4444;margin-bottom:10px;text-align:center">⚠ Mot de passe incorrect</div>
+    <div id="admin-pwd-err" style="display:none;font-size:11px;color:#ef4444;margin-bottom:10px;text-align:center">⚠ Email ou mot de passe incorrect</div>
     <button onclick="checkAdminPwd()" style="width:100%;padding:13px;background:#f97316;color:#fff;border:none;border-radius:10px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;cursor:pointer">Accéder →</button>
+    <div style="text-align:center;font-size:11px;color:#555;margin-top:16px">Pas encore de club ? <a href="/register.html" style="color:#f97316;text-decoration:none">Créer votre espace</a></div>
   </div>
 </div>
 
 <script>
-// Auth admin : le mot de passe n'est plus comparé côté client. checkAdminPwd()
-// envoie le mot de passe à /api/admin-login qui le hash en SHA-256 côté serveur
-// et le compare à process.env.ADMIN_PWD_HASH. En cas de succès, un token signé
-// (HMAC, 12h) est renvoyé et stocké ici — il est envoyé en header Authorization
-// sur toutes les écritures admin (voir adminWrite() plus bas dans le fichier).
+// Auth admin : l'email et le mot de passe ne sont jamais comparés côté client.
+// checkAdminPwd() envoie {email, password} à /api/admin-login qui résout le
+// club par admin_email en base, hash le mot de passe en SHA-256 côté serveur
+// et le compare à clubs.admin_pwd_hash (chantier multitenant, étape F — avant
+// cette étape le club était résolu en dur sur le seul BCC). En cas de succès,
+// un token signé (HMAC, 12h) est renvoyé et stocké ici — il est envoyé en
+// header Authorization sur toutes les écritures admin (voir adminWrite() plus
+// bas dans le fichier).
 const ADMIN_SESSION_KEY = 'stagely_admin_session';
 
 function getAdminSession() {
@@ -587,7 +594,7 @@ function showHomeScreen() {
 function showAdminLogin() {
   document.getElementById('home-screen').style.display = 'none';
   document.getElementById('admin-login-screen').style.display = 'flex';
-  setTimeout(() => document.getElementById('admin-pwd')?.focus(), 100);
+  setTimeout(() => document.getElementById('admin-email')?.focus(), 100);
 }
 
 function showHumoristPortal() {
@@ -599,16 +606,22 @@ function showHumoristPortal() {
 }
 
 async function checkAdminPwd() {
+  const email = document.getElementById('admin-email').value.trim();
   const val = document.getElementById('admin-pwd').value;
   const btn = document.querySelector('#admin-login-screen button[onclick="checkAdminPwd()"]');
   const errEl = document.getElementById('admin-pwd-err');
   errEl.style.display = 'none';
+  if (!email || !val) {
+    errEl.textContent = '⚠ Email et mot de passe requis';
+    errEl.style.display = 'block';
+    return;
+  }
   if (btn) btn.disabled = true;
   try {
     const res = await fetch('/api/admin-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: val })
+      body: JSON.stringify({ email, password: val })
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.success && data.token) {
@@ -617,7 +630,7 @@ async function checkAdminPwd() {
       document.getElementById('home-screen').style.display = 'none';
       document.getElementById('admin-screen').style.removeProperty('display');
     } else {
-      errEl.textContent = res.status === 401 ? '⚠ Mot de passe incorrect' : '⚠ Erreur de connexion, réessaie';
+      errEl.textContent = (res.status === 401 || res.status === 403) ? ('⚠ ' + (data.error || 'Email ou mot de passe incorrect')) : '⚠ Erreur de connexion, réessaie';
       errEl.style.display = 'block';
       document.getElementById('admin-pwd').value = '';
       document.getElementById('admin-pwd').focus();

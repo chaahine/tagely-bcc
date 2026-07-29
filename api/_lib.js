@@ -118,9 +118,12 @@ export function clubOrFilter(clubId) {
 }
 
 // Compare un mot de passe candidat à un hash sha256 hex attendu (constant-time).
-// Utilisé à la fois pour l'ancien chemin (env var ADMIN_PWD_HASH, gardé pour
-// compat) et pour le nouveau chemin étape C (colonne clubs.admin_pwd_hash lue
-// en base par admin-login.js).
+// Prend le hash en paramètre plutôt que de le lire depuis une variable
+// d'environnement globale : depuis l'étape C, chaque club a son propre
+// admin_pwd_hash en base (colonne clubs.admin_pwd_hash), ce qui n'a plus de
+// sens dans un monde multi-club où plusieurs clubs coexistent (l'ancien
+// chemin par variable d'environnement ADMIN_PWD_HASH, à un seul mot de passe
+// pour toute l'app, a été retiré à l'étape F).
 export function verifyPasswordHash(candidate, expectedHash) {
   const expected = (expectedHash || '').trim().toLowerCase();
   if (!expected || typeof candidate !== 'string' || !candidate) return false;
@@ -128,15 +131,32 @@ export function verifyPasswordHash(candidate, expectedHash) {
   return timingSafeEqualStr(got, expected);
 }
 
-export function checkPassword(candidate) {
-  return verifyPasswordHash(candidate, process.env.ADMIN_PWD_HASH);
-}
-
 // ── Validateurs communs ──
 export const SLOT_KEY_RE = /^\d{4}-\d{2}-\d{2}-\d{2}h\d{2}$/i;
 
 export function isNonEmptyString(v, max = 300) {
   return typeof v === 'string' && v.trim().length > 0 && v.length <= max;
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isValidEmail(v) {
+  return typeof v === 'string' && v.trim().length > 0 && v.length <= 200 && EMAIL_RE.test(v.trim());
+}
+
+// Dérive un identifiant URL-safe (slug) à partir d'un nom libre — utilisé à
+// l'inscription self-service (étape F) pour générer clubs.slug à partir du
+// nom du club. Ne garantit PAS l'unicité : l'appelant (api/club-signup.js)
+// vérifie/retente en cas de collision.
+export function slugify(str, maxLen = 40) {
+  const base = String(str || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // retire les accents
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, maxLen)
+    .replace(/-+$/g, '');
+  return base || 'club';
 }
 
 // Même algorithme que le client (portal.html / index.html) pour dériver un id

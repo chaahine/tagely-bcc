@@ -1,0 +1,165 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stagely — Créer votre club</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#f97316">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;color:inherit}
+body{
+  font-family:'Inter',sans-serif;background:#080810;color:#f0f0f0;min-height:100vh;
+  display:flex;align-items:center;justify-content:center;padding:24px
+}
+.card{width:100%;max-width:400px;padding:32px 24px}
+.logo{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:22px;color:#f97316;letter-spacing:4px;text-align:center;margin-bottom:8px}
+.sub{font-size:12px;color:#555;text-align:center;margin-bottom:28px}
+.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#666;display:block;margin-bottom:6px;font-weight:600}
+.inp{
+  width:100%;background:#111;border:1px solid #222;border-radius:10px;padding:13px 16px;
+  color:#f0f0f0;font-size:14px;margin-bottom:14px;font-family:'Inter',sans-serif
+}
+.inp:focus{outline:none;border-color:#f97316}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.slug-preview{font-size:11px;color:#f97316;margin:-8px 0 14px;padding:0 2px}
+.btn{
+  width:100%;padding:13px;background:#f97316;color:#fff;border:none;border-radius:10px;
+  font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;cursor:pointer;margin-top:6px
+}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.err{
+  display:none;font-size:11px;color:#ef4444;margin-bottom:12px;padding:10px 12px;
+  background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;text-align:center
+}
+.ok{
+  display:none;font-size:12px;color:#22c55e;padding:14px;text-align:center;
+  background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:10px;margin-bottom:12px
+}
+.trial{
+  text-align:center;font-size:11px;color:#555;margin-top:18px;padding:10px;
+  background:#111;border:1px solid #222;border-radius:8px
+}
+.trial b{color:#f97316}
+.foot{text-align:center;font-size:11px;color:#555;margin-top:20px}
+.foot a{color:#f97316;text-decoration:none}
+.back{background:none;border:none;color:#555;cursor:pointer;font-size:12px;margin-bottom:22px;display:flex;align-items:center;gap:4px;padding:0}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <button class="back" onclick="location.href='/'">← Retour</button>
+  <div class="logo">STAGELY</div>
+  <div class="sub">Créez l'espace de votre comedy club</div>
+
+  <div class="err" id="err"></div>
+  <div class="ok" id="ok">✓ Votre espace a été créé ! Redirection en cours...</div>
+
+  <form id="register-form" onsubmit="event.preventDefault(); register()">
+    <label class="lbl">Nom du club</label>
+    <input class="inp" id="club-name" placeholder="Ex: Le Rire Jaune" oninput="updateSlugPreview()" required>
+    <div class="slug-preview">stagely.app/<span id="slug-preview">votre-club</span></div>
+
+    <label class="lbl">Ville</label>
+    <input class="inp" id="club-city" placeholder="Paris">
+
+    <label class="lbl">Email admin</label>
+    <input class="inp" id="club-email" type="email" placeholder="vous@votreclub.fr" required>
+
+    <div class="row2">
+      <div>
+        <label class="lbl">Mot de passe</label>
+        <input class="inp" id="club-pwd" type="password" placeholder="6 caractères min." required>
+      </div>
+      <div>
+        <label class="lbl">Confirmer</label>
+        <input class="inp" id="club-pwd2" type="password" placeholder="Même mot de passe" required>
+      </div>
+    </div>
+
+    <button class="btn" id="btn-register" type="submit">Créer mon espace →</button>
+  </form>
+
+  <div class="trial">✨ Essai gratuit <b>14 jours</b> · Sans engagement</div>
+  <div class="foot">Déjà un compte ? <a href="/">Se connecter</a></div>
+</div>
+
+<script>
+function slugifyPreview(name) {
+  return name.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40) || 'votre-club';
+}
+
+function updateSlugPreview() {
+  document.getElementById('slug-preview').textContent = slugifyPreview(document.getElementById('club-name').value || '');
+}
+
+async function register() {
+  const name = document.getElementById('club-name').value.trim();
+  const city = document.getElementById('club-city').value.trim();
+  const email = document.getElementById('club-email').value.trim();
+  const pwd = document.getElementById('club-pwd').value;
+  const pwd2 = document.getElementById('club-pwd2').value;
+  const errEl = document.getElementById('err');
+  const okEl = document.getElementById('ok');
+  const btn = document.getElementById('btn-register');
+  errEl.style.display = 'none';
+  okEl.style.display = 'none';
+
+  if (!name || !email || !pwd) {
+    errEl.textContent = '⚠ Remplis tous les champs obligatoires';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (pwd.length < 6) {
+    errEl.textContent = '⚠ Le mot de passe doit faire au moins 6 caractères';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (pwd !== pwd2) {
+    errEl.textContent = '⚠ Les mots de passe ne correspondent pas';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Création en cours...';
+
+  try {
+    const res = await fetch('/api/club-signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, city, email, password: pwd })
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (res.ok && data.success && data.token) {
+      // Auto-connexion : même clé de session que index.html (checkAdminPwd()),
+      // pour atterrir directement dans le dashboard sans re-saisir quoi que ce soit.
+      localStorage.setItem('stagely_admin_session', JSON.stringify({ token: data.token, expiresAt: data.expiresAt }));
+      okEl.style.display = 'block';
+      setTimeout(() => { window.location.href = '/'; }, 1200);
+    } else {
+      errEl.textContent = '⚠ ' + (data.error || 'Erreur lors de la création, réessaie');
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Créer mon espace →';
+    }
+  } catch (e) {
+    errEl.textContent = '⚠ Erreur réseau, réessaie';
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Créer mon espace →';
+  }
+}
+</script>
+</body>
+</html>

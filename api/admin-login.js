@@ -1,20 +1,28 @@
-// POST /api/admin-login  { password }
-// Vérifie le mot de passe admin côté serveur (hash SHA-256 comparé à
-// clubs.admin_pwd_hash, jamais en clair ni en dur dans le code client) et
+// POST /api/admin-login  { email, password }
+// Vérifie l'email + le mot de passe admin côté serveur (hash SHA-256 comparé
+// à clubs.admin_pwd_hash, jamais en clair ni en dur dans le code client) et
 // retourne un token signé (HMAC-SHA256, 12h) à utiliser en header
 // Authorization: Bearer <token> sur les routes d'écriture admin.
+//
+// Chantier multitenant, étape F : le club n'est plus résolu en dur sur
+// slug='bcc' (repli temporaire posé à l'étape C) — chaque club a son propre
+// admin_email unique en base, c'est lui qui identifie le club à la connexion,
+// exactement comme l'inscription self-service (api/club-signup.js) l'a créé.
+//
+// Sécurité : la réponse est volontairement identique (même statut HTTP, même
+// message générique) que l'email soit inconnu OU que le mot de passe soit
+// faux — ne jamais laisser un attaquant déduire qu'un email existe. Pour ne
+// pas non plus laisser fuiter cette info par le TEMPS de réponse, un hash
+// bidon est comparé (avec la même fonction constant-time) même quand aucun
+// club ne correspond à l'email.
 
 import { applyCors, sbAdmin, verifyPasswordHash, issueAdminToken } from './_lib.js';
 
-// ── Résolution du club à la connexion (chantier multitenant, étape C) ──
-// Le formulaire de login (index.html) n'a pas encore de sélecteur de club —
-// ce sera l'étape F (inscription self-service). Un seul club existe pour
-// l'instant : on résout donc sur slug='bcc' en dur ici, mais le mot de passe
-// est désormais vérifié contre la colonne clubs.admin_pwd_hash lue en base
-// (peuplée par la migration de l'étape C), plus contre la variable
-// d'environnement ADMIN_PWD_HASH.
-// TODO(étape F) : remplacer 'bcc' par un slug/email envoyé par le formulaire.
-const LOGIN_CLUB_SLUG = 'bcc';
+const GENERIC_ERROR = 'Email ou mot de passe incorrect';
+// Hash sha256 valide (64 caractères hex) mais qui ne correspond à aucun mot
+// de passe réel — sert uniquement à occuper le même temps de calcul que la
+// comparaison réelle quand l'email n'existe pas en base.
+const DUMMY_HASH = '0'.repeat(64);
 
 export default async function handler(req, res) {
   applyCors(res);
@@ -25,28 +33,26 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Configuration serveur incomplète (variable d\'environnement manquante)' });
   }
 
-  const { password } = req.body || {};
-  if (!password || typeof password !== 'string') {
-    return res.status(400).json({ error: 'Mot de passe requis' });
+  const { email, password } = req.body || {};
+  if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
+    return res.status(400).json({ error: 'Email et mot de passe requis' });
   }
 
   try {
     const rows = await sbAdmin('clubs', {
-      params: `?slug=eq.${encodeURIComponent(LOGIN_CLUB_SLUG)}&select=id,status,admin_pwd_hash`,
+      params: `?admin_email=eq.${encodeURIComponent(email.trim().toLowerCase())}&select=id,status,admin_pwd_hash`,
     });
     const club = Array.isArray(rows) && rows.length ? rows[0] : null;
-    if (!club) {
-      // La table `clubs` n'a pas (encore) la ligne BCC — la migration de
-      // l'étape C n'a pas été exécutée. Pas de repli silencieux vers l'env
-      // var ici : un login qui échoue bruyamment est préférable à un login
-      // qui semble marcher contre la mauvaise source de vérité.
-      return res.status(500).json({ error: 'Club introuvable en base — migration étape C non exécutée' });
+
+    // Toujours exécuter la comparaison (contre le hash réel si le club
+    // existe, contre un hash bidon sinon) pour garder un temps de réponse
+    // homogène entre "email inconnu" et "email connu, mauvais mot de passe".
+    const passwordOk = verifyPasswordHash(password, club ? club.admin_pwd_hash : DUMMY_HASH);
+    if (!club || !passwordOk) {
+      return res.status(401).json({ error: GENERIC_ERROR });
     }
     if (club.status === 'suspended') {
       return res.status(403).json({ error: 'Ce club est suspendu' });
-    }
-    if (!verifyPasswordHash(password, club.admin_pwd_hash)) {
-      return res.status(401).json({ error: 'Mot de passe incorrect' });
     }
 
     const { token, exp } = issueAdminToken(club.id);
