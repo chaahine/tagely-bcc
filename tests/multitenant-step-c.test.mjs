@@ -53,10 +53,12 @@ function fakeRes() {
   return res;
 }
 
-// ── Table `clubs` simulée : deux clubs actifs, hash et slug distincts ──
+// ── Table `clubs` simulée : deux clubs actifs, hash, slug et email distincts ──
+const BCC_ADMIN_EMAIL = 'bcc-admin@test.fr';
+const SECOND_ADMIN_EMAIL = 'club2-admin@test.fr';
 const CLUBS_TABLE = [
-  { id: BCC_CLUB_ID, slug: 'bcc', portal_code: 'BCCD25', status: 'active', admin_pwd_hash: BCC_HASH },
-  { id: SECOND_CLUB_ID, slug: 'club2', portal_code: 'CLUB2X', status: 'active', admin_pwd_hash: SECOND_HASH },
+  { id: BCC_CLUB_ID, slug: 'bcc', portal_code: 'BCCD25', admin_email: BCC_ADMIN_EMAIL, status: 'active', admin_pwd_hash: BCC_HASH },
+  { id: SECOND_CLUB_ID, slug: 'club2', portal_code: 'CLUB2X', admin_email: SECOND_ADMIN_EMAIL, status: 'active', admin_pwd_hash: SECOND_HASH },
 ];
 
 function mockClubsTable(extra) {
@@ -65,6 +67,8 @@ function mockClubsTable(extra) {
       if (call.url.includes('slug=eq.bcc')) return CLUBS_TABLE.filter(c => c.slug === 'bcc');
       if (call.url.includes('portal_code=eq.BCCD25')) return CLUBS_TABLE.filter(c => c.portal_code === 'BCCD25');
       if (call.url.includes('portal_code=eq.CLUB2X')) return CLUBS_TABLE.filter(c => c.portal_code === 'CLUB2X');
+      const m = call.url.match(/admin_email=eq\.([^&]+)/);
+      if (m) return CLUBS_TABLE.filter(c => c.admin_email === decodeURIComponent(m[1]));
       return [];
     }
     return extra ? extra(call) : [];
@@ -88,17 +92,21 @@ test('verifyPasswordHash : rejette le mot de passe d\'un AUTRE club même si le 
 // admin-login.js — le mot de passe du club BCC ne doit jamais déverrouiller
 // un autre club, même si les deux existent en base simultanément
 // ════════════════════════════════════════════════════════════════════════
-// Remarque : LOGIN_CLUB_SLUG est en dur sur 'bcc' tant que le formulaire de
-// login n'a pas de sélecteur de club (étape F). Ce test documente donc l'état
-// actuel : le endpoint /api/admin-login ne peut connecter QUE le BCC pour
-// l'instant, mais la vérification de mot de passe passe bien par la colonne
-// DB du club résolu, pas par une constante globale.
+// Mis à jour pour l'étape F : le endpoint résout désormais le club par
+// admin_email (plus par slug 'bcc' en dur) — les deux clubs de CLUBS_TABLE
+// sont donc chacun indépendamment atteignables via /api/admin-login. Ce qui
+// est vérifié ici : le mot de passe du second club n'ouvre jamais le compte
+// du BCC, même en connaissant son email — l'intention d'origine du test
+// (pas de confusion inter-club) est inchangée, seul le contrat d'appel a
+// changé ({email, password} au lieu de {password} seul). Couverture
+// complémentaire (inscription self-service, isolation entre deux nouveaux
+// clubs) dans tests/multitenant-step-f.test.mjs.
 
 const adminLoginHandler = (await import('../api/admin-login.js')).default;
 
-test('admin-login : mot de passe du BCC → token avec BCC_CLUB_ID, même si un second club existe en base', async () => {
+test('admin-login : email + mot de passe du BCC → token avec BCC_CLUB_ID, même si un second club existe en base', async () => {
   const mock = mockClubsTable();
-  const req = fakeReq({ body: { password: 'bcc-secret' } });
+  const req = fakeReq({ body: { email: BCC_ADMIN_EMAIL, password: 'bcc-secret' } });
   const res = fakeRes();
   await adminLoginHandler(req, res);
   mock.restore();
@@ -107,13 +115,26 @@ test('admin-login : mot de passe du BCC → token avec BCC_CLUB_ID, même si un 
   assert.equal(claims.club_id, BCC_CLUB_ID);
 });
 
-test('admin-login : mot de passe du second club refusé sur l\'endpoint résolu BCC (pas de confusion inter-club)', async () => {
+test('admin-login : le mot de passe du second club ne déverrouille JAMAIS le compte BCC, même avec le bon email BCC (pas de confusion inter-club)', async () => {
   const mock = mockClubsTable();
-  const req = fakeReq({ body: { password: 'second-secret' } });
+  const req = fakeReq({ body: { email: BCC_ADMIN_EMAIL, password: 'second-secret' } });
   const res = fakeRes();
   await adminLoginHandler(req, res);
   mock.restore();
   assert.equal(res.statusCode, 401);
+  assert.equal(res.body.token, undefined);
+});
+
+test('admin-login : le second club se connecte désormais aussi avec ses propres identifiants (résolution par email, plus par slug en dur BCC)', async () => {
+  const mock = mockClubsTable();
+  const req = fakeReq({ body: { email: SECOND_ADMIN_EMAIL, password: 'second-secret' } });
+  const res = fakeRes();
+  await adminLoginHandler(req, res);
+  mock.restore();
+  assert.equal(res.statusCode, 200);
+  const claims = verifyAdminToken(fakeReq({ token: res.body.token }));
+  assert.equal(claims.club_id, SECOND_CLUB_ID);
+  assert.notEqual(claims.club_id, BCC_CLUB_ID);
 });
 
 // ════════════════════════════════════════════════════════════════════════

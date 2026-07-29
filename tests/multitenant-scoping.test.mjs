@@ -134,27 +134,39 @@ test('clubOrFilter : un vrai 2e club ne matche QUE son propre club_id', () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════
-// admin-login.js — étape C : lecture réelle de clubs.admin_pwd_hash
+// admin-login.js — étape C puis F : lecture réelle de clubs.admin_pwd_hash,
+// résolution par admin_email (plus par slug en dur) depuis l'étape F
 // ════════════════════════════════════════════════════════════════════════
-// Tests détaillés du nouveau flux DB dans tests/multitenant-step-c.test.mjs.
-// Ceux-ci vérifient juste que le chemin nominal continue de fonctionner une
-// fois la ligne `clubs` du BCC présente en base (mockée ici).
+// Tests détaillés du nouveau flux DB dans tests/multitenant-step-c.test.mjs
+// (isolation entre deux clubs réels) et tests/multitenant-step-f.test.mjs
+// (inscription self-service, résolution par email). Ceux-ci vérifient juste
+// que le chemin nominal continue de fonctionner une fois une ligne `clubs`
+// présente en base (mockée ici).
+//
+// Mis à jour pour l'étape F (le endpoint accepte désormais {email, password}
+// au lieu de {password} seul, résolu par slug 'bcc' en dur) : ces requêtes de
+// test envoient maintenant un email. Le mock mockClubsLookup() ne filtre pas
+// réellement sur la valeur d'admin_email envoyée (il retourne la même ligne
+// pour n'importe quelle requête GET /clubs) — suffisant ici puisque
+// l'isolation entre plusieurs clubs réels est déjà couverte ailleurs
+// (multitenant-step-c.test.mjs, multitenant-step-f.test.mjs).
 
 const adminLoginHandler = (await import('../api/admin-login.js')).default;
+const BCC_ADMIN_EMAIL = 'bcc-admin@test.fr';
 const BCC_ADMIN_PWD_HASH = '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'; // sha256('test')
 
 function mockClubsLookup(overrides = {}) {
   return installFetchMock((call) => {
     if (call.url.includes('/clubs') && call.method === 'GET') {
-      return [{ id: BCC_CLUB_ID, status: 'active', admin_pwd_hash: BCC_ADMIN_PWD_HASH, ...overrides }];
+      return [{ id: BCC_CLUB_ID, admin_email: BCC_ADMIN_EMAIL, status: 'active', admin_pwd_hash: BCC_ADMIN_PWD_HASH, ...overrides }];
     }
     return [];
   });
 }
 
-test('admin-login : mot de passe correct → token portant l\'id réel du club lu en base', async () => {
+test('admin-login : email + mot de passe corrects → token portant l\'id réel du club lu en base', async () => {
   const mock = mockClubsLookup();
-  const req = fakeReq({ body: { password: 'test' } });
+  const req = fakeReq({ body: { email: BCC_ADMIN_EMAIL, password: 'test' } });
   const res = fakeRes();
   await adminLoginHandler(req, res);
   mock.restore();
@@ -166,7 +178,7 @@ test('admin-login : mot de passe correct → token portant l\'id réel du club l
 
 test('admin-login : mauvais mot de passe → 401, pas de token émis', async () => {
   const mock = mockClubsLookup();
-  const req = fakeReq({ body: { password: 'mauvais' } });
+  const req = fakeReq({ body: { email: BCC_ADMIN_EMAIL, password: 'mauvais' } });
   const res = fakeRes();
   await adminLoginHandler(req, res);
   mock.restore();
@@ -174,19 +186,26 @@ test('admin-login : mauvais mot de passe → 401, pas de token émis', async () 
   assert.equal(res.body.token, undefined);
 });
 
-test('admin-login : club absent de la table clubs (migration étape C pas exécutée) → 500 explicite, pas de repli silencieux', async () => {
-  const mock = installFetchMock(() => []); // aucune ligne clubs
-  const req = fakeReq({ body: { password: 'test' } });
+test('admin-login : email inconnu (aucun club ne correspond) → 401 générique, JAMAIS un 500 qui laisserait deviner que le compte n\'existe pas', async () => {
+  // Avant l'étape F, un seul club existait et l'endpoint était résolu sur un
+  // slug en dur : une table `clubs` vide (migration pas encore jouée) était
+  // une erreur de configuration serveur détectée bruyamment (500). Depuis
+  // l'étape F, plusieurs clubs coexistent et un email qui ne correspond à
+  // aucun club est un cas NORMAL (mauvaise saisie, compte inexistant) — il
+  // doit être indiscernable d'un mauvais mot de passe, jamais un 500.
+  const mock = installFetchMock(() => []); // aucune ligne clubs ne matche cet email
+  const req = fakeReq({ body: { email: 'personne@example.com', password: 'test' } });
   const res = fakeRes();
   await adminLoginHandler(req, res);
   mock.restore();
-  assert.equal(res.statusCode, 500);
-  assert.ok(res.body.token === undefined);
+  assert.equal(res.statusCode, 401);
+  assert.equal(res.body.error, 'Email ou mot de passe incorrect');
+  assert.equal(res.body.token, undefined);
 });
 
 test('admin-login : club suspendu → 403, même avec le bon mot de passe', async () => {
   const mock = mockClubsLookup({ status: 'suspended' });
-  const req = fakeReq({ body: { password: 'test' } });
+  const req = fakeReq({ body: { email: BCC_ADMIN_EMAIL, password: 'test' } });
   const res = fakeRes();
   await adminLoginHandler(req, res);
   mock.restore();
