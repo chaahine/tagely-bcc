@@ -3759,13 +3759,16 @@ async function loadFromSupabase() {
         date: "Aujourd'hui"
       })));
     }
-    // Grille hebdomadaire (schedule_templates) — repli sur la grille par
-    // défaut codée en dur si la table est vide/inaccessible pour ce club
-    // (voir commentaire sur DEFAULT_DAYS_CONFIG plus haut dans le fichier).
-    if (Array.isArray(templates) && templates.length) {
+    // Grille hebdomadaire (schedule_templates) — le repli sur la grille par
+    // défaut codée en dur ne doit s'appliquer QUE si le chargement a
+    // techniquement échoué (sbFetch renvoie null), jamais quand la requête a
+    // réussi mais renvoyé zéro ligne : c'est l'état normal d'un club tout
+    // juste inscrit (club-signup ne pré-remplit pas de grille), qui doit voir
+    // une grille vide à configurer dans Réglages — pas celle du BCC.
+    if (templates !== null) {
       DAYS_CONFIG.splice(0, DAYS_CONFIG.length, ...buildDaysConfigFromTemplates(templates, DAYS_CONFIG));
     } else {
-      console.warn('[Stagely] schedule_templates vide/inaccessible — repli sur la grille par défaut codée en dur');
+      console.warn('[Stagely] schedule_templates inaccessible (échec réseau) — repli sur la grille par défaut codée en dur');
       DAYS_CONFIG.splice(0, DAYS_CONFIG.length, ...cloneDefaultDaysConfig());
     }
     sbConnected = true;

@@ -388,7 +388,7 @@ async function sb(table, opts={}) {
     const finalParams = params ? params + '&' + clubFilter : '?' + clubFilter;
     const r = await fetch(SB_URL+'/rest/v1/'+table+finalParams, {method, headers:h, body:body?JSON.stringify(body):undefined});
     return method==='GET' ? await r.json() : r.ok;
-  } catch(e) { return method==='GET'?[]:false; }
+  } catch(e) { return method==='GET'?null:false; }
 }
 
 // ── Proxy d'écriture serveur (api/portal-write.js) ──
@@ -432,12 +432,15 @@ async function init() {
     if (!assignments[r.slot_key]) assignments[r.slot_key]=[];
     assignments[r.slot_key].push(r.comedian_id);
   });
-  // Grille hebdomadaire (schedule_templates) — repli sur DEFAULT_DAYS_CFG si
-  // vide/inaccessible pour ce club (voir commentaire plus haut dans le fichier).
-  if (Array.isArray(tmpl) && tmpl.length) {
+  // Grille hebdomadaire (schedule_templates) — repli sur DEFAULT_DAYS_CFG
+  // seulement si le chargement a techniquement échoué (sb() renvoie null),
+  // jamais quand la requête a réussi avec zéro ligne : c'est l'état normal
+  // d'un club tout juste inscrit, qui doit voir une grille vide plutôt que
+  // celle du BCC (cf. même correctif côté index.html).
+  if (tmpl !== null) {
     DAYS_CFG.splice(0, DAYS_CFG.length, ...buildDaysCfgFromTemplates(tmpl));
   } else {
-    console.warn('[Stagely] schedule_templates vide/inaccessible — repli sur la grille par défaut codée en dur');
+    console.warn('[Stagely] schedule_templates inaccessible (échec réseau) — repli sur la grille par défaut codée en dur');
   }
 
   // Charger infos sauvegardées
