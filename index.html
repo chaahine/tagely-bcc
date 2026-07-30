@@ -986,9 +986,6 @@ window.addEventListener('DOMContentLoaded', () => {
               <div style="flex:1;background:var(--s3);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--b);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">tagely-bcc.vercel.app/portal.html</div>
               <button class="btn btn-ghost" onclick="navigator.clipboard.writeText('https://tagely-bcc.vercel.app/portal.html');toast('✓ Lien copié')" style="font-size:10px;flex-shrink:0">📋 Copier</button>
             </div>
-            <div style="font-size:9px;color:var(--muted);margin-bottom:8px">QR Code</div>
-            <div id="qr-wrap" style="display:inline-block;line-height:0"></div>
-            <div style="margin-top:8px"><button class="btn btn-ghost" onclick="downloadQR()" style="font-size:9px">↓ Télécharger le QR</button></div>
           </div>
 
           <!-- Séances -->
@@ -1010,19 +1007,6 @@ window.addEventListener('DOMContentLoaded', () => {
             <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Service ID</label><div style="font-size:11px;color:var(--b);padding:8px 12px;background:var(--s3);border-radius:6px;border:1px solid var(--border2);font-family:monospace">service_eyt0g4q</div></div>
             <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Template ID</label><div style="font-size:11px;color:var(--b);padding:8px 12px;background:var(--s3);border-radius:6px;border:1px solid var(--border2);font-family:monospace">template_322qzcp</div></div>
             <div style="margin-bottom:14px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Test email</label><div style="display:flex;gap:6px"><input class="fi" id="test-email-input" placeholder="ton@email.com" style="flex:1"><button class="btn btn-o" onclick="sendEmail(document.getElementById('test-email-input').value,'Test BCC Stagely','Ceci est un test depuis Stagely').then(r=>toast(r.success?'✓ Email envoyé':'✕ Erreur'))" style="font-size:10px;flex-shrink:0">🚀 Tester</button></div></div>
-          </div>
-
-          <!-- Config WhatsApp -->
-          <div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-              <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);font-weight:700">📱 WhatsApp Business API</div>
-              <div id="wa-status" style="font-size:9px;padding:3px 10px;border-radius:20px;background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.3);font-weight:600">✕ NON CONFIGURÉ</div>
-            </div>
-            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Bearer Token Meta</label><div style="display:flex;gap:6px"><input class="fi" id="wa-token" type="password" placeholder="EAABwz..." style="flex:1"><button class="btn btn-ghost" onclick="this.previousElementSibling.type=this.previousElementSibling.type==='password'?'text':'password'" style="font-size:9px">👁</button></div></div>
-            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Phone Number ID</label><input class="fi" id="wa-phone-id" placeholder="296836181..." style="width:100%"></div>
-            <button class="btn btn-o" onclick="saveWAConfig()" style="width:100%;margin-bottom:10px">💾 Sauvegarder WhatsApp</button>
-            <div style="margin-bottom:8px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Test WhatsApp</label><div style="display:flex;gap:6px"><input class="fi" id="test-wa-input" placeholder="33612345678" style="flex:1"><button class="btn btn-o" onclick="testWA()" style="font-size:10px;flex-shrink:0">📱 Tester</button></div></div>
-            <div style="font-size:9px;color:var(--muted)">⚠ Nécessite un compte Meta Business. <a href="https://developers.facebook.com/docs/whatsapp/cloud-api" target="_blank" style="color:var(--b)">Doc Meta →</a></div>
           </div>
 
           <!-- Préférences -->
@@ -1909,8 +1893,7 @@ function nav(id) {
   if(id==='reglages') { 
     const vr = document.getElementById('view-reglages');
     if(vr) vr.style.display = 'block';
-    renderSlotsCfg(); 
-    try { updateShareWidget(currentCode); } catch(e) {}
+    renderSlotsCfg();
   }
 
 }
@@ -3003,15 +2986,7 @@ function regenCode(){
   currentCode=code;
   localStorage.setItem('stagely_club_code', code);
   document.getElementById('club-code').textContent=code;
-  updateShareWidget(code);
   toast('✓ Nouveau code généré');
-}
-
-function updateShareWidget(code) {
-  const link = `tagely-bcc.vercel.app/portal?code=${code}`;
-  const el = document.getElementById('share-link-val');
-  if (el) el.textContent = link;
-  generateQR(link);
 }
 
 function copyShareLink() {
@@ -3021,67 +2996,12 @@ function copyShareLink() {
   toast('✓ Lien copié');
 }
 
-// QR code generation — thème sombre
-function generateQR(text) {
-  const wrap = document.getElementById('qr-wrap');
-  if (!wrap) return;
-  const isDark = !document.documentElement.classList.contains('light');
-  const bgColor = isDark ? '#0f0f0f' : '#ffffff';
-  const fgColor = isDark ? '#f97316' : '#000000';
-  const size = 120;
-  const canvas = document.createElement('canvas');
-  canvas.width = size; canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = bgColor;
-  ctx.fillRect(0,0,size,size);
-  const cells = 21;
-  const cell = Math.floor(size / cells);
-  const seed = text.split('').reduce((a,c)=>a+c.charCodeAt(0),0);
-  function rng(i) { const x = Math.sin(seed + i) * 10000; return x - Math.floor(x); }
-  function drawFinder(ox, oy) {
-    ctx.fillStyle = fgColor;
-    ctx.fillRect(ox*cell, oy*cell, 7*cell, 7*cell);
-    ctx.fillStyle = bgColor;
-    ctx.fillRect((ox+1)*cell, (oy+1)*cell, 5*cell, 5*cell);
-    ctx.fillStyle = fgColor;
-    ctx.fillRect((ox+2)*cell, (oy+2)*cell, 3*cell, 3*cell);
-  }
-  drawFinder(0,0); drawFinder(14,0); drawFinder(0,14);
-  for (let r = 0; r < cells; r++) {
-    for (let c = 0; c < cells; c++) {
-      if ((r<9&&c<9)||(r<9&&c>12)||(r>12&&c<9)) continue;
-      if (rng(r*cells+c) > 0.5) {
-        ctx.fillStyle = fgColor;
-        ctx.fillRect(c*cell, r*cell, cell, cell);
-      }
-    }
-  }
-  wrap.style.background = bgColor;
-  wrap.style.padding = '10px';
-  wrap.style.borderRadius = '5px';
-  wrap.style.border = `1px solid ${isDark?'var(--border2)':'#ddd'}`;
-  wrap.innerHTML = '';
-  wrap.appendChild(canvas);
-}
-
 function toggleTheme(btn) {
   btn.classList.toggle('on');
   const isLight = btn.classList.contains('on');
   document.documentElement.classList.toggle('light', isLight);
   localStorage.setItem('stagely_theme', isLight ? 'light' : 'dark');
-  // Re-générer le QR avec les bonnes couleurs
-  updateShareWidget(currentCode);
   toast(isLight ? '☀️ Mode clair activé' : '🌙 Mode sombre activé');
-}
-
-function downloadQR() {
-  const canvas = document.querySelector('#qr-wrap canvas');
-  if (!canvas) return;
-  const a = document.createElement('a');
-  a.href = canvas.toDataURL('image/png');
-  a.download = `stagely-qr-${currentCode}.png`;
-  a.click();
-  toast('↓ QR code téléchargé');
 }
 
 function renderSlotsCfg(){
@@ -4175,65 +4095,6 @@ async function testEmail() {
     }
   }
 }
-function saveWAConfig() {
-  const token = document.getElementById('wa-token')?.value.trim();
-  const phoneId = document.getElementById('wa-phone-id')?.value.trim();
-  if (!token) { toast('⚠ Token manquant'); return; }
-  if (!phoneId) { toast('⚠ Phone Number ID manquant'); return; }
-  WA_CONFIG.token = token;
-  WA_CONFIG.phoneId = phoneId;
-  WA_CONFIG.configured = true;
-  localStorage.setItem('stagely_wa_token', token);
-  localStorage.setItem('stagely_wa_phone', phoneId);
-  const st = document.getElementById('wa-status');
-  if (st) {
-    st.textContent = '✓ Configuré';
-    st.style.background = 'var(--g2)';
-    st.style.color = 'var(--g)';
-    st.style.borderColor = 'var(--gb)';
-  }
-  toast('✓ WhatsApp sauvegardé — prêt à envoyer');
-}
-
-async function testWA() {
-  const testNum = document.getElementById('wa-test-num')?.value.trim();
-  if (!testNum) { toast('Entre un numéro de test'); return; }
-  if (!WA_CONFIG.configured || !WA_CONFIG.token) {
-    toast('⚠ Configure et sauvegarde le token d\'abord');
-    return;
-  }
-  // Feedback visuel pendant l'envoi
-  const btn = document.getElementById('wa-test-btn');
-  if (btn) { btn.textContent = '⏳ Envoi...'; btn.disabled = true; }
-  const msg = `🎤 Test STAGELY\n\nBonjour ! Ceci est un message de test depuis Stagely BCC.\n\nHeure : ${new Date().toLocaleTimeString('fr-FR')}\n✓ WhatsApp Business API opérationnel.`;
-  const r = await sendWhatsAppText(testNum, msg);
-  if (btn) { btn.textContent = '📱 Envoyer test'; btn.disabled = false; }
-  if (r.success && !r.simulated) {
-    toast('✓ Message envoyé ! Vérifie ton WhatsApp.');
-    const testRes = document.getElementById('wa-test-result');
-    if (testRes) {
-      testRes.style.display = 'block';
-      testRes.style.background = 'var(--g2)';
-      testRes.style.borderColor = 'var(--gb)';
-      testRes.style.color = 'var(--g)';
-      testRes.textContent = `✓ Message envoyé à ${testNum} — ${new Date().toLocaleTimeString('fr-FR')}`;
-    }
-  } else if (r.simulated) {
-    toast('⚠ Mode simulation — token non configuré');
-  } else {
-    const errMsg = r.data?.error?.message || r.error || 'Erreur inconnue';
-    toast(`✗ Erreur : ${errMsg.slice(0,60)}`);
-    const testRes = document.getElementById('wa-test-result');
-    if (testRes) {
-      testRes.style.display = 'block';
-      testRes.style.background = 'var(--r2)';
-      testRes.style.borderColor = 'var(--rb)';
-      testRes.style.color = 'var(--r)';
-      testRes.textContent = `✗ ${errMsg}`;
-    }
-  }
-}
-
 // ══════════════════════════════════════════════════
 // MODAL & TOAST
 // ══════════════════════════════════════════════════
@@ -4296,11 +4157,10 @@ loadFromSupabase().then(ok => {
   sidebar.insertBefore(div, ctag);
 })();
 
-// Ajouter Email + WhatsApp config dans réglages
+// Ajouter Email config dans réglages
 (function addWASection() {
   const danger = document.getElementById('danger-zone');
   if (!danger) return;
-  const isWAConfigured = WA_CONFIG.configured;
   const isEmailConfigured = EMAIL_CONFIG.configured;
 
   const card = document.createElement('div');
@@ -4351,57 +4211,6 @@ loadFromSupabase().then(ok => {
         <button class="btn btn-o" id="email-test-btn" onclick="testEmail()" style="flex-shrink:0">📧 Tester</button>
       </div>
       <div id="email-test-result" style="display:none;padding:8px 12px;border-radius:4px;border:1px solid;font-size:10px"></div>
-    </div>
-
-    <!-- WHATSAPP -->
-    <div style="height:1px;background:var(--border2);margin-bottom:16px"></div>
-    <div class="stitle" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      📱 WhatsApp Business API
-      <span id="wa-status" style="font-size:9px;padding:2px 9px;border-radius:10px;font-weight:600;
-        background:${isWAConfigured?'var(--g2)':'var(--r2)'};
-        color:${isWAConfigured?'var(--g)':'var(--r)'};
-        border:1px solid ${isWAConfigured?'var(--gb)':'var(--rb)'}">
-        ${isWAConfigured?'✓ Configuré':'✕ Non configuré'}
-      </span>
-    </div>
-    ${isWAConfigured ? `
-    <div style="background:var(--g2);border:1px solid var(--gb);border-radius:5px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
-      <span style="font-size:18px">✅</span>
-      <div style="flex:1">
-        <div style="font-size:11px;font-weight:600;color:var(--g)">WhatsApp prêt à l'envoi</div>
-        <div style="font-size:9px;color:var(--muted);margin-top:2px">Token chargé · Phone ID : ${WA_CONFIG.phoneId}</div>
-      </div>
-      <button onclick="document.getElementById('wa-edit-section').style.display=document.getElementById('wa-edit-section').style.display==='none'?'block':'none'"
-        style="background:none;border:1px solid var(--border2);color:var(--muted);padding:3px 10px;border-radius:3px;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:9px">Modifier</button>
-    </div>` : ''}
-    <div id="wa-edit-section" style="display:${isWAConfigured?'none':'block'}">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-        <div class="fr">
-          <label class="fl">Bearer Token Meta</label>
-          <div style="display:flex;gap:5px">
-            <input class="fi" id="wa-token" type="password" placeholder="EAABwz..." value="${WA_CONFIG.token}" style="flex:1">
-            <button onclick="const i=document.getElementById('wa-token');i.type=i.type==='password'?'text':'password'"
-              style="background:var(--s3);border:1px solid var(--border2);color:var(--muted);padding:0 8px;border-radius:3px;cursor:pointer;font-size:11px">👁</button>
-          </div>
-        </div>
-        <div class="fr">
-          <label class="fl">Phone Number ID</label>
-          <input class="fi" id="wa-phone-id" placeholder="123456789..." value="${WA_CONFIG.phoneId}">
-        </div>
-      </div>
-      <button class="btn btn-o" onclick="saveWAConfig()" style="width:100%;justify-content:center;margin-bottom:14px">💾 Sauvegarder WhatsApp</button>
-    </div>
-    <div style="border-top:1px solid var(--border2);padding-top:12px">
-      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Test WhatsApp</div>
-      <div style="display:flex;gap:6px;margin-bottom:6px">
-        <input class="fi" id="wa-test-num" placeholder="33612345678" style="flex:1">
-        <button class="btn btn-o" id="wa-test-btn" onclick="testWA()" style="flex-shrink:0">📱 Tester</button>
-      </div>
-      <div id="wa-test-result" style="display:none;padding:8px 12px;border-radius:4px;border:1px solid;font-size:10px;margin-bottom:6px"></div>
-      <div style="font-size:9px;color:var(--muted2)">
-        ⚠ Nécessite vérification Meta Business · 
-        <a href="https://developers.facebook.com/docs/whatsapp" target="_blank" style="color:var(--b)">Doc Meta →</a>
-      </div>
     </div>`;
 
   danger.parentNode.insertBefore(card, danger);
