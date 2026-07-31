@@ -8,7 +8,7 @@
 // Étapes : valide les champs → vérifie l'unicité de l'email → génère un slug
 // (dérivé du nom, retry sur collision) et un portal_code (aléatoire, retry
 // sur collision) → hash le mot de passe (même algo que admin-login.js) →
-// insère `clubs` (status='trial', essai 14 jours — l'application/expiration
+// insère `clubs` (status='trial', essai 30 jours — l'application/expiration
 // du trial est hors scope ici, volontairement) → insère une salle par défaut
 // ("Salle principale", même pattern que resolveDefaultRoomId() dans
 // admin-write.js) → émet un token admin pour auto-connecter le nouveau club
@@ -29,7 +29,7 @@ import {
   newId,
 } from './_lib.js';
 
-const TRIAL_DAYS = 14;
+const TRIAL_DAYS = 30;
 // Alphabet sans caractères ambigus (pas de 0/O, 1/I) — cohérent avec le
 // format du code portail existant (ex. BCCD25 pour le BCC).
 const PORTAL_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
