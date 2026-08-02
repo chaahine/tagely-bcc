@@ -1,0 +1,16 @@
+{
+  "appId": "com.stagely.app",
+  "appName": "Stagely",
+  "webDir": "www",
+  "server": {
+    "url": "https://tagely-bcc.vercel.app",
+    "cleartext": false
+  },
+  "ios": {
+    "contentInset": "always"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
+

@@ -1,0 +1,37 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Capacitor - assets régénérés automatiquement par `npx cap sync` depuis www/
+# (pas la peine de les committer, ils sont dérivés et prennent de la place)
+ios/App/App/public/
+android/app/src/main/assets/public/
+
+# Capacitor / Xcode - iOS build artifacts (régénérés localement, jamais commit)
+ios/App/Pods/
+ios/App/build/
+ios/App/DerivedData/
+ios/App/App/output/
+ios/App/*.xcworkspace/xcuserdata/
+ios/App/*.xcodeproj/xcuserdata/
+ios/App/*.xcodeproj/project.xcworkspace/xcuserdata/
+ios/App/.build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Capacitor / Android Studio - build artifacts (régénérés localement, jamais commit)
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/captures/
+android/*.iml
+android/app/*.iml
+android/.cxx/
+*.apk
+*.aab
+
+# macOS
+.DS_Store

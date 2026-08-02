@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Stagely</string>
+    <string name="title_activity_main">Stagely</string>
+    <string name="package_name">com.stagely.app</string>
+    <string name="custom_url_scheme">com.stagely.app</string>
+</resources>
