@@ -52,8 +52,12 @@ function timingSafeEqualStr(a, b) {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
-// ── Token admin signé — HMAC-SHA256(ADMIN_TOKEN_SECRET), expiration 12h ──
+// ── Token admin signé — HMAC-SHA256(ADMIN_TOKEN_SECRET) ──
+// Expiration courte par défaut (12h). Si "se souvenir de moi" est coché à la
+// connexion, un token longue durée (30 jours) est émis à la place — c'est le
+// club qui active ça explicitement, pas un défaut permanent silencieux.
 const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
+const TOKEN_TTL_REMEMBER_MS = 30 * 24 * 60 * 60 * 1000;
 
 // ── Club BCC (chantier multitenant, étape C) ──
 // Depuis l'étape C, la table `clubs` a une vraie ligne (slug='bcc') dont
@@ -66,10 +70,10 @@ const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 // payload) et par les tests.
 export const BCC_CLUB_ID = '00000000-0000-4000-a000-0000000000bc';
 
-export function issueAdminToken(clubId) {
+export function issueAdminToken(clubId, rememberMe = false) {
   const secret = process.env.ADMIN_TOKEN_SECRET;
   if (!secret) throw new Error('ADMIN_TOKEN_SECRET manquante côté serveur');
-  const exp = Date.now() + TOKEN_TTL_MS;
+  const exp = Date.now() + (rememberMe ? TOKEN_TTL_REMEMBER_MS : TOKEN_TTL_MS);
   const payload = Buffer.from(JSON.stringify({ role: 'admin', club_id: clubId, exp })).toString('base64url');
   const sig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
   return { token: `${payload}.${sig}`, exp };

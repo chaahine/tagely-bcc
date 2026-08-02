@@ -554,6 +554,10 @@ html.light{
     <input type="password" id="admin-pwd" placeholder="Mot de passe" autocomplete="current-password"
       style="width:100%;background:#111;border:1px solid #222;border-radius:10px;padding:13px 16px;color:#f0f0f0;font-size:14px;margin-bottom:12px;box-sizing:border-box"
       onkeydown="if(event.key==='Enter') checkAdminPwd()">
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer;user-select:none">
+      <input type="checkbox" id="admin-remember" style="width:16px;height:16px;accent-color:#f97316;cursor:pointer">
+      <span style="font-size:12px;color:#888">Se souvenir de moi (30 jours)</span>
+    </label>
     <div id="admin-pwd-err" style="display:none;font-size:11px;color:#ef4444;margin-bottom:10px;text-align:center">⚠ Email ou mot de passe incorrect</div>
     <button onclick="checkAdminPwd()" style="width:100%;padding:13px;background:#f97316;color:#fff;border:none;border-radius:10px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;cursor:pointer">Accéder →</button>
     <div style="text-align:center;font-size:11px;color:#555;margin-top:16px">Pas encore de club ? <a href="/register.html" style="color:#f97316;text-decoration:none">Créer votre espace</a></div>
@@ -617,10 +621,11 @@ async function checkAdminPwd() {
   }
   if (btn) btn.disabled = true;
   try {
+    const rememberMe = document.getElementById('admin-remember')?.checked === true;
     const res = await fetch('/api/admin-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: val })
+      body: JSON.stringify({ email, password: val, rememberMe })
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.success && data.token) {

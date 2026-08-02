@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Configuration serveur incomplète (variable d\'environnement manquante)' });
   }
 
-  const { email, password } = req.body || {};
+  const { email, password, rememberMe } = req.body || {};
   if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
     return res.status(400).json({ error: 'Email et mot de passe requis' });
   }
@@ -55,7 +55,7 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'Ce club est suspendu' });
     }
 
-    const { token, exp } = issueAdminToken(club.id);
+    const { token, exp } = issueAdminToken(club.id, rememberMe === true);
     return res.status(200).json({ success: true, token, expiresAt: exp });
   } catch (e) {
     return res.status(500).json({ error: e.message });

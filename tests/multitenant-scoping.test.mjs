@@ -176,6 +176,29 @@ test('admin-login : email + mot de passe corrects → token portant l\'id réel 
   assert.equal(claims.club_id, BCC_CLUB_ID);
 });
 
+test('admin-login : rememberMe=true émet un token bien plus longue durée que la session par défaut', async () => {
+  const mockDefault = mockClubsLookup();
+  const reqDefault = fakeReq({ body: { email: BCC_ADMIN_EMAIL, password: 'test' } });
+  const resDefault = fakeRes();
+  await adminLoginHandler(reqDefault, resDefault);
+  mockDefault.restore();
+
+  const mockRemember = mockClubsLookup();
+  const reqRemember = fakeReq({ body: { email: BCC_ADMIN_EMAIL, password: 'test', rememberMe: true } });
+  const resRemember = fakeRes();
+  await adminLoginHandler(reqRemember, resRemember);
+  mockRemember.restore();
+
+  assert.equal(resDefault.statusCode, 200);
+  assert.equal(resRemember.statusCode, 200);
+  const ttlDefault = resDefault.body.expiresAt - Date.now();
+  const ttlRemember = resRemember.body.expiresAt - Date.now();
+  // Marge large (pas de dépendance exacte aux constantes internes) : la
+  // session "se souvenir de moi" doit être significativement plus longue
+  // (au moins 10x) que la session par défaut, jamais l'inverse ni égale.
+  assert.ok(ttlRemember > ttlDefault * 10, `attendu ttlRemember (${ttlRemember}ms) très supérieur à ttlDefault (${ttlDefault}ms)`);
+});
+
 test('admin-login : mauvais mot de passe → 401, pas de token émis', async () => {
   const mock = mockClubsLookup();
   const req = fakeReq({ body: { email: BCC_ADMIN_EMAIL, password: 'mauvais' } });
