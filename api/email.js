@@ -8,6 +8,16 @@
 // du token — authentifié comme n'importe quelle autre écriture admin. Cette
 // route était auparavant totalement ouverte (aucune vérification), un vrai
 // relais d'envoi libre pour quiconque en connaissait l'URL.
+//
+// Choix produit (2026-08-02) : chaque club ne configure RIEN — on envoie
+// depuis une adresse Stagely unique et déjà vérifiée, jamais depuis l'email
+// personnel du club. Deux raisons : (1) zéro friction à l'inscription, pas
+// d'étape de vérification bloquante ; (2) usurper une adresse @gmail.com
+// (très courante chez les petits clubs) via un serveur tiers est souvent
+// filtré par Gmail même avec autorisation — une seule adresse bien
+// configurée (SPF/DKIM) délivre mieux. Le nom affiché = le club, et
+// Reply-To = l'email réel du club (déjà en base, aucune config requise) :
+// si l'humoriste répond, ça part directement chez le club, pas chez Stagely.
 
 import { applyCors, sbAdmin, verifyAdminToken } from './_lib.js';
 
@@ -28,9 +38,24 @@ export default async function handler(req, res) {
 
   try {
     const rows = await sbAdmin('clubs', {
-      params: `?id=eq.${encodeURIComponent(auth.club_id)}&select=name`,
+      params: `?id=eq.${encodeURIComponent(auth.club_id)}&select=name,admin_email`,
     });
-    const clubName = Array.isArray(rows) && rows.length && rows[0].name ? rows[0].name : 'Stagely';
+    const club = Array.isArray(rows) && rows.length ? rows[0] : null;
+    const clubName = club?.name || 'Stagely';
+
+    const payload = {
+      sender: { name: clubName, email: 'chahinedjadel@gmail.com' },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    };
+    // Reply-To = l'email réel du club, pour que les réponses de l'humoriste
+    // arrivent directement chez le club plutôt que chez Stagely. Absent si
+    // le club n'a pas encore d'admin_email renseigné (ne doit pas arriver en
+    // usage normal, mais ne bloque jamais l'envoi si c'est le cas).
+    if (club?.admin_email) {
+      payload.replyTo = { email: club.admin_email, name: clubName };
+    }
 
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
@@ -38,12 +63,7 @@ export default async function handler(req, res) {
         'api-key': process.env.BREVO_API_KEY,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        sender: { name: clubName, email: 'chahinedjadel@gmail.com' },
-        to: [{ email: to }],
-        subject,
-        htmlContent: html,
-      }),
+      body: JSON.stringify(payload),
     });
 
     const data = await response.json();

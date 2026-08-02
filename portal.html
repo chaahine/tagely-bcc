@@ -839,7 +839,7 @@ function exportCal() {
     const endH=parseInt(h)+1;
     const dt=`${y}${mo}${d}T${h.padStart(2,'0')}${(m||'00').padStart(2,'0')}00`;
     const dtend=`${y}${mo}${d}T${String(endH).padStart(2,'0')}${(m||'00').padStart(2,'0')}00`;
-    ics+=`BEGIN:VEVENT\nUID:stagely-${key}@bcc\nDTSTART:${dt}\nDTEND:${dtend}\nSUMMARY:${isFirst?'🎤 MC — ':''}Broadway Comedy Club ${t}\nLOCATION:Broadway Comedy Club\nEND:VEVENT\n`;
+    ics+=`BEGIN:VEVENT\nUID:stagely-${key}@bcc\nDTSTART:${dt}\nDTEND:${dtend}\nSUMMARY:${isFirst?'🎤 MC — ':''}Broadway Comedy Club\nLOCATION:Broadway Comedy Club\nEND:VEVENT\n`;
   });
   ics+='END:VCALENDAR';
   const blob=new Blob([ics],{type:'text/calendar'});

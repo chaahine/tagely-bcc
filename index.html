@@ -1506,7 +1506,7 @@ function hvExportCalendar() {
     const endH = parseInt(h) + 1;
     const dtend = `${year}${month}${day}T${String(endH).padStart(2,'0')}${String(m||'00').padStart(2,'0')}00`;
     const uid = `stagely-${key}-${hvUser.id}@bcc`;
-    const summary = isFirst ? `🎤 MC — Broadway Comedy Club ${timePart}` : `🎤 Broadway Comedy Club ${timePart}`;
+    const summary = isFirst ? `🎤 MC — Broadway Comedy Club` : `🎤 Broadway Comedy Club`;
     
     ics += `BEGIN:VEVENT\nUID:${uid}\nDTSTART:${dtstart}\nDTEND:${dtend}\nSUMMARY:${summary}\nLOCATION:Broadway Comedy Club — BCC\nDESCRIPTION:Passage au BCC. Portail: https://tagely-bcc.vercel.app?code=${currentCode}&manage=${hvUser.id}\nEND:VEVENT\n`;
   });
