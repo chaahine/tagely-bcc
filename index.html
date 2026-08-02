@@ -21,7 +21,6 @@ function nav(id) {
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Stagely">
 <link rel="apple-touch-icon" href="/icon-192.png">
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script>
 // IMPORTANT — désactivation du service worker.
 // L'ancien sw.js servait une vieille version en cache (texte "Dispos déjà envoyées",
@@ -3826,28 +3825,35 @@ const EMAIL_CONFIG = {
   get configured() { return true; }
 };
 
-// EmailJS config
-const EMAILJS_SERVICE = 'service_eyt0g4q';
-const EMAILJS_TEMPLATE = 'template_322qzcp';
-const EMAILJS_PUBLIC_KEY = 'zJY_IV5DimGUNSdrQ';
+// Envoi d'email via /api/email (Brevo, clé secrète côté serveur) — remplace
+// EmailJS (compte personnel, quota partagé entre tous les clubs, expéditeur
+// "BCC Stagely" codé en dur pour tout le monde). Le serveur résout le vrai
+// nom du club depuis le token admin, chaque club envoie donc sous son propre
+// nom. bodyText reste du texte brut par compatibilité avec les appelants
+// existants — converti en HTML minimal ici (échappement + retours ligne).
+function textToSimpleHtml(text) {
+  const escaped = String(text)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return escaped.replace(/\n/g, '<br>');
+}
 
 async function sendEmail(to, subject, bodyText) {
+  const session = getAdminSession();
+  if (!session || !session.token) {
+    return { success: false, error: 'Session admin expirée — reconnecte-toi' };
+  }
   try {
-    const result = await emailjs.send(
-      EMAILJS_SERVICE,
-      EMAILJS_TEMPLATE,
-      {
-        to_email: to,
-        subject: subject,
-        message: bodyText,
-        name: 'BCC Stagely'
-      },
-      EMAILJS_PUBLIC_KEY
-    );
+    const res = await fetch('/api/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.token}` },
+      body: JSON.stringify({ to, subject, html: textToSimpleHtml(bodyText) })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) return { success: false, error: data.error || 'Erreur envoi email' };
     return { success: true };
   } catch(e) {
-    console.error('EmailJS error:', e);
-    return { success: false, error: e.text || e.message };
+    console.error('Email error:', e);
+    return { success: false, error: e.message };
   }
 }
 
