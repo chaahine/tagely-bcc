@@ -979,6 +979,14 @@ window.addEventListener('DOMContentLoaded', () => {
       </div>
       <div id="planning-counters" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 12px 10px;border-bottom:1px solid var(--border2)"></div>
       <div class="board-wrap"><div class="board" id="board"></div></div>
+      <!-- Mode tournée (palier Pro) : dates ponctuelles hors grille hebdomadaire -->
+      <div style="padding:14px 12px;border-top:1px solid var(--border2)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+          <span style="font-size:11px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px">🎪 Dates spéciales / Tournée</span>
+          <div id="tournee-add-wrap"></div>
+        </div>
+        <div id="tournee-list"></div>
+      </div>
     </div>
 
     <!-- DISPOS ADMIN -->
@@ -1295,10 +1303,12 @@ function applyClubInfo(club) {
 // Rappel honnête (voir aussi computePlanAccess() côté serveur, api/_lib.js,
 // et le commentaire en tête de api/admin-write.js) : parmi les
 // fonctionnalités vendues comme "Pro" (chapeau/cachet + dashboard financier +
-// export comptable + mode tournée), SEULS le chapeau et le dashboard
-// financier (revenu/remplissage/top artistes) sont réellement construits ici.
-// Cachet, export comptable et mode tournée n'ont aucune UI — donc rien à
-// gater pour eux, juste un écart documenté (visible dans renderPlanCard()).
+// export comptable + mode tournée), le chapeau, le dashboard financier
+// (revenu/remplissage/top artistes) ET le mode tournée (dates ponctuelles
+// hors grille, voir renderTourneeSection()/openAddEventModal() dans
+// Planning) sont désormais réellement construits. Cachet et export
+// comptable n'ont toujours aucune UI — rien à gater pour eux, juste un écart
+// documenté (visible dans renderPlanCard()).
 //
 // Applique/retire l'accès visuel aux fonctionnalités Pro dès que l'identité
 // du club (donc son palier) est (re)chargée — login, switch de club, ou
@@ -1317,6 +1327,11 @@ function applyPlanGating() {
   const activeView = document.querySelector('.view.on')?.id?.replace('view-', '');
   if (activeView === 'chapeau') nav('chapeau');
   if (activeView === 'dashboard' && typeof renderDashboardStats === 'function') renderDashboardStats();
+  // Mode tournée : le bouton "+ Date ponctuelle" (renderTourneeSection, vue
+  // Planning) dépend aussi de hasProAccess() — même réflexe que chapeau/
+  // dashboard ci-dessus pour ne jamais laisser un bouton Pro périmé affiché
+  // après un switch de club vers un palier différent.
+  if (activeView === 'planning' && typeof renderTourneeSection === 'function') renderTourneeSection();
 }
 
 // Bloc "Pro verrouillé" réutilisé partout où une fonctionnalité Pro existante
@@ -1361,9 +1376,9 @@ function renderPlanCard() {
     <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;font-weight:600">Toujours inclus</div>
     <div style="font-size:11px;color:var(--text);line-height:1.8">✓ Planning &amp; dispos · ✓ Portail humoriste · ✓ Rappels automatiques · ✓ Notifications d'annulation · ✓ Export calendrier</div>
     <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;font-weight:600">Palier Pro / Réseau</div>
-    <div style="font-size:11px;color:${pro ? 'var(--text)' : 'var(--muted)'};line-height:1.8">${pro ? '✓' : '🔒'} Chapeau · ${pro ? '✓' : '🔒'} Tableau de bord financier (revenu, remplissage, top artistes)</div>
+    <div style="font-size:11px;color:${pro ? 'var(--text)' : 'var(--muted)'};line-height:1.8">${pro ? '✓' : '🔒'} Chapeau · ${pro ? '✓' : '🔒'} Tableau de bord financier (revenu, remplissage, top artistes) · ${pro ? '✓' : '🔒'} Mode tournée (dates ponctuelles hors grille)</div>
     <div style="font-size:10px;color:var(--muted);margin-top:14px;padding-top:14px;border-top:1px solid var(--border2);line-height:1.6">
-      ⚠️ Pas encore construits, même en palier Pro/Réseau : cachet (montant fixe/humoriste), export comptable, mode tournée, gestion multi-salle. À développer avant de vendre ces paliers à un vrai client sur ces critères.
+      ⚠️ Pas encore construits, même en palier Pro/Réseau : cachet (montant fixe/humoriste), export comptable, gestion multi-salle (l'admin peut choisir une salle existante pour une date ponctuelle, mais rien pour en créer/gérer plusieurs). À développer avant de vendre ces paliers à un vrai client sur ces critères.
     </div>
     <button class="btn btn-ghost" style="margin-top:14px;font-size:10px" onclick="resetOnboarding()">🔄 Revoir le tutoriel de bienvenue</button>
   `;
@@ -1559,6 +1574,70 @@ function buildDaysConfigFromTemplates(rows, previousDays) {
     slots: byWd[wd].slots.sort(), slotIds: byWd[wd].slotIds,
   }));
 }
+
+// ── Mode tournée (chantier "gating plan", palier Pro — 2026-08) ──────────
+// La table `events` (schéma initial, jamais lue/écrite avant ce chantier —
+// voir stagely-multitenant-schema.sql) porte les dates PONCTUELLES hors
+// grille récurrente : `source='manual'` = une date ajoutée à la main
+// (tournée, date spéciale) ; `cancelled=true` = annule une occurrence qui
+// existerait sinon (grille OU une autre ligne events). Convertit une ligne
+// `events` en la même forme que les créneaux générés depuis la grille
+// (getMonthSlots ci-dessous) — son slot_key fonctionne alors exactement
+// comme un créneau de grille pour tout le reste de l'app (dispos,
+// assignments, chapeau/cachet, export ICS), aucun traitement spécial requis
+// ailleurs. Retourne null si la ligne est malformée (slot_key qui ne
+// correspond pas au format YYYY-MM-DD-HHhMM — ne devrait jamais arriver
+// puisque le serveur valide ce format à l'écriture, mais on ne fait jamais
+// confiance aveuglément à une lecture réseau).
+function eventRowToSlot(row) {
+  if (!row || typeof row.slot_key !== 'string') return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})-(\d{2}H\d{2})$/i.exec(row.slot_key);
+  if (!m) return null;
+  const [, y, mo, d, slotSuffix] = m;
+  const date = new Date(Number(y), Number(mo) - 1, Number(d));
+  if (Number.isNaN(date.getTime())) return null;
+  const wd = date.getDay();
+  return {
+    key: row.slot_key, date, day: date.getDate(),
+    dayName: DAY_NAMES_BY_WD[wd], dayLabel: DAY_LABELS_BY_WD[wd],
+    slot: slotSuffix.toUpperCase(),
+    eventId: row.id, label: row.label || null, manual: true,
+  };
+}
+
+// Fusionne les créneaux générés depuis la grille (schedule_templates,
+// comportement historique — `gridSlots`, déjà filtrés par cancelledSlots
+// localStorage) avec les dates ponctuelles du mode tournée (`events`, palier
+// Pro) pour un mois donné (year/month, 0-indexed). Deux effets de `events` :
+//   1) source='manual' && cancelled!==true -> ajoute une date hors grille.
+//   2) cancelled===true (quelle que soit la source) -> supprime toute
+//      occurrence de même slot_key qui viendrait de la grille. C'est un
+//      DEUXIÈME mécanisme d'annulation, qui COEXISTE avec cancelledSlots
+//      (localStorage, cf. cancelSlot()/restoreSlot() plus bas) sans le
+//      remplacer — aucune régression sur l'annulation de créneaux de grille
+//      normaux, qui continue de fonctionner exactement comme avant. Ce
+//      chantier n'ajoute aucune UI qui écrit cancelled=true (seul l'ajout/
+//      retrait de dates manuelles est câblé côté serveur) ; le support en
+//      lecture existe déjà pour ne pas re-fermer cette porte à un futur
+//      chantier qui unifierait proprement les deux mécanismes.
+// Dédoublonne par clé : si une date manuelle coïncide avec un créneau déjà
+// généré par la grille, elle n'est jamais ajoutée deux fois.
+function mergeMonthSlotsWithEvents(gridSlots, events, year, month) {
+  const rows = Array.isArray(events) ? events : [];
+  const cancelledKeys = new Set(
+    rows.filter(r => r && r.cancelled === true && typeof r.slot_key === 'string').map(r => r.slot_key)
+  );
+  const base = (gridSlots || []).filter(s => !cancelledKeys.has(s.key));
+  const seen = new Set(base.map(s => s.key));
+  const manualSlots = rows
+    .filter(r => r && r.source === 'manual' && r.cancelled !== true)
+    .map(eventRowToSlot)
+    .filter(Boolean)
+    .filter(s => s.date.getFullYear() === year && s.date.getMonth() === month)
+    .filter(s => !seen.has(s.key));
+  manualSlots.forEach(s => seen.add(s.key));
+  return base.concat(manualSlots).sort((a, b) => a.key.localeCompare(b.key));
+}
 // ── TEST-EXTRACT-END: grid ──
 
 let DAYS_CONFIG = cloneDefaultDaysConfig();
@@ -1603,11 +1682,17 @@ function dateKey(date, slot) {
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}-${slot}`;
 }
 
-// Génère tous les créneaux d'un mois (year, month 0-indexed)
+// Génère tous les créneaux d'un mois (year, month 0-indexed) — fusionne la
+// grille récurrente (schedule_templates, comportement historique inchangé)
+// et les dates ponctuelles du mode tournée (`events`, voir
+// mergeMonthSlotsWithEvents ci-dessus). Pour un club qui n'a encore aucune
+// ligne `events` (le BCC aujourd'hui), EVENTS est un tableau vide et cette
+// fonction produit EXACTEMENT le même résultat qu'avant ce chantier — zéro
+// régression visuelle tant qu'aucune date ponctuelle n'a été ajoutée.
 function getMonthSlots(year, month) {
   const DAY_NAMES = ['DIM','LUN','MAR','MER','JEU','VEN','SAM'];
   const daysInMonth = new Date(year, month+1, 0).getDate();
-  const result = [];
+  const gridSlots = [];
   for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(year, month, d);
     const cfg = DAYS_CONFIG.find(dc => dc.name === DAY_NAMES[date.getDay()]);
@@ -1615,10 +1700,10 @@ function getMonthSlots(year, month) {
     cfg.slots.forEach(slot => {
       const k = dateKey(date, slot);
       if (cancelledSlots && cancelledSlots[k]) return;
-      result.push({ key: k, date, day:d, dayName:cfg.name, dayLabel:cfg.label, slot });
+      gridSlots.push({ key: k, date, day:d, dayName:cfg.name, dayLabel:cfg.label, slot });
     });
   }
-  return result;
+  return mergeMonthSlotsWithEvents(gridSlots, EVENTS, year, month);
 }
 
 // makeKey pour la démo (BASE_WEEK = 5 mai 2025)
@@ -1631,6 +1716,19 @@ function makeKey(dayIndex, slot, wkOffset) {
 let assignments = {};
 let cancelledSlots = {};
 let exportMonthOverride = null;
+
+// ── Mode tournée (palier Pro) : dates ponctuelles hors grille ────────────
+// EVENTS : lignes `events` du club connecté (scopées club_id côté chargement,
+// voir loadFromSupabase) — utilisées par getMonthSlots()/mergeMonthSlotsWithEvents
+// (fusion planning) et renderTourneeSection() (liste + assignation). Vide par
+// défaut : un club qui n'a jamais utilisé le mode tournée (le BCC aujourd'hui)
+// garde un planning identique à avant ce chantier.
+// ROOMS : lignes `rooms` du club — sert uniquement à savoir si le club a
+// plusieurs salles (auquel cas le formulaire d'ajout de date ponctuelle
+// propose un sélecteur) ; un club à une seule salle (cas de tous les clubs
+// aujourd'hui) n'a jamais ce sélecteur, salle par défaut résolue côté serveur.
+let EVENTS = [];
+let ROOMS = [];
 
 // ── EMAIL SENT TRACKING (localStorage) ──
 function getEmailSentKey(comedianId, monthPrefix) {
@@ -2443,6 +2541,7 @@ function renderPlanning() {
       </div>`;
     const counters = document.getElementById('planning-counters');
     if (counters) counters.innerHTML = '';
+    renderTourneeSection(); // dates ponctuelles indépendantes de la grille hebdo — restent utilisables même sans grille configurée
     return;
   }
 
@@ -2512,6 +2611,148 @@ function renderPlanning() {
   });
   document.getElementById('board').innerHTML = html;
   renderPlanningCounters();
+  renderTourneeSection();
+}
+
+// ── Mode tournée (palier Pro) : dates ponctuelles hors grille ────────────
+// Section indépendante du board hebdomadaire (DAYS_CONFIG) ci-dessus : les
+// dates du mode tournée ne sont PAS forcément dans la semaine affichée par
+// chgWk()/weekOffset (une tournée peut être dans 2 mois), donc on liste tout
+// ce qui est à venir plutôt que de forcer la grille hebdomadaire à connaître
+// des dates hors de son schéma "1 colonne par jour de semaine". Réutilise
+// EXACTEMENT le même mécanisme d'assignation que les créneaux de grille
+// (planAsgn()/unassign() ci-dessus, DISPOS_DATA, assignments) — un slot_key
+// de tournée fonctionne comme n'importe quel slot_key de grille pour le
+// reste de l'app (chapeau, export ICS, dashboard).
+function renderTourneeSection() {
+  const addWrap = document.getElementById('tournee-add-wrap');
+  const list = document.getElementById('tournee-list');
+  if (!addWrap || !list) return;
+
+  // Gating Pro — seul l'AJOUT d'une date ponctuelle est réservé au palier
+  // Pro/Réseau (voir hasProAccess()) ; les dates déjà ajoutées restent
+  // visibles/assignables pour tout le monde, même si le club redescend un
+  // jour au palier Essentiel (même philosophie que le reste du gating :
+  // display-only côté client, le VRAI gate est côté serveur sur l'écriture —
+  // voir action 'addEvent', api/admin-write.js).
+  addWrap.innerHTML = hasProAccess()
+    ? `<button class="btn btn-o" onclick="openAddEventModal()">+ Date ponctuelle</button>`
+    : `<button class="btn btn-ghost" title="Fonctionnalité Pro" onclick="toast('🔒 Le mode tournée (dates ponctuelles hors grille) est une fonctionnalité Pro'); nav('reglages')">🔒 Date ponctuelle</button>`;
+
+  const MAX = parseInt(document.getElementById('s-max')?.value)||4;
+  const manualSlots = (EVENTS||[])
+    .filter(e => e && e.source === 'manual' && e.cancelled !== true)
+    .map(eventRowToSlot)
+    .filter(Boolean)
+    .sort((a,b) => a.key.localeCompare(b.key));
+
+  if (!manualSlots.length) {
+    list.innerHTML = `<div style="font-size:11px;color:var(--muted);padding:4px 0 8px">Aucune date ponctuelle programmée${hasProAccess() ? ' — ajoutes-en une pour une tournée ou une date spéciale hors grille habituelle.' : '.'}</div>`;
+    return;
+  }
+
+  list.innerHTML = manualSlots.map(s => {
+    const key = s.key;
+    const asgnIds = (assignments[key]||[]).filter(id=>COMEDIANS.find(c=>c.id===id));
+    const isFull = asgnIds.length >= MAX;
+    const available = COMEDIANS.filter(c => {
+      if (asgnIds.includes(c.id)) return false;
+      return DISPOS_DATA[c.id]?.[key]?.dispo;
+    }).sort((a,b) => ({headliner:3,regular:2,new:1}[b.prio] - {headliner:3,regular:2,new:1}[a.prio]) || (b.presence - a.presence));
+    const totalD = COMEDIANS.filter(c => DISPOS_DATA[c.id]?.[key]?.dispo).length;
+    const dateLabel = `${s.dayLabel} ${s.day} ${MOIS[s.date.getMonth()]} ${s.date.getFullYear()}`;
+
+    let body = '';
+    asgnIds.forEach(id => {
+      const c = COMEDIANS.find(c=>c.id===id); if (!c) return;
+      body += `<div class="ca">
+        <button class="ca-rm" onclick="unassign('${key}','${id}')">✕</button>
+        <span class="gdot g${c.gender}"></span>
+        <div class="ca-name">${c.name}</div>
+        <span style="font-size:8px;color:rgba(34,197,94,.5);margin-left:auto">${c.duration||10}m</span>
+      </div>`;
+    });
+    if (asgnIds.length && available.length) body += `<div class="sc-sep"></div>`;
+    available.forEach(c => {
+      const isMCok = DISPOS_DATA[c.id]?.[key]?.mc;
+      body += `<div class="cd ${isFull?'full':''}" onclick="${isFull?'':`planAsgn('${c.id}','${key}')`}">
+        <span class="ddot" style="background:var(--g)"></span>
+        <span class="gdot g${c.gender}"></span>
+        <div class="cd-name">${c.name}</div>
+        ${isMCok?`<span style="font-size:7px;font-weight:700;padding:1px 4px;border-radius:2px;background:var(--gold2);color:var(--gold);border:1px solid rgba(245,158,11,.35);flex-shrink:0">MC</span>`:''}
+        ${!isFull?`<span class="add-i">+</span>`:''}
+      </div>`;
+    });
+    if (!asgnIds.length && !available.length) body += `<div class="sc-empty">— aucun dispo</div>`;
+
+    return `<div class="sc" style="margin-bottom:8px">
+      <div class="sc-hd">
+        <div>
+          <div class="sc-time">🎪 ${dateLabel} · ${s.slot.replace('H',':')}</div>
+          <div class="sc-meta">${s.label ? s.label + ' · ' : ''}${totalD} dispo${totalD>1?'s':''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px">
+          ${asgnIds.length?`<span class="sc-badge">${asgnIds.length}/${MAX}</span>`:''}
+          <button title="Retirer cette date ponctuelle" onclick="removeManualEvent('${s.eventId}','${dateLabel} ${s.slot.replace('H',':')}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:2px 4px;border-radius:2px" onmouseover="this.style.color='var(--r)'" onmouseout="this.style.color='var(--muted)'">✕</button>
+        </div>
+      </div>
+      <div class="sc-body">${body}</div>
+    </div>`;
+  }).join('');
+}
+
+function openAddEventModal() {
+  if (!hasProAccess()) { toast('🔒 Le mode tournée est une fonctionnalité Pro'); return; }
+  const dateEl = document.getElementById('ev-date');
+  const timeEl = document.getElementById('ev-time');
+  const labelEl = document.getElementById('ev-label');
+  if (dateEl) dateEl.value = '';
+  if (timeEl) timeEl.value = '';
+  if (labelEl) labelEl.value = '';
+  const roomWrap = document.getElementById('ev-room-wrap');
+  const roomSel = document.getElementById('ev-room');
+  // Sélecteur de salle affiché seulement si le club a plusieurs salles —
+  // sinon la salle par défaut est résolue automatiquement côté serveur
+  // (resolveDefaultRoomId(), api/admin-write.js), aucun choix à faire.
+  if (roomWrap && roomSel) {
+    if (ROOMS.length > 1) {
+      roomSel.innerHTML = ROOMS.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+      roomWrap.style.display = '';
+    } else {
+      roomWrap.style.display = 'none';
+    }
+  }
+  openModal('modal-add-event');
+}
+
+async function saveManualEvent() {
+  if (!hasProAccess()) { toast('🔒 Le mode tournée est une fonctionnalité Pro'); return; }
+  const date = document.getElementById('ev-date')?.value;
+  const time = document.getElementById('ev-time')?.value;
+  const label = document.getElementById('ev-label')?.value.trim();
+  const roomSel = document.getElementById('ev-room');
+  const roomId = (ROOMS.length > 1 && roomSel && roomSel.value) ? roomSel.value : undefined;
+  if (!date) { toast('⚠ Ajoute une date'); return; }
+  if (!time) { toast('⚠ Ajoute une heure'); return; }
+  const result = await adminWrite('addEvent', { date, time, label: label || undefined, room_id: roomId });
+  if (!result || !result.success) { toast(result && result.error ? `✕ ${result.error}` : '✕ Erreur — date non enregistrée'); return; }
+  if (result.event && !EVENTS.some(e => e.id === result.event.id)) EVENTS.push(result.event);
+  closeModal('modal-add-event');
+  renderPlanning();
+  toast(result.alreadyExists ? 'ℹ Cette date ponctuelle existait déjà' : '✓ Date ponctuelle ajoutée');
+}
+
+async function removeManualEvent(id, label) {
+  if (!confirm(`Retirer la date ponctuelle "${label}" ?\n\nLes humoristes assignés à cette date seront retirés du planning.`)) return;
+  const ev = EVENTS.find(e => e.id === id);
+  if (ev && ev.slot_key) delete assignments[ev.slot_key];
+  const result = await adminWrite('removeEvent', { id });
+  if (!result || !result.success) { toast('✕ Erreur — suppression non confirmée côté serveur'); return; }
+  const idx = EVENTS.findIndex(e => e.id === id);
+  if (idx !== -1) EVENTS.splice(idx, 1);
+  saveToSupabase(); // persiste aussi le retrait des assignments liés à cette date
+  renderPlanning();
+  toast('✓ Date ponctuelle retirée');
 }
 
 // Compteur de créneaux par humoriste pour le mois affiché
@@ -4135,13 +4376,15 @@ async function loadFromSupabase() {
     const dateFrom = getDisposDateFrom();
     const dateTo = getDisposDateTo();
     console.log(`[Stagely] Chargement dispos Supabase : ${dateFrom} → ${dateTo}`);
-    const [comedians, asgn, dispos, statuses, msgs, templates] = await Promise.all([
+    const [comedians, asgn, dispos, statuses, msgs, templates, events, rooms] = await Promise.all([
       sbFetch('comedians', {params:'?order=name'}),
       sbFetch('assignments'),
       loadDisposPaginated(dateFrom, dateTo),
       sbFetch('dispo_status'),
       sbFetch('chat_messages', {params:'?order=created_at&limit=100'}),
-      sbFetch('schedule_templates', {params:'?order=weekday,time'})
+      sbFetch('schedule_templates', {params:'?order=weekday,time'}),
+      sbFetch('events', {params:'?order=slot_key'}),
+      sbFetch('rooms', {params:'?active=eq.true&order=name'})
     ]);
     if (!comedians) { console.warn('[Stagely] Échec chargement comedians'); return false; }
     console.log(`[Stagely] Chargés : ${comedians.length} comédiens, ${asgn?.length||0} assignments, ${dispos?.length||0} dispos`);
@@ -4191,6 +4434,18 @@ async function loadFromSupabase() {
     } else {
       console.warn('[Stagely] schedule_templates inaccessible (échec réseau) — repli sur la grille par défaut codée en dur');
       DAYS_CONFIG.splice(0, DAYS_CONFIG.length, ...cloneDefaultDaysConfig());
+    }
+    // Mode tournée (events) — même réflexe que templates : un échec RÉSEAU
+    // (events === null) ne touche pas EVENTS déjà en mémoire (pas de repli
+    // pertinent ici, contrairement à la grille) ; zéro ligne renvoyée avec
+    // succès (club sans date ponctuelle, cas du BCC) vide bien la liste.
+    if (events !== null) {
+      EVENTS.splice(0, EVENTS.length, ...events);
+    } else {
+      console.warn('[Stagely] events inaccessible (échec réseau) — mode tournée non rafraîchi ce chargement, planning grille inchangé');
+    }
+    if (rooms !== null) {
+      ROOMS.splice(0, ROOMS.length, ...rooms);
     }
     sbConnected = true;
     showSaveIndicator('✓ Supabase connecté');
@@ -4944,6 +5199,21 @@ function renderChapeau(periode = 'semaine') {
     <div class="ma">
       <button class="btn btn-ghost" onclick="closeModal('modal-chapeau')">Annuler</button>
       <button class="btn btn-o" onclick="saveChapeau()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mode tournée (palier Pro) : ajout d'une date ponctuelle hors grille -->
+<div class="overlay" id="modal-add-event">
+  <div class="modal" style="width:360px">
+    <div class="modal-title">🎪 Ajouter une date ponctuelle</div>
+    <div class="fr"><label class="fl">Date</label><input class="fi" id="ev-date" type="date"></div>
+    <div class="fr"><label class="fl">Heure</label><input class="fi" id="ev-time" type="time"></div>
+    <div class="fr" id="ev-room-wrap" style="display:none"><label class="fl">Salle</label><select class="fsl" id="ev-room"></select></div>
+    <div class="fr"><label class="fl">Label (optionnel)</label><input class="fi" id="ev-label" placeholder="ex. Tournée Marseille"></div>
+    <div class="ma">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-event')">Annuler</button>
+      <button class="btn btn-o" onclick="saveManualEvent()">Ajouter</button>
     </div>
   </div>
 </div>

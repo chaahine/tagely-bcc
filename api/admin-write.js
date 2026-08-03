@@ -29,9 +29,24 @@
 //                        séparée : le rappel automatique (api/cron-dispo-
 //                        reminders.js) lit directement la colonne en base,
 //                        aucune route dédiée nécessaire côté lecture non plus.
+//  - addEvent         : ajoute une date ponctuelle hors grille (table `events`,
+//                        source='manual') — mode tournée, chantier 2026-08.
+//                        SEULE action de ce fichier gatée par palier (voir
+//                        computePlanAccess() ci-dessous) : un club au palier
+//                        Essentiel (hors essai) reçoit un 403, quel que soit
+//                        ce qu'affiche le client (jamais fait confiance à
+//                        hasProAccess() côté client seul).
+//  - removeEvent      : retire une date ponctuelle créée via addEvent (par id,
+//                        scopée club + source='manual' — ne touche jamais une
+//                        éventuelle ligne events de type 'template', qui sert
+//                        à annuler ponctuellement une occurrence de grille,
+//                        mécanique distincte non pilotée par cette route).
+//                        Pas de gating palier ici à dessein : un club qui
+//                        redescend au palier Essentiel doit pouvoir nettoyer
+//                        des dates déjà créées, seul l'AJOUT est verrouillé.
 //
 // ── Gating de palier (chantier 2026-08) — pourquoi le CHAPEAU n'a AUCUNE
-//    action ici ──
+//    action ici (le mode tournée, lui, en a une — voir addEvent) ──
 // Audit fait dans le cadre du chantier de gating par palier (essentiel/pro/
 // réseau, voir computePlanAccess() dans _lib.js) : le chapeau (montants
 // saisis en Réglages > Chapeau) n'est PAS persisté ici, ni nulle part
@@ -44,18 +59,18 @@
 //      introduit par ce chantier, mais qui mérite d'être connu avant de
 //      vendre le palier Pro à un vrai client sur la base du chapeau.
 //   2) Il n'existe donc AUCUNE route d'écriture serveur à gater par palier
-//      ici aujourd'hui — le gating du chapeau (voir index.html,
+//      pour le chapeau aujourd'hui — son gating (voir index.html,
 //      hasProAccess()/applyPlanGating()) reste pour l'instant un gate
 //      d'AFFICHAGE, appuyé sur un plan/status renvoyés par le serveur
 //      (jamais choisis par le client) à la connexion/switch de club, mais
 //      sans donnée serveur à protéger derrière puisqu'aucune n'existe.
-// Le jour où le chapeau (ou le cachet/export comptable/mode tournée, tout
-// aussi absents aujourd'hui) obtient une vraie persistance serveur, CETTE
-// action devra appeler computePlanAccess(club).proFeatures et refuser
-// l'écriture (403) si false — exactement le même réflexe que les autres
-// actions ci-dessus vérifient déjà `clubId`/`scope`.
+// Le jour où le chapeau (ou le cachet/export comptable, toujours absents
+// aujourd'hui) obtient une vraie persistance serveur, CETTE action devra
+// appeler computePlanAccess(club).proFeatures et refuser l'écriture (403) si
+// false — exactement ce que fait déjà addEvent ci-dessous pour le mode
+// tournée, premier exemple concret de ce réflexe dans ce fichier.
 
-import { applyCors, sbAdmin, verifyAdminToken, isNonEmptyString, SLOT_KEY_RE, clubOrFilter, newId } from './_lib.js';
+import { applyCors, sbAdmin, verifyAdminToken, isNonEmptyString, SLOT_KEY_RE, clubOrFilter, newId, computePlanAccess } from './_lib.js';
 
 const MAX_BULK = 5000; // garde-fou anti-abus sur les upserts en masse
 
@@ -63,6 +78,25 @@ const MAX_BULK = 5000; // garde-fou anti-abus sur les upserts en masse
 // schedule_templates.weekday (cf. stagely-multitenant-schema.sql) et que
 // DAY_NAMES côté client (index.html/portal.html)
 const TIME_RE = /^\d{2}:\d{2}$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Une date calendaire réelle (rejette "2026-02-30" par ex.) — Date() de JS
+// "corrige" silencieusement les dates hors bornes (30 février -> 2 mars),
+// donc une simple regex ne suffit pas à garantir un slot_key cohérent.
+function isValidCalendarDate(dateStr) {
+  if (typeof dateStr !== 'string' || !DATE_RE.test(dateStr)) return false;
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d;
+}
+
+// "20:15" -> "20H15", même conversion que timeToSuffix() côté client
+// (index.html) — le format du suffixe de slot_key ne doit JAMAIS diverger
+// entre les deux, sous peine de rendre les dates ponctuelles invisibles/
+// orphelines côté planning (règle métier : ne jamais changer ce format).
+function timeToSlotSuffix(time) {
+  return String(time).replace(':', 'H').toUpperCase();
+}
 
 // Un club (BCC compris) peut ne pas encore avoir de ligne `rooms` (ex. club
 // migré avant que la notion de salle existe, ou tout juste créé). On ne
@@ -243,6 +277,76 @@ export default async function handler(req, res) {
         await sbAdmin('schedule_templates', {
           method: 'DELETE',
           params: `?id=eq.${encodeURIComponent(id)}&${scope}`,
+        });
+        return res.status(200).json({ success: true });
+      }
+
+      // ── Mode tournée (palier Pro, chantier 2026-08) ──────────────────────
+      case 'addEvent': {
+        const p = payload || {};
+        const date = p.date;
+        const time = p.time;
+        if (!isValidCalendarDate(date)) {
+          return res.status(400).json({ error: 'date requise, format YYYY-MM-DD (date calendaire valide)' });
+        }
+        if (typeof time !== 'string' || !TIME_RE.test(time)) {
+          return res.status(400).json({ error: 'time requis au format HH:MM' });
+        }
+        const label = isNonEmptyString(p.label, 100) ? String(p.label).trim().slice(0, 100) : null;
+
+        // Gate Pro/Réseau — voir commentaire en tête de fichier. Lit le plan
+        // réel en base (jamais le club.plan éventuellement embarqué dans un
+        // vieux token, jamais un champ envoyé par le client) : source de
+        // vérité unique, comme partout ailleurs dans ce fichier pour clubId.
+        const clubRows = await sbAdmin('clubs', {
+          params: `?id=eq.${encodeURIComponent(clubId)}&select=id,status,plan&limit=1`,
+        });
+        const club = Array.isArray(clubRows) && clubRows.length ? clubRows[0] : null;
+        if (!computePlanAccess(club).proFeatures) {
+          return res.status(403).json({ error: 'Le mode tournée (dates ponctuelles hors grille) est réservé au palier Pro' });
+        }
+
+        const slotKey = `${date}-${timeToSlotSuffix(time)}`;
+        if (!SLOT_KEY_RE.test(slotKey)) return res.status(400).json({ error: 'Créneau invalide' });
+
+        // Idempotent — même réflexe que addScheduleSlot : une date déjà
+        // ajoutée (même club, même slot_key, pas annulée) n'est pas dupliquée.
+        const existing = await sbAdmin('events', {
+          params: `?slot_key=eq.${encodeURIComponent(slotKey)}&source=eq.manual&cancelled=eq.false&${scope}&select=id,club_id,room_id,slot_key,source,cancelled,label&limit=1`,
+        });
+        if (Array.isArray(existing) && existing.length) {
+          return res.status(200).json({ success: true, alreadyExists: true, event: existing[0] });
+        }
+
+        // room_id fourni par le client (sélecteur multi-salle) : vérifié
+        // comme appartenant à CE club avant d'être fait confiance — sinon
+        // ignoré silencieusement et remplacé par la salle par défaut, jamais
+        // fait confiance en l'état (empêcherait sinon un club de rattacher
+        // une date à la salle d'un autre club en devinant un id).
+        let roomId = isNonEmptyString(p.room_id, 100) ? p.room_id : null;
+        if (roomId) {
+          const roomRows = await sbAdmin('rooms', { params: `?id=eq.${encodeURIComponent(roomId)}&${scope}&select=id&limit=1` });
+          if (!Array.isArray(roomRows) || !roomRows.length) roomId = null;
+        }
+        if (!roomId) roomId = await resolveDefaultRoomId(clubId);
+
+        const row = { id: newId(), club_id: clubId, room_id: roomId, slot_key: slotKey, source: 'manual', cancelled: false, label };
+        await sbAdmin('events', { method: 'POST', body: [row] });
+        return res.status(200).json({ success: true, event: row });
+      }
+
+      case 'removeEvent': {
+        const id = payload?.id;
+        if (!isNonEmptyString(id, 100)) return res.status(400).json({ error: 'id requis' });
+        // Scopé club + source='manual' : ne retire jamais une éventuelle
+        // ligne 'template' (mécanique distincte d'annulation ponctuelle d'un
+        // créneau de grille) — cette action ne touche que les dates ajoutées
+        // via addEvent ci-dessus. Pas de gate palier ici (voir commentaire
+        // en tête de fichier) : un club redescendu au palier Essentiel doit
+        // pouvoir nettoyer ses dates déjà créées.
+        await sbAdmin('events', {
+          method: 'DELETE',
+          params: `?id=eq.${encodeURIComponent(id)}&source=eq.manual&${scope}`,
         });
         return res.status(200).json({ success: true });
       }
