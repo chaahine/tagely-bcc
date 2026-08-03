@@ -4,24 +4,34 @@
 // Contexte : sendDispos() (index.html) reste le déclenchement MANUEL (bouton
 // admin) qui existait déjà — inchangé. Cette route ajoute un rappel
 // AUTOMATIQUE, sans action admin, aux comédiens qui n'ont toujours pas
-// répondu, envoyé les 1er, 5 et 8 de chaque mois (deadline par défaut le 12,
-// configurable par club — clubs.dispo_deadline_day, écrite par l'action
+// répondu — déclenché par club, à des jours calculés PAR RAPPORT à la
+// deadline propre à CE club (clubs.dispo_deadline_day, écrite par l'action
 // "updateClub" dans admin-write.js, cf. Réglages > Infos du club côté
 // index.html. Ce cron lit la colonne directement en base — pas de route de
 // lecture dédiée, une seule façon d'écrire/lire ce réglage. Voir
 // ~/Downloads/stagely-add-dispo-deadline-day.sql pour la migration).
 //
+// ── Jours de rappel relatifs à la deadline, PAS des jours calendaires fixes ──
+// Version initiale de ce cron : jours fixes (1, 5, 8 de chaque mois), pensés
+// pour la deadline par défaut (12) mais qui ne s'adaptaient pas si un club
+// choisissait une autre date — un club avec deadline au 3 du mois aurait pu
+// recevoir un rappel le 5 ou le 8, APRÈS sa propre deadline. Corrigé : les
+// rappels sont maintenant calculés par club, à REMINDER_OFFSETS_DAYS avant sa
+// deadline (mêmes écarts que l'espacement initial 12→1/5/8, soit -11/-7/-4
+// jours), voir reminderDaysForDeadline() ci-dessous. Un club qui n'a jamais
+// touché ce réglage (deadline=12) reçoit donc ses rappels exactement aux
+// mêmes jours qu'avant (1, 5, 8) — comportement inchangé pour le cas par
+// défaut, corrigé pour tout club ayant configuré une deadline différente.
+//
 // ── Fréquence Vercel Cron — Hobby vs Pro ──
 // Le plan Hobby limite les Cron Jobs à au plus une invocation HTTP par jour
-// (pas de granularité horaire) et à 2 cron jobs par projet. Un schedule du
-// type "0 8 1,5,8 * *" (qui ne déclenche que 3 jours précis par mois, jamais
-// plus d'une fois le même jour) respecterait techniquement cette limite —
-// mais pour ne dépendre d'AUCUNE règle de plan (y compris si le projet change
-// de plan plus tard) et rester la solution la plus simple à raisonner, ce
-// cron tourne TOUS LES JOURS à 8h UTC et décide en interne s'il doit agir
-// (voir isTargetDay ci-dessous) : c'est un no-op quasi instantané les jours
-// qui ne sont ni le 1er, ni le 5, ni le 8 du mois. Fonctionne identiquement
-// sur Hobby et sur Pro.
+// (pas de granularité horaire) et à 2 cron jobs par projet. Ce cron tourne
+// TOUS LES JOURS à 8h UTC et décide, PAR CLUB, s'il doit agir aujourd'hui
+// (voir isReminderDayForClub ci-dessous) : c'est un no-op quasi instantané
+// pour un club dont aujourd'hui ne correspond à aucun de ses jours de rappel.
+// Fonctionne identiquement sur Hobby et sur Pro, et reste indépendant de tout
+// nombre fixe de déclenchements par mois puisque chaque club peut avoir des
+// jours de rappel différents des autres.
 //
 // ── Mois cible ──
 // Ce projet n'a PAS de règle "après le 20 du mois → mois prochain" ailleurs
@@ -56,10 +66,29 @@ import { sbAdmin, sendTransactionalEmail } from './_lib.js';
 
 const MOIS_FULL = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
 
-// 1er, 5 ou 8 du mois — voir la note "Fréquence Vercel Cron" en tête de fichier.
-export function isTargetDay(date) {
-  const d = date.getDate();
-  return d === 1 || d === 5 || d === 8;
+// Écarts (en jours AVANT la deadline) auxquels envoyer un rappel — reproduit
+// l'espacement initial pensé pour une deadline au 12 (rappels 1, 5, 8) :
+// 12-11=1, 12-7=5, 12-4=8. Appliqué à la deadline RÉELLE de chaque club.
+const REMINDER_OFFSETS_DAYS = [11, 7, 4];
+
+// Jours du mois (1-28) où un rappel doit partir pour un club dont la deadline
+// est `deadlineDay`. Filtre les écarts qui tomberaient avant le 1er du mois
+// (deadline très tôt dans le mois, ex. deadline=3 → 3-11 est négatif, ignoré)
+// — et garantit TOUJOURS au moins un jour de rappel (repli sur le 1er du
+// mois) plutôt que de laisser un club avec une deadline très précoce sans
+// aucun rappel automatique.
+export function reminderDaysForDeadline(deadlineDay) {
+  const days = REMINDER_OFFSETS_DAYS
+    .map((offset) => deadlineDay - offset)
+    .filter((day) => day >= 1 && day < deadlineDay);
+  const unique = [...new Set(days)].sort((a, b) => a - b);
+  return unique.length ? unique : [1];
+}
+
+// Un club donné doit-il recevoir un rappel aujourd'hui, compte tenu de SA
+// propre deadline (pas un jour calendaire global identique pour tous) ?
+export function isReminderDayForClub(date, deadlineDay) {
+  return reminderDaysForDeadline(deadlineDay).includes(date.getDate());
 }
 
 // Même convention que getDispoTargetMonth() côté client (index.html) : le
@@ -101,6 +130,16 @@ export async function runDispoReminders(now) {
   const report = [];
   for (const club of clubs || []) {
     const deadlineDay = Number.isInteger(club.dispo_deadline_day) ? club.dispo_deadline_day : 12;
+
+    // Chaque club a ses propres jours de rappel, calculés à partir de SA
+    // deadline — un club dont aujourd'hui ne correspond à aucun de ses jours
+    // de rappel est ignoré silencieusement (pas une erreur, juste "pas son
+    // tour aujourd'hui"), sans bloquer le traitement des autres clubs.
+    if (!isReminderDayForClub(now, deadlineDay)) {
+      report.push({ clubId: club.id, skipped: true, reason: 'pas un jour de rappel pour ce club aujourd\'hui', deadlineDay });
+      continue;
+    }
+
     const comedians = await sbAdmin('comedians', {
       params: `?club_id=eq.${encodeURIComponent(club.id)}&active=eq.true&select=id,name,email`,
     });
@@ -149,9 +188,11 @@ export default async function handler(req, res) {
   }
 
   const now = new Date();
-  if (!isTargetDay(now)) {
-    return res.status(200).json({ skipped: true, reason: 'pas un jour de rappel (1, 5 ou 8 du mois)' });
-  }
+  // Plus de sortie anticipée globale ici : le filtrage "est-ce mon jour de
+  // rappel ?" se fait maintenant PAR CLUB dans runDispoReminders(), puisque
+  // chaque club peut avoir une deadline différente donc des jours de rappel
+  // différents. Cette route tourne tous les jours et fait potentiellement
+  // un no-op pour certains clubs, un vrai envoi pour d'autres, le même jour.
 
   try {
     const result = await runDispoReminders(now);

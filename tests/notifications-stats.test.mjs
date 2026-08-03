@@ -250,19 +250,36 @@ test('cancelDates : un échec Brevo (exception réseau) ne fait jamais échouer 
 // 4. api/cron-dispo-reminders.js
 // ════════════════════════════════════════════════════════════════════════
 
-const { default: cronHandler, isTargetDay, targetMonth, runDispoReminders } = await import('../api/cron-dispo-reminders.js');
+const {
+  default: cronHandler,
+  reminderDaysForDeadline,
+  isReminderDayForClub,
+  targetMonth,
+  runDispoReminders,
+} = await import('../api/cron-dispo-reminders.js');
 
 function fakeCronReq(bearer) {
   return { method: 'GET', headers: bearer ? { authorization: `Bearer ${bearer}` } : {} };
 }
 
-test('isTargetDay : vrai seulement le 1er, le 5 et le 8 du mois', () => {
-  assert.equal(isTargetDay(new Date(2026, 7, 1)), true);
-  assert.equal(isTargetDay(new Date(2026, 7, 5)), true);
-  assert.equal(isTargetDay(new Date(2026, 7, 8)), true);
-  assert.equal(isTargetDay(new Date(2026, 7, 2)), false);
-  assert.equal(isTargetDay(new Date(2026, 7, 15)), false);
-  assert.equal(isTargetDay(new Date(2026, 7, 31)), false);
+test('reminderDaysForDeadline : deadline par défaut (12) -> mêmes jours qu\'avant (1, 5, 8), rétrocompatible', () => {
+  assert.deepEqual(reminderDaysForDeadline(12), [1, 5, 8]);
+});
+
+test('reminderDaysForDeadline : deadline différente -> jours de rappel décalés en conséquence, jamais après la deadline', () => {
+  assert.deepEqual(reminderDaysForDeadline(20), [9, 13, 16]);
+  reminderDaysForDeadline(20).forEach((d) => assert.ok(d < 20, `${d} doit être avant la deadline 20`));
+});
+
+test('reminderDaysForDeadline : deadline très tôt dans le mois -> toujours au moins un rappel (jamais aucun)', () => {
+  assert.deepEqual(reminderDaysForDeadline(3), [1]); // 3-11, 3-7, 3-4 tous négatifs -> repli sur le 1er
+  assert.deepEqual(reminderDaysForDeadline(1), [1]); // aucun jour valide avant le 1er -> repli sur le 1er quand même
+});
+
+test('isReminderDayForClub : un club avec deadline=3 ne reçoit PAS de rappel le 5 ou le 8 (après sa propre deadline)', () => {
+  assert.equal(isReminderDayForClub(new Date(2026, 7, 1), 3), true);
+  assert.equal(isReminderDayForClub(new Date(2026, 7, 5), 3), false);
+  assert.equal(isReminderDayForClub(new Date(2026, 7, 8), 3), false);
 });
 
 test('targetMonth : mois cible = TOUJOURS le mois calendaire suivant (même convention que index.html getDispoTargetMonth)', () => {
@@ -308,23 +325,48 @@ async function withFixedNow(fixedDate, fn) {
   try { return await fn(); } finally { globalThis.Date = RealDate; }
 }
 
-test('cron handler : bon secret, mais pas un jour de rappel (le 15) → skipped, aucun appel Supabase/Brevo', async () => {
-  const mock = installFetchMock();
+test('cron handler : bon secret, le 15 (aucun club n\'a un jour de rappel ce jour-là avec la deadline par défaut) → succès, club marqué "skipped" dans le rapport, aucun email envoyé', async () => {
+  // Le handler n'a plus de sortie anticipée globale — il interroge toujours
+  // `clubs`, mais chaque club est individuellement ignoré (skipped) si
+  // aujourd'hui ne correspond à aucun de SES jours de rappel.
+  const mock = installFetchMock((call) => {
+    if (call.url.includes('/clubs') && call.method === 'GET') {
+      return [{ id: 'club-1', name: 'Club Test', admin_email: 'a@test.fr', portal_code: 'X', dispo_deadline_day: null }];
+    }
+    return [];
+  });
   const res = fakeRes();
   await withFixedNow(new Date(2026, 7, 15), () => cronHandler(fakeCronReq('test-cron-secret'), res));
   mock.restore();
-  assert.equal(res.body.skipped, true);
-  assert.equal(mock.calls.length, 0);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.success, true);
+  assert.equal(res.body.report[0].skipped, true);
+  assert.ok(!mock.calls.some((c) => c.url.includes('/comedians')), 'le 15 n\'est le jour de rappel d\'aucun club par défaut, pas de requête comédiens');
+  assert.ok(!mock.calls.some((c) => c.url.includes('brevo.com')), 'aucun email envoyé');
 });
 
-test('cron handler : bon secret + jour de rappel (le 5) → exécute réellement runDispoReminders (appels Supabase déclenchés)', async () => {
+test('cron handler : bon secret + jour de rappel (le 5, deadline par défaut 12) → exécute réellement runDispoReminders (appels Supabase déclenchés)', async () => {
   const mock = installFetchMock(() => []); // aucun club actif -> boucle vide, mais les appels doivent avoir lieu
   const res = fakeRes();
   await withFixedNow(new Date(2026, 7, 5), () => cronHandler(fakeCronReq('test-cron-secret'), res));
   mock.restore();
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.success, true);
-  assert.ok(mock.calls.some(c => c.url.includes('/clubs')), 'le handler doit interroger clubs quand c\'est un jour cible');
+  assert.ok(mock.calls.some(c => c.url.includes('/clubs')), 'le handler interroge toujours clubs, le filtrage se fait ensuite par club');
+});
+
+test('cron handler : régression du bug signalé — un club avec une deadline TÔT dans le mois (3) ne reçoit PAS de rappel le 8 (après sa propre deadline), même si le 8 est un jour de rappel pour un club à la deadline par défaut', async () => {
+  const mock = installFetchMock((call) => {
+    if (call.url.includes('/clubs') && call.method === 'GET') {
+      return [{ id: 'club-tot', name: 'Club Deadline Tôt', admin_email: 'a@test.fr', portal_code: 'X', dispo_deadline_day: 3 }];
+    }
+    return [];
+  });
+  const res = fakeRes();
+  await withFixedNow(new Date(2026, 7, 8), () => cronHandler(fakeCronReq('test-cron-secret'), res));
+  mock.restore();
+  assert.equal(res.body.report[0].skipped, true, 'le 8 est après la deadline (3) de ce club, aucun rappel ne doit partir ce jour-là');
+  assert.ok(!mock.calls.some((c) => c.url.includes('brevo.com')));
 });
 
 test('runDispoReminders : filtre les clubs suspendus, ignore les comédiens sans email, n\'envoie rien à qui a déjà répondu pour le mois cible, envoie aux autres', async () => {
