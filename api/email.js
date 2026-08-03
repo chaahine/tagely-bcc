@@ -4,8 +4,9 @@
 // Envoi d'email via Brevo (clé API côté serveur, jamais exposée au client).
 // Remplace EmailJS (compte personnel de Chahine, quota partagé entre TOUS
 // les clubs, nom d'expéditeur "BCC Stagely" codé en dur pour tout le monde) :
-// chaque club envoie désormais sous son propre nom, résolu depuis le club_id
-// du token — authentifié comme n'importe quelle autre écriture admin. Cette
+// chaque club envoie désormais sous son propre nom, résolu depuis le club
+// ACTIF du token (auth.active_club_id, chantier "multi-club-admin") —
+// authentifié comme n'importe quelle autre écriture admin. Cette
 // route était auparavant totalement ouverte (aucune vérification), un vrai
 // relais d'envoi libre pour quiconque en connaissait l'URL.
 //
@@ -37,8 +38,11 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Chantier "multi-club-admin" : auth.active_club_id — le club actif de
+    // cette session (cf. api/_lib.js) — jamais accessible_clubs dans son
+    // ensemble.
     const rows = await sbAdmin('clubs', {
-      params: `?id=eq.${encodeURIComponent(auth.club_id)}&select=name,admin_email`,
+      params: `?id=eq.${encodeURIComponent(auth.active_club_id)}&select=name,admin_email`,
     });
     const club = Array.isArray(rows) && rows.length ? rows[0] : null;
     const clubName = club?.name || 'Stagely';

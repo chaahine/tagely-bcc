@@ -161,14 +161,19 @@ function runGetCurrentClubId(session) {
 }
 
 function issueTestToken(clubId, secret = 'x') {
-  // Reproduit le format réel émis par issueAdminToken() (_lib.js) — payload
-  // base64url, on n'a pas besoin d'une vraie signature ici puisque
-  // getCurrentClubId() ne la revérifie jamais (c'est le point testé).
-  const payload = Buffer.from(JSON.stringify({ role: 'admin', club_id: clubId, exp: Date.now() + 100000 })).toString('base64url');
+  // Reproduit le format réel émis par issueAdminToken() (_lib.js) depuis le
+  // chantier "multi-club-admin" — payload base64url portant active_club_id
+  // (plus club_id direct comme avant ce chantier). On n'a pas besoin d'une
+  // vraie signature ici puisque getCurrentClubId() ne la revérifie jamais
+  // (c'est le point testé).
+  const payload = Buffer.from(JSON.stringify({
+    role: 'admin', admin_id: 'admin-test', accessible_clubs: [{ id: clubId, name: 'Club' }],
+    active_club_id: clubId, exp: Date.now() + 100000,
+  })).toString('base64url');
   return `${payload}.fake-signature`;
 }
 
-test('getCurrentClubId : décode le club_id réel depuis un token de session valide', () => {
+test('getCurrentClubId : décode l\'active_club_id réel depuis un token de session valide', () => {
   const clubId = '22222222-2222-4222-a222-222222222222';
   const result = runGetCurrentClubId({ token: issueTestToken(clubId) });
   assert.equal(result, clubId);

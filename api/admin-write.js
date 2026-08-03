@@ -106,7 +106,11 @@ export default async function handler(req, res) {
   if (!auth) {
     return res.status(401).json({ error: 'Non autorisé — reconnecte-toi en admin' });
   }
-  const clubId = auth.club_id;
+  // Chantier "multi-club-admin" : le token porte désormais accessible_clubs
+  // (tous les clubs de l'admin) + active_club_id (celui sélectionné dans
+  // cette session, via /api/switch-club) — c'est TOUJOURS active_club_id qui
+  // scope les écritures, jamais l'ensemble accessible_clubs.
+  const clubId = auth.active_club_id;
   const scope = clubOrFilter(clubId); // cf. api/_lib.js — club_id=eq.<id>, plus de repli IS NULL depuis le backfill de l'étape C
 
   const { action, payload } = req.body || {};

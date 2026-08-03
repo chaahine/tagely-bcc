@@ -53,22 +53,50 @@ function fakeRes() {
   return res;
 }
 
-// ── Table `clubs` simulée : deux clubs actifs, hash, slug et email distincts ──
+// ── Tables simulées : deux clubs actifs, chacun avec son propre admin ──────
+// Chantier "multi-club-admin" : admin-login.js lit désormais `admins` (email
+// + password_hash) puis `admin_club_links` puis `clubs` (id.in.(...)), au
+// lieu de lire `clubs` directement par admin_email — mockClubsTable() gère
+// les 4 tables (admins/admin_club_links/clubs par slug ou portal_code) dont
+// ce fichier a besoin (admin-login.js ET portal-write.js).
 const BCC_ADMIN_EMAIL = 'bcc-admin@test.fr';
 const SECOND_ADMIN_EMAIL = 'club2-admin@test.fr';
+const BCC_ADMIN_ID = 'admin-bcc-uuid';
+const SECOND_ADMIN_ID = 'admin-club2-uuid';
 const CLUBS_TABLE = [
-  { id: BCC_CLUB_ID, slug: 'bcc', portal_code: 'BCCD25', admin_email: BCC_ADMIN_EMAIL, status: 'active', admin_pwd_hash: BCC_HASH },
-  { id: SECOND_CLUB_ID, slug: 'club2', portal_code: 'CLUB2X', admin_email: SECOND_ADMIN_EMAIL, status: 'active', admin_pwd_hash: SECOND_HASH },
+  { id: BCC_CLUB_ID, slug: 'bcc', portal_code: 'BCCD25', status: 'active', name: 'BCC', city: 'Lille' },
+  { id: SECOND_CLUB_ID, slug: 'club2', portal_code: 'CLUB2X', status: 'active', name: 'Club 2', city: 'Nantes' },
+];
+const ADMINS_TABLE = [
+  { id: BCC_ADMIN_ID, email: BCC_ADMIN_EMAIL, password_hash: BCC_HASH },
+  { id: SECOND_ADMIN_ID, email: SECOND_ADMIN_EMAIL, password_hash: SECOND_HASH },
+];
+const LINKS_TABLE = [
+  { admin_id: BCC_ADMIN_ID, club_id: BCC_CLUB_ID },
+  { admin_id: SECOND_ADMIN_ID, club_id: SECOND_CLUB_ID },
 ];
 
 function mockClubsTable(extra) {
   return installFetchMock((call) => {
+    if (call.url.includes('/admins') && call.method === 'GET') {
+      const m = call.url.match(/email=eq\.([^&]+)/);
+      if (m) return ADMINS_TABLE.filter(a => a.email === decodeURIComponent(m[1]));
+      return [];
+    }
+    if (call.url.includes('/admin_club_links') && call.method === 'GET') {
+      const m = call.url.match(/admin_id=eq\.([^&]+)/);
+      if (m) return LINKS_TABLE.filter(l => l.admin_id === decodeURIComponent(m[1]));
+      return [];
+    }
     if (call.url.includes('/clubs') && call.method === 'GET') {
       if (call.url.includes('slug=eq.bcc')) return CLUBS_TABLE.filter(c => c.slug === 'bcc');
       if (call.url.includes('portal_code=eq.BCCD25')) return CLUBS_TABLE.filter(c => c.portal_code === 'BCCD25');
       if (call.url.includes('portal_code=eq.CLUB2X')) return CLUBS_TABLE.filter(c => c.portal_code === 'CLUB2X');
-      const m = call.url.match(/admin_email=eq\.([^&]+)/);
-      if (m) return CLUBS_TABLE.filter(c => c.admin_email === decodeURIComponent(m[1]));
+      const idIn = call.url.match(/id=in\.\(([^)]+)\)/);
+      if (idIn) {
+        const ids = idIn[1].split(',').map(decodeURIComponent);
+        return CLUBS_TABLE.filter(c => ids.includes(c.id));
+      }
       return [];
     }
     return extra ? extra(call) : [];
@@ -112,7 +140,7 @@ test('admin-login : email + mot de passe du BCC → token avec BCC_CLUB_ID, mêm
   mock.restore();
   assert.equal(res.statusCode, 200);
   const claims = verifyAdminToken(fakeReq({ token: res.body.token }));
-  assert.equal(claims.club_id, BCC_CLUB_ID);
+  assert.equal(claims.active_club_id, BCC_CLUB_ID);
 });
 
 test('admin-login : le mot de passe du second club ne déverrouille JAMAIS le compte BCC, même avec le bon email BCC (pas de confusion inter-club)', async () => {
@@ -133,8 +161,8 @@ test('admin-login : le second club se connecte désormais aussi avec ses propres
   mock.restore();
   assert.equal(res.statusCode, 200);
   const claims = verifyAdminToken(fakeReq({ token: res.body.token }));
-  assert.equal(claims.club_id, SECOND_CLUB_ID);
-  assert.notEqual(claims.club_id, BCC_CLUB_ID);
+  assert.equal(claims.active_club_id, SECOND_CLUB_ID);
+  assert.notEqual(claims.active_club_id, BCC_CLUB_ID);
 });
 
 // ════════════════════════════════════════════════════════════════════════

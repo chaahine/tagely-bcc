@@ -85,30 +85,41 @@ function fakeRes() {
   return res;
 }
 
+// ── Chantier "multi-club-admin" : issueAdminToken(adminId, accessibleClubs,
+// activeClubId, rememberMe) a remplacé issueAdminToken(clubId, rememberMe).
+// La plupart des tests de ce fichier n'ont besoin que d'un token "à un seul
+// club" (comme avant ce chantier) — ce petit helper reproduit ça sans
+// répéter accessibleClubs/adminId partout. ──
+function tokenForClub(clubId, { adminId = `admin-${clubId}`, name = 'Club', rememberMe = false } = {}) {
+  return issueAdminToken(adminId, [{ id: clubId, name }], clubId, rememberMe);
+}
+
 // ════════════════════════════════════════════════════════════════════════
 // _lib.js — token et filtre de scoping (code réel, pas de mock)
 // ════════════════════════════════════════════════════════════════════════
 
-test('issueAdminToken embarque club_id, verifyAdminToken le restitue', () => {
-  const { token } = issueAdminToken(OTHER_CLUB_ID);
+test('issueAdminToken embarque admin_id/accessible_clubs/active_club_id, verifyAdminToken les restitue', () => {
+  const { token } = issueAdminToken('admin-1', [{ id: OTHER_CLUB_ID, name: 'Club B' }], OTHER_CLUB_ID);
   const claims = verifyAdminToken(fakeReq({ token }));
   assert.ok(claims);
   assert.equal(claims.role, 'admin');
-  assert.equal(claims.club_id, OTHER_CLUB_ID);
+  assert.equal(claims.admin_id, 'admin-1');
+  assert.equal(claims.active_club_id, OTHER_CLUB_ID);
+  assert.deepEqual(claims.accessible_clubs, [{ id: OTHER_CLUB_ID, name: 'Club B' }]);
 });
 
 test('verifyAdminToken rejette une signature falsifiée', () => {
-  const { token } = issueAdminToken(BCC_CLUB_ID);
+  const { token } = tokenForClub(BCC_CLUB_ID);
   const [payload] = token.split('.');
   const tampered = `${payload}.0000000000000000000000000000000000000000000000000000000000000000`;
   assert.equal(verifyAdminToken(fakeReq({ token: tampered })), null);
 });
 
-test('verifyAdminToken rejette un token dont le club_id a été modifié dans le payload (signature ne matche plus)', () => {
-  const { token } = issueAdminToken(OTHER_CLUB_ID);
+test('verifyAdminToken rejette un token dont l\'active_club_id a été modifié dans le payload (signature ne matche plus)', () => {
+  const { token } = tokenForClub(OTHER_CLUB_ID);
   const [payload, sig] = token.split('.');
   const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-  data.club_id = BCC_CLUB_ID; // tentative d'usurpation du club
+  data.active_club_id = BCC_CLUB_ID; // tentative d'usurpation du club
   const forgedPayload = Buffer.from(JSON.stringify(data)).toString('base64url');
   const forged = `${forgedPayload}.${sig}`; // ancienne signature, payload modifié
   assert.equal(verifyAdminToken(fakeReq({ token: forged })), null);
@@ -116,9 +127,20 @@ test('verifyAdminToken rejette un token dont le club_id a été modifié dans le
 
 test('verifyAdminToken rejette un token expiré', () => {
   const secret = process.env.ADMIN_TOKEN_SECRET;
-  const payload = Buffer.from(JSON.stringify({ role: 'admin', club_id: BCC_CLUB_ID, exp: Date.now() - 1000 })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({
+    role: 'admin', admin_id: 'admin-1', accessible_clubs: [{ id: BCC_CLUB_ID, name: 'BCC' }],
+    active_club_id: BCC_CLUB_ID, exp: Date.now() - 1000,
+  })).toString('base64url');
   const sig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
   assert.equal(verifyAdminToken(fakeReq({ token: `${payload}.${sig}` })), null);
+});
+
+test('verifyAdminToken rejette un token de l\'ANCIEN format (payload {role, club_id, exp}, sans admin_id) — pas de repli permissif', () => {
+  const secret = process.env.ADMIN_TOKEN_SECRET;
+  const payload = Buffer.from(JSON.stringify({ role: 'admin', club_id: BCC_CLUB_ID, exp: Date.now() + 100000 })).toString('base64url');
+  const sig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  assert.equal(verifyAdminToken(fakeReq({ token: `${payload}.${sig}` })), null,
+    'un vieux token sans admin_id/accessible_clubs/active_club_id doit être rejeté, jamais traité comme "sûrement le BCC"');
 });
 
 test('clubOrFilter : le BCC ne matche plus que son propre club_id (repli IS NULL retiré depuis le backfill étape C)', () => {
@@ -154,18 +176,38 @@ test('clubOrFilter : un vrai 2e club ne matche QUE son propre club_id', () => {
 const adminLoginHandler = (await import('../api/admin-login.js')).default;
 const BCC_ADMIN_EMAIL = 'bcc-admin@test.fr';
 const BCC_ADMIN_PWD_HASH = '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'; // sha256('test')
+const BCC_ADMIN_ID = 'admin-bcc-uuid';
 
-function mockClubsLookup(overrides = {}) {
+// Chantier "multi-club-admin" : admin-login.js lit désormais `admins` (email
+// + password_hash) puis `admin_club_links` (résolution des clubs
+// accessibles) puis `clubs` (détail des clubs accessibles, par id.in.(...)),
+// au lieu de lire `clubs` directement par admin_email. Le mock ci-dessous
+// simule ces 3 tables pour UN admin/UN club (BCC) — largement suffisant ici
+// puisque le multi-club par admin et l'isolation entre plusieurs admins sont
+// couverts en détail dans tests/multi-club-admin.test.mjs.
+function mockAdminLoginLookup({ status = 'active', adminId = BCC_ADMIN_ID, clubId = BCC_CLUB_ID } = {}) {
   return installFetchMock((call) => {
+    if (call.url.includes('/admins') && call.method === 'GET') {
+      const m = call.url.match(/email=eq\.([^&]+)/);
+      if (m && decodeURIComponent(m[1]) === BCC_ADMIN_EMAIL) {
+        return [{ id: adminId, password_hash: BCC_ADMIN_PWD_HASH }];
+      }
+      return [];
+    }
+    if (call.url.includes('/admin_club_links') && call.method === 'GET') {
+      const m = call.url.match(/admin_id=eq\.([^&]+)/);
+      if (m && decodeURIComponent(m[1]) === adminId) return [{ admin_id: adminId, club_id: clubId }];
+      return [];
+    }
     if (call.url.includes('/clubs') && call.method === 'GET') {
-      return [{ id: BCC_CLUB_ID, admin_email: BCC_ADMIN_EMAIL, status: 'active', admin_pwd_hash: BCC_ADMIN_PWD_HASH, ...overrides }];
+      return [{ id: clubId, status, name: 'BCC', city: 'Lille', portal_code: 'BCCD25' }];
     }
     return [];
   });
 }
 
 test('admin-login : email + mot de passe corrects → token portant l\'id réel du club lu en base', async () => {
-  const mock = mockClubsLookup();
+  const mock = mockAdminLoginLookup();
   const req = fakeReq({ body: { email: BCC_ADMIN_EMAIL, password: 'test' } });
   const res = fakeRes();
   await adminLoginHandler(req, res);
@@ -173,17 +215,18 @@ test('admin-login : email + mot de passe corrects → token portant l\'id réel 
   assert.equal(res.statusCode, 200);
   assert.ok(res.body.token);
   const claims = verifyAdminToken(fakeReq({ token: res.body.token }));
-  assert.equal(claims.club_id, BCC_CLUB_ID);
+  assert.equal(claims.active_club_id, BCC_CLUB_ID);
+  assert.equal(claims.admin_id, BCC_ADMIN_ID);
 });
 
 test('admin-login : rememberMe=true émet un token bien plus longue durée que la session par défaut', async () => {
-  const mockDefault = mockClubsLookup();
+  const mockDefault = mockAdminLoginLookup();
   const reqDefault = fakeReq({ body: { email: BCC_ADMIN_EMAIL, password: 'test' } });
   const resDefault = fakeRes();
   await adminLoginHandler(reqDefault, resDefault);
   mockDefault.restore();
 
-  const mockRemember = mockClubsLookup();
+  const mockRemember = mockAdminLoginLookup();
   const reqRemember = fakeReq({ body: { email: BCC_ADMIN_EMAIL, password: 'test', rememberMe: true } });
   const resRemember = fakeRes();
   await adminLoginHandler(reqRemember, resRemember);
@@ -200,7 +243,7 @@ test('admin-login : rememberMe=true émet un token bien plus longue durée que l
 });
 
 test('admin-login : mauvais mot de passe → 401, pas de token émis', async () => {
-  const mock = mockClubsLookup();
+  const mock = mockAdminLoginLookup();
   const req = fakeReq({ body: { email: BCC_ADMIN_EMAIL, password: 'mauvais' } });
   const res = fakeRes();
   await adminLoginHandler(req, res);
@@ -209,14 +252,14 @@ test('admin-login : mauvais mot de passe → 401, pas de token émis', async () 
   assert.equal(res.body.token, undefined);
 });
 
-test('admin-login : email inconnu (aucun club ne correspond) → 401 générique, JAMAIS un 500 qui laisserait deviner que le compte n\'existe pas', async () => {
+test('admin-login : email inconnu (aucun admin ne correspond) → 401 générique, JAMAIS un 500 qui laisserait deviner que le compte n\'existe pas', async () => {
   // Avant l'étape F, un seul club existait et l'endpoint était résolu sur un
   // slug en dur : une table `clubs` vide (migration pas encore jouée) était
   // une erreur de configuration serveur détectée bruyamment (500). Depuis
   // l'étape F, plusieurs clubs coexistent et un email qui ne correspond à
-  // aucun club est un cas NORMAL (mauvaise saisie, compte inexistant) — il
+  // aucun admin est un cas NORMAL (mauvaise saisie, compte inexistant) — il
   // doit être indiscernable d'un mauvais mot de passe, jamais un 500.
-  const mock = installFetchMock(() => []); // aucune ligne clubs ne matche cet email
+  const mock = installFetchMock(() => []); // aucune ligne admins/clubs ne matche cet email
   const req = fakeReq({ body: { email: 'personne@example.com', password: 'test' } });
   const res = fakeRes();
   await adminLoginHandler(req, res);
@@ -227,7 +270,7 @@ test('admin-login : email inconnu (aucun club ne correspond) → 401 générique
 });
 
 test('admin-login : club suspendu → 403, même avec le bon mot de passe', async () => {
-  const mock = mockClubsLookup({ status: 'suspended' });
+  const mock = mockAdminLoginLookup({ status: 'suspended' });
   const req = fakeReq({ body: { email: BCC_ADMIN_EMAIL, password: 'test' } });
   const res = fakeRes();
   await adminLoginHandler(req, res);
@@ -242,7 +285,7 @@ test('admin-login : club suspendu → 403, même avec le bon mot de passe', asyn
 const adminWriteHandler = (await import('../api/admin-write.js')).default;
 
 test('sync: le DELETE assignments est scopé au club du token (plus de wipe global ?id=gte.0)', async () => {
-  const { token } = issueAdminToken(OTHER_CLUB_ID);
+  const { token } = tokenForClub(OTHER_CLUB_ID);
   const mock = installFetchMock();
   const req = fakeReq({ token, body: { action: 'sync', payload: { assignments: [] } } });
   const res = fakeRes();
@@ -256,7 +299,7 @@ test('sync: le DELETE assignments est scopé au club du token (plus de wipe glob
 });
 
 test('sync: les lignes insérées (comedians/assignments/dispos/dispoStatus) portent toutes club_id', async () => {
-  const { token } = issueAdminToken(OTHER_CLUB_ID);
+  const { token } = tokenForClub(OTHER_CLUB_ID);
   const mock = installFetchMock();
   const req = fakeReq({ token, body: { action: 'sync', payload: {
     comedians: [{ id: 'c1', name: 'Test' }],
@@ -278,7 +321,7 @@ test('sync: les lignes insérées (comedians/assignments/dispos/dispoStatus) por
 });
 
 test('clearAll: les 4 DELETE sont tous scopés au club du token', async () => {
-  const { token } = issueAdminToken(OTHER_CLUB_ID);
+  const { token } = tokenForClub(OTHER_CLUB_ID);
   const mock = installFetchMock();
   const req = fakeReq({ token, body: { action: 'clearAll', payload: {} } });
   const res = fakeRes();
@@ -299,8 +342,8 @@ test('clearAll: les 4 DELETE sont tous scopés au club du token', async () => {
 });
 
 test('isolation croisée : clearAll du club A ne référence jamais le club B, et inversement', async () => {
-  const tokenA = issueAdminToken(BCC_CLUB_ID).token;
-  const tokenB = issueAdminToken(OTHER_CLUB_ID).token;
+  const tokenA = tokenForClub(BCC_CLUB_ID).token;
+  const tokenB = tokenForClub(OTHER_CLUB_ID).token;
 
   const mockA = installFetchMock();
   await adminWriteHandler(fakeReq({ token: tokenA, body: { action: 'clearAll', payload: {} } }), fakeRes());
@@ -321,7 +364,7 @@ test('isolation croisée : clearAll du club A ne référence jamais le club B, e
 });
 
 test('deleteComedian: les 4 DELETE sont scopés club_id, pas seulement par id', async () => {
-  const { token } = issueAdminToken(OTHER_CLUB_ID);
+  const { token } = tokenForClub(OTHER_CLUB_ID);
   const mock = installFetchMock();
   const req = fakeReq({ token, body: { action: 'deleteComedian', payload: { id: 'c1' } } });
   await adminWriteHandler(req, fakeRes());
@@ -336,7 +379,7 @@ test('deleteComedian: les 4 DELETE sont scopés club_id, pas seulement par id', 
 });
 
 test('chatSend: le message inséré porte le club_id du token', async () => {
-  const { token } = issueAdminToken(OTHER_CLUB_ID);
+  const { token } = tokenForClub(OTHER_CLUB_ID);
   const mock = installFetchMock();
   const req = fakeReq({ token, body: { action: 'chatSend', payload: { text: 'hello' } } });
   await adminWriteHandler(req, fakeRes());

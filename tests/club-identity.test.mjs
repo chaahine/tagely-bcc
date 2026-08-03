@@ -45,16 +45,24 @@ const adminLoginHandler = (await import('../api/admin-login.js')).default;
 const adminWriteHandler = (await import('../api/admin-write.js')).default;
 
 const SECOND_CLUB_ID = '44444444-4444-4444-a444-444444444444';
+const BCC_ADMIN_ID = 'admin-bruce-uuid';
+const SECOND_ADMIN_ID = 'admin-rire-uuid';
 
+// Chantier "multi-club-admin" : identité de connexion = table `admins`,
+// résolution des clubs accessibles via `admin_club_links` — `clubs` ne porte
+// plus admin_email/admin_pwd_hash comme source d'auth (dépréciées, cf.
+// api/_lib.js/club-signup.js).
+const ADMINS = [
+  { id: BCC_ADMIN_ID, email: 'bruce@bcc.fr', password_hash: sha256Hex('bruce-pwd') },
+  { id: SECOND_ADMIN_ID, email: 'admin@lerirejaune.fr', password_hash: sha256Hex('rire-pwd') },
+];
+const LINKS = [
+  { admin_id: BCC_ADMIN_ID, club_id: BCC_CLUB_ID },
+  { admin_id: SECOND_ADMIN_ID, club_id: SECOND_CLUB_ID },
+];
 const CLUBS = [
-  {
-    id: BCC_CLUB_ID, status: 'active', admin_email: 'bruce@bcc.fr',
-    admin_pwd_hash: sha256Hex('bruce-pwd'), name: 'Beer Comedy Club', city: 'Lille', portal_code: 'BCCD25',
-  },
-  {
-    id: SECOND_CLUB_ID, status: 'active', admin_email: 'admin@lerirejaune.fr',
-    admin_pwd_hash: sha256Hex('rire-pwd'), name: 'Le Rire Jaune', city: 'Paris', portal_code: 'RIREJ9',
-  },
+  { id: BCC_CLUB_ID, status: 'active', name: 'Beer Comedy Club', city: 'Lille', portal_code: 'BCCD25' },
+  { id: SECOND_CLUB_ID, status: 'active', name: 'Le Rire Jaune', city: 'Paris', portal_code: 'RIREJ9' },
 ];
 
 function installFetchMock(responder) {
@@ -69,13 +77,29 @@ function installFetchMock(responder) {
   return { calls, restore: () => { globalThis.fetch = original; } };
 }
 
-function mockClubsByEmailOrId(store) {
+// Mock complet admin-login.js : admins (par email) -> admin_club_links (par
+// admin_id) -> clubs (par id.in.(...)). Sert aussi pour un GET clubs par
+// id=eq.<id> seul (utilisé par admin-write.js/updateClub dans ce fichier).
+function mockClubsByEmailOrId(clubsStore) {
   return installFetchMock((call) => {
+    if (call.url.includes('/admins') && call.method === 'GET') {
+      const em = call.url.match(/email=eq\.([^&]+)/);
+      if (em) return ADMINS.filter((a) => a.email === decodeURIComponent(em[1]));
+      return [];
+    }
+    if (call.url.includes('/admin_club_links') && call.method === 'GET') {
+      const am = call.url.match(/admin_id=eq\.([^&]+)/);
+      if (am) return LINKS.filter((l) => l.admin_id === decodeURIComponent(am[1]));
+      return [];
+    }
     if (!call.url.includes('/clubs') || call.method !== 'GET') return [];
-    const em = call.url.match(/admin_email=eq\.([^&]+)/);
-    if (em) return store.filter((c) => c.admin_email === decodeURIComponent(em[1]));
+    const idIn = call.url.match(/id=in\.\(([^)]+)\)/);
+    if (idIn) {
+      const ids = idIn[1].split(',').map(decodeURIComponent);
+      return clubsStore.filter((c) => ids.includes(c.id));
+    }
     const im = call.url.match(/id=eq\.([^&]+)/);
-    if (im) return store.filter((c) => c.id === decodeURIComponent(im[1]));
+    if (im) return clubsStore.filter((c) => c.id === decodeURIComponent(im[1]));
     return [];
   });
 }
@@ -141,7 +165,7 @@ test('updateClub : sauvegarde name/city pour le club authentifié, sans jamais t
     }
     return [];
   });
-  const token = issueAdminToken(SECOND_CLUB_ID).token;
+  const token = issueAdminToken('admin-x', [{ id: SECOND_CLUB_ID, name: 'Le Rire Jaune' }], SECOND_CLUB_ID).token;
   const req = fakeReq({ token, body: { action: 'updateClub', payload: { name: 'Le Rire Jaune Renommé', city: 'Lyon', dispo_deadline_day: 20 } } });
   const res = fakeRes();
   await adminWriteHandler(req, res);
@@ -160,7 +184,7 @@ test('updateClub : sauvegarde name/city pour le club authentifié, sans jamais t
 
 test('updateClub : nom vide → 400, aucune écriture Supabase déclenchée', async () => {
   const mock = installFetchMock(() => []);
-  const token = issueAdminToken(BCC_CLUB_ID).token;
+  const token = issueAdminToken('admin-x', [{ id: BCC_CLUB_ID, name: 'BCC' }], BCC_CLUB_ID).token;
   const req = fakeReq({ token, body: { action: 'updateClub', payload: { name: '   ' } } });
   const res = fakeRes();
   await adminWriteHandler(req, res);
@@ -181,7 +205,7 @@ test('updateClub : sans token → 401', async () => {
 
 test('updateClub : dispo_deadline_day hors bornes (1-28) → 400', async () => {
   const mock = installFetchMock(() => []);
-  const token = issueAdminToken(BCC_CLUB_ID).token;
+  const token = issueAdminToken('admin-x', [{ id: BCC_CLUB_ID, name: 'BCC' }], BCC_CLUB_ID).token;
   const req = fakeReq({ token, body: { action: 'updateClub', payload: { name: 'BCC', dispo_deadline_day: 40 } } });
   const res = fakeRes();
   await adminWriteHandler(req, res);

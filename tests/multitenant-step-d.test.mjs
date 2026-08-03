@@ -181,8 +181,11 @@ test('portal-resolve : méthode GET rejetée (405) — route strictement POST co
 
 const adminWriteHandler = (await import('../api/admin-write.js')).default;
 
+// Chantier "multi-club-admin" : issueAdminToken(adminId, accessibleClubs,
+// activeClubId, rememberMe) a remplacé issueAdminToken(clubId, rememberMe) —
+// ce fichier n'a besoin que d'un token "à un seul club" par test.
 function tokenFor(clubId) {
-  return issueAdminToken(clubId).token;
+  return issueAdminToken(`admin-${clubId}`, [{ id: clubId, name: 'Club' }], clubId).token;
 }
 
 test('addScheduleSlot : rejette weekday hors 0-6 et time mal formé', async () => {

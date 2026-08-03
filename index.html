@@ -179,6 +179,12 @@ html.light{
   font-size:10px;color:var(--muted);white-space:nowrap;
 }
 .ctag strong{color:var(--text);display:block;font-size:11px;font-weight:600;margin-bottom:1px}
+.club-menu-item{
+  display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:6px;
+  font-size:11px;font-weight:500;color:var(--text);cursor:pointer;white-space:nowrap;
+}
+.club-menu-item:hover{background:var(--s3)}
+.club-menu-item.active{color:var(--o);font-weight:700}
 .nbadge{
   margin-left:auto;background:var(--o);color:#fff;
   font-size:8px;font-weight:700;padding:1px 6px;border-radius:20px;
@@ -566,13 +572,15 @@ html.light{
 
 <script>
 // Auth admin : l'email et le mot de passe ne sont jamais comparés côté client.
-// checkAdminPwd() envoie {email, password} à /api/admin-login qui résout le
-// club par admin_email en base, hash le mot de passe en SHA-256 côté serveur
-// et le compare à clubs.admin_pwd_hash (chantier multitenant, étape F — avant
-// cette étape le club était résolu en dur sur le seul BCC). En cas de succès,
-// un token signé (HMAC, 12h) est renvoyé et stocké ici — il est envoyé en
-// header Authorization sur toutes les écritures admin (voir adminWrite() plus
-// bas dans le fichier).
+// checkAdminPwd() envoie {email, password, rememberMe} à /api/admin-login qui
+// résout l'admin par email dans la table `admins` (chantier "multi-club-
+// admin" — un admin peut posséder plusieurs clubs, cf. admin_club_links),
+// hash le mot de passe en SHA-256 côté serveur et le compare à
+// admins.password_hash. En cas de succès, un token signé (HMAC, 12h — 30
+// jours si rememberMe) est renvoyé et stocké ici — il porte accessible_clubs
+// + active_club_id (pas un club_id isolé) et est envoyé en header
+// Authorization sur toutes les écritures admin (voir adminWrite() plus bas
+// dans le fichier).
 const ADMIN_SESSION_KEY = 'stagely_admin_session';
 
 function getAdminSession() {
@@ -897,7 +905,14 @@ window.addEventListener('DOMContentLoaded', () => {
   <div class="ns">Communication</div>
   <div class="ni" onclick="openUrgenceModal()" style="color:var(--r);border:1px solid rgba(239,68,68,.2);border-radius:4px;margin:4px 8px"><span class="ni-lbl">🚨 Remplacement urgent</span></div>
 
-  <div class="ctag"><strong id="club-badge">BCC</strong><span class="ni-lbl">Directeur artistique</span></div>
+  <div class="ctag" id="club-tag" onclick="toggleClubMenu(event)" style="cursor:pointer;position:relative">
+    <strong id="club-badge">BCC</strong><span class="ni-lbl">Directeur artistique</span>
+    <div id="club-menu" style="display:none;position:absolute;bottom:100%;left:8px;right:8px;margin-bottom:6px;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:5px;box-shadow:0 8px 24px rgba(0,0,0,.35);z-index:60">
+      <div id="club-menu-list"></div>
+      <div class="club-menu-item" onclick="event.stopPropagation();goAddClub()" style="color:var(--o)">+ Ajouter un club</div>
+      <div class="club-menu-item" onclick="event.stopPropagation();logoutAdmin()" style="color:var(--r);border-top:1px solid var(--border);margin-top:3px;padding-top:9px">⏻ Déconnexion</div>
+    </div>
+  </div>
 </div>
 
 <div class="main">
@@ -3646,23 +3661,25 @@ localStorage.removeItem('stagely_sb_key');
 let sbConnected = false;
 
 // ── club_id courant, décodé depuis le token admin (lecture seule — chantier
-// multitenant, étape D) ──
+// multitenant, étape D, mis à jour au chantier "multi-club-admin") ──
 // Le token admin (émis par /api/admin-login, voir issueAdminToken() dans
 // api/_lib.js) a la forme "payload.signature" où payload est le JSON
-// {role, club_id, exp} encodé en base64url. On le décode ici UNIQUEMENT
-// pour savoir quel club_id demander en lecture — la signature n'est jamais
-// revérifiée côté client (inutile : elle protège les écritures, qui
-// repassent de toute façon par le serveur via adminWrite()/verifyAdminToken).
-// Un attaquant qui falsifierait ce payload dans son propre navigateur ne
-// verrait au pire que ses propres données déjà accessibles, ou rien —
-// jamais celles d'un autre club, puisque aucune écriture n'en dépend.
+// {role, admin_id, accessible_clubs, active_club_id, exp} encodé en
+// base64url. On le décode ici UNIQUEMENT pour savoir quel club_id demander
+// en lecture (active_club_id — le club actuellement sélectionné dans cette
+// session, PAS un club_id unique comme avant ce chantier) — la signature
+// n'est jamais revérifiée côté client (inutile : elle protège les
+// écritures, qui repassent de toute façon par le serveur via
+// adminWrite()/verifyAdminToken()). Un attaquant qui falsifierait ce payload
+// dans son propre navigateur ne verrait au pire que ses propres données déjà
+// accessibles, ou rien — jamais celles d'un autre club, puisque aucune
+// écriture n'en dépend.
 //
-// Repli sur BCC_CLUB_ID si aucune session admin valide n'est trouvée (même
-// logique de repli que verifyAdminToken() côté serveur pour un vieux token
-// sans club_id) : sans ça, les lectures directes depuis le vestige de
-// portail intégré à index.html (hv-screen, remplacé par portal.html mais
-// pas encore retiré du code) ou un état de session incohérent renverraient
-// silencieusement zéro ligne.
+// Repli sur BCC_CLUB_ID si aucune session admin valide n'est trouvée : sans
+// ça, les lectures directes depuis le vestige de portail intégré à
+// index.html (hv-screen, remplacé par portal.html mais pas encore retiré du
+// code) ou un état de session incohérent renverraient silencieusement zéro
+// ligne.
 // ── TEST-EXTRACT-START: club-id-decode ──
 // (tests/schedule-grid-client.test.mjs extrait tel quel ce bloc — ne pas
 // retirer ces marqueurs. Dépend de getAdminSession(), fourni par le sandbox
@@ -3680,12 +3697,125 @@ function getCurrentClubId() {
     const token = session && session.token;
     if (token && token.includes('.')) {
       const payload = JSON.parse(b64urlDecode(token.split('.')[0]));
-      if (payload && typeof payload.club_id === 'string' && payload.club_id) return payload.club_id;
+      if (payload && typeof payload.active_club_id === 'string' && payload.active_club_id) return payload.active_club_id;
     }
   } catch (e) { /* payload illisible — repli ci-dessous */ }
   return BCC_CLUB_ID;
 }
 // ── TEST-EXTRACT-END: club-id-decode ──
+
+// ── Chantier "multi-club-admin" : déconnexion + sélecteur de club (sidebar) ──
+// Décode le payload complet du token courant (admin_id, accessible_clubs,
+// active_club_id) — même technique que getCurrentClubId() ci-dessus,
+// réutilisée ici pour peupler le sélecteur sans requête réseau
+// supplémentaire (le token la porte déjà, cf. issueAdminToken() dans
+// api/_lib.js).
+function decodeSessionPayload() {
+  try {
+    const session = getAdminSession();
+    const token = session && session.token;
+    if (token && token.includes('.')) return JSON.parse(b64urlDecode(token.split('.')[0]));
+  } catch (e) { /* payload illisible */ }
+  return null;
+}
+
+function logoutAdmin() {
+  clearAdminSession();
+  // Rechargement complet plutôt qu'un simple changement d'écran : l'app a
+  // beaucoup d'état JS global (COMEDIANS, assignments, DISPOS_DATA...) tiré
+  // du club précédent — repartir d'une page neuve évite tout résidu visible
+  // avant qu'un autre admin (ou le même sur un autre club) se reconnecte.
+  window.location.href = '/';
+}
+
+function goAddClub() {
+  window.location.href = '/register.html';
+}
+
+function toggleClubMenu(ev) {
+  if (ev) ev.stopPropagation();
+  const menu = document.getElementById('club-menu');
+  if (!menu) return;
+  const opening = menu.style.display !== 'block';
+  if (opening) renderClubMenu();
+  menu.style.display = opening ? 'block' : 'none';
+}
+
+function escapeHtmlLite(str) {
+  return String(str == null ? '' : str).replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+// Affiche la liste des clubs accessibles UNIQUEMENT s'il y en a plus d'un —
+// un admin mono-club (le cas de Bruce/BCC aujourd'hui) ne voit donc aucun
+// sélecteur, juste "+ Ajouter un club" et "Déconnexion" (toujours visibles,
+// statiques dans le HTML, cf. #club-menu au-dessus de #club-menu-list).
+function renderClubMenu() {
+  const payload = decodeSessionPayload();
+  const listEl = document.getElementById('club-menu-list');
+  if (!listEl) return;
+  const clubs = (payload && Array.isArray(payload.accessible_clubs)) ? payload.accessible_clubs : [];
+  const activeId = payload && payload.active_club_id;
+  if (clubs.length > 1) {
+    listEl.innerHTML = clubs.map(c => `
+      <div class="club-menu-item${c.id === activeId ? ' active' : ''}" onclick="event.stopPropagation();selectClub('${String(c.id).replace(/'/g, "\\'")}')">
+        <span style="width:14px;display:inline-block">${c.id === activeId ? '✓' : ''}</span>${escapeHtmlLite(c.name || 'Club')}
+      </div>`).join('');
+  } else {
+    listEl.innerHTML = '';
+  }
+}
+
+// Change le club actif de la session SANS repasser par l'écran de login —
+// /api/switch-club revérifie toujours en base (jamais confiance au token
+// seul, cf. le fichier serveur) et renvoie un nouveau token + le détail
+// complet du nouveau club actif, appliqué ici via applyClubInfo() exactement
+// comme après un login (même forme de réponse).
+async function selectClub(clubId) {
+  const payload = decodeSessionPayload();
+  const menu = document.getElementById('club-menu');
+  if (payload && payload.active_club_id === clubId) {
+    if (menu) menu.style.display = 'none';
+    return;
+  }
+  const session = getAdminSession();
+  if (!session || !session.token) { showSaveIndicator('✕ Session admin expirée — reconnecte-toi'); return; }
+  if (menu) menu.style.display = 'none';
+  try {
+    const res = await fetch('/api/switch-club', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.token}` },
+      body: JSON.stringify({ club_id: clubId })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) { clearAdminSession(); window.location.href = '/'; return; }
+    if (!res.ok || !data.success || !data.token) {
+      showSaveIndicator('✕ ' + (data.error || 'Impossible de changer de club'));
+      return;
+    }
+    localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({ token: data.token, expiresAt: data.expiresAt, club: data.club || null }));
+    if (data.club) applyClubInfo(data.club);
+    const ok = await loadFromSupabase();
+    if (ok) {
+      const activeView = document.querySelector('.view.on')?.id?.replace('view-', '') || 'dashboard';
+      if (activeView === 'dashboard') renderDashboard();
+      else if (activeView === 'planning') renderPlanning();
+      else if (activeView === 'dispos') renderDispos();
+      else if (activeView === 'humoristes') renderHumoristes();
+      else renderDashboard();
+    }
+    toast('✓ Club changé');
+  } catch (e) {
+    showSaveIndicator('✕ Erreur réseau, réessaie');
+  }
+}
+
+document.addEventListener('click', (ev) => {
+  const menu = document.getElementById('club-menu');
+  const tag = document.getElementById('club-tag');
+  if (menu && menu.style.display === 'block' && tag && !tag.contains(ev.target)) {
+    menu.style.display = 'none';
+  }
+});
 
 async function sbFetch(table, options = {}) {
   const { method='GET', body, params='' } = options;

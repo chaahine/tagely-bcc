@@ -111,7 +111,10 @@ test('sendTransactionalEmail : paramètres manquants (to/subject/html) → succe
 const emailHandler = (await import('../api/email.js')).default;
 
 test('email.js : envoi réussi utilise le nom du club (lu en base) comme expéditeur et son admin_email comme Reply-To', async () => {
-  const { token } = issueAdminToken(BCC_CLUB_ID);
+  // Chantier "multi-club-admin" : token à un seul club (BCC_CLUB_ID à la
+  // fois accessible_clubs[0] et active_club_id) — suffisant ici, email.js
+  // lit auth.active_club_id.
+  const { token } = issueAdminToken('admin-bcc', [{ id: BCC_CLUB_ID, name: 'BCC' }], BCC_CLUB_ID);
   const mock = installFetchMock((call) => {
     if (call.url.includes('/clubs')) return [{ name: 'Beer Comedy Club', admin_email: 'bruce@bcc.fr' }];
     if (call.url.includes('brevo.com')) {

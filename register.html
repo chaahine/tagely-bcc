@@ -53,9 +53,9 @@ body{
 <body>
 
 <div class="card">
-  <button class="back" onclick="location.href='/'">← Retour</button>
+  <button class="back" id="btn-back" onclick="location.href='/'">← Retour</button>
   <div class="logo">STAGELY</div>
-  <div class="sub">Créez l'espace de votre comedy club</div>
+  <div class="sub" id="page-sub">Créez l'espace de votre comedy club</div>
 
   <div class="err" id="err"></div>
   <div class="ok" id="ok">✓ Votre espace a été créé ! Redirection en cours...</div>
@@ -68,28 +68,65 @@ body{
     <label class="lbl">Ville</label>
     <input class="inp" id="club-city" placeholder="Paris">
 
-    <label class="lbl">Email admin</label>
-    <input class="inp" id="club-email" type="email" placeholder="vous@votreclub.fr" required>
+    <div id="account-fields">
+      <label class="lbl">Email admin</label>
+      <input class="inp" id="club-email" type="email" placeholder="vous@votreclub.fr" required>
 
-    <div class="row2">
-      <div>
-        <label class="lbl">Mot de passe</label>
-        <input class="inp" id="club-pwd" type="password" placeholder="6 caractères min." required>
-      </div>
-      <div>
-        <label class="lbl">Confirmer</label>
-        <input class="inp" id="club-pwd2" type="password" placeholder="Même mot de passe" required>
+      <div class="row2">
+        <div>
+          <label class="lbl">Mot de passe</label>
+          <input class="inp" id="club-pwd" type="password" placeholder="6 caractères min." required>
+        </div>
+        <div>
+          <label class="lbl">Confirmer</label>
+          <input class="inp" id="club-pwd2" type="password" placeholder="Même mot de passe" required>
+        </div>
       </div>
     </div>
 
     <button class="btn" id="btn-register" type="submit">Créer mon espace →</button>
   </form>
 
-  <div class="trial">✨ Essai gratuit <b>1 mois</b> · Sans engagement</div>
-  <div class="foot">Déjà un compte ? <a href="/">Se connecter</a></div>
+  <div class="trial" id="trial-note">✨ Essai gratuit <b>1 mois</b> · Sans engagement</div>
+  <div class="foot" id="page-foot">Déjà un compte ? <a href="/">Se connecter</a></div>
 </div>
 
 <script>
+// Chantier multitenant "multi-club-admin" : cette page sert désormais deux
+// scénarios distincts, détectés au chargement via la session locale (même
+// clé que index.html — 'stagely_admin_session') :
+//  - pas de session valide -> inscription complète (nouvel admin + club),
+//    comportement d'origine, inchangé.
+//  - session admin valide -> un admin déjà connecté ajoute un club à son
+//    compte existant : formulaire réduit à nom + ville (email/mot de passe
+//    masqués, déjà authentifié côté serveur via le token) — api/club-signup.js
+//    résout l'email de contact du nouveau club depuis le compte admin lui-même,
+//    pas besoin de le redemander. La session est REMPLACÉE par le nouveau
+//    token renvoyé (qui pointe déjà sur le club fraîchement créé, avec la
+//    même durée — remember-me — que la session d'origine).
+const SESSION_KEY = 'stagely_admin_session';
+
+function getSession() {
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) { return null; }
+}
+function hasValidSession() {
+  const s = getSession();
+  return !!(s && s.token && s.expiresAt && Date.now() < s.expiresAt);
+}
+const ADDING_CLUB = hasValidSession();
+
+if (ADDING_CLUB) {
+  document.getElementById('page-sub').textContent = 'Ajoute un club à ton compte';
+  document.getElementById('account-fields').style.display = 'none';
+  document.getElementById('club-email').required = false;
+  document.getElementById('club-pwd').required = false;
+  document.getElementById('club-pwd2').required = false;
+  document.getElementById('btn-register').textContent = 'Ajouter ce club →';
+  document.getElementById('trial-note').style.display = 'none';
+  document.getElementById('page-foot').innerHTML = '<a href="/">← Retour à mon dashboard</a>';
+  document.getElementById('btn-back').onclick = () => { location.href = '/'; };
+}
+
 function slugifyPreview(name) {
   return name.toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -105,67 +142,79 @@ function updateSlugPreview() {
 async function register() {
   const name = document.getElementById('club-name').value.trim();
   const city = document.getElementById('club-city').value.trim();
-  const email = document.getElementById('club-email').value.trim();
-  const pwd = document.getElementById('club-pwd').value;
-  const pwd2 = document.getElementById('club-pwd2').value;
   const errEl = document.getElementById('err');
   const okEl = document.getElementById('ok');
   const btn = document.getElementById('btn-register');
   errEl.style.display = 'none';
   okEl.style.display = 'none';
 
-  if (!name || !email || !pwd) {
-    errEl.textContent = '⚠ Remplis tous les champs obligatoires';
+  if (!name) {
+    errEl.textContent = '⚠ Le nom du club est requis';
     errEl.style.display = 'block';
     return;
   }
-  if (pwd.length < 6) {
-    errEl.textContent = '⚠ Le mot de passe doit faire au moins 6 caractères';
-    errEl.style.display = 'block';
-    return;
-  }
-  if (pwd !== pwd2) {
-    errEl.textContent = '⚠ Les mots de passe ne correspondent pas';
-    errEl.style.display = 'block';
-    return;
+
+  let email, pwd;
+  if (!ADDING_CLUB) {
+    email = document.getElementById('club-email').value.trim();
+    pwd = document.getElementById('club-pwd').value;
+    const pwd2 = document.getElementById('club-pwd2').value;
+    if (!email || !pwd) {
+      errEl.textContent = '⚠ Remplis tous les champs obligatoires';
+      errEl.style.display = 'block';
+      return;
+    }
+    if (pwd.length < 6) {
+      errEl.textContent = '⚠ Le mot de passe doit faire au moins 6 caractères';
+      errEl.style.display = 'block';
+      return;
+    }
+    if (pwd !== pwd2) {
+      errEl.textContent = '⚠ Les mots de passe ne correspondent pas';
+      errEl.style.display = 'block';
+      return;
+    }
   }
 
   btn.disabled = true;
-  btn.textContent = 'Création en cours...';
+  btn.textContent = ADDING_CLUB ? 'Ajout en cours...' : 'Création en cours...';
 
   try {
+    const headers = { 'Content-Type': 'application/json' };
+    const session = ADDING_CLUB ? getSession() : null;
+    if (session && session.token) headers['Authorization'] = `Bearer ${session.token}`;
+    const body = ADDING_CLUB ? { name, city } : { name, city, email, password: pwd };
+
     const res = await fetch('/api/club-signup', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, city, email, password: pwd })
+      headers,
+      body: JSON.stringify(body)
     });
     const data = await res.json().catch(() => ({}));
 
     if (res.ok && data.success && data.token) {
-      // Auto-connexion : même clé de session que index.html (checkAdminPwd()),
-      // pour atterrir directement dans le dashboard sans re-saisir quoi que ce soit.
+      // Auto-connexion (ou reconnexion sur le nouveau club, si ADDING_CLUB) :
+      // même clé de session que index.html (checkAdminPwd()), pour atterrir
+      // directement dans le dashboard sans re-saisir quoi que ce soit.
       // data.club (id/name/city/portal_code/dispo_deadline_day) est déjà
-      // renvoyé par /api/club-signup depuis toujours — jusqu'ici il n'était
-      // simplement jamais lu ni stocké ici, c'est ce qui faisait qu'un club
-      // fraîchement inscrit atterrissait sur le dashboard avec l'identité du
-      // BCC (nom "BCC", lien portail codé en dur BCCD25) tant qu'il n'avait
-      // pas fait un aller-retour login manuel. index.html (checkAdminPwd /
-      // DOMContentLoaded) lit ce même champ `club` de la session pour
-      // appliquer la vraie identité du club — voir applyClubInfo().
-      localStorage.setItem('stagely_admin_session', JSON.stringify({ token: data.token, expiresAt: data.expiresAt, club: data.club || null }));
+      // renvoyé par /api/club-signup depuis toujours — c'est ce que
+      // index.html (checkAdminPwd / DOMContentLoaded) lit pour appliquer la
+      // vraie identité du club — voir applyClubInfo().
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ token: data.token, expiresAt: data.expiresAt, club: data.club || null }));
+      okEl.textContent = ADDING_CLUB ? '✓ Club ajouté ! Redirection en cours...' : '✓ Votre espace a été créé ! Redirection en cours...';
       okEl.style.display = 'block';
       setTimeout(() => { window.location.href = '/'; }, 1200);
     } else {
       errEl.textContent = '⚠ ' + (data.error || 'Erreur lors de la création, réessaie');
       errEl.style.display = 'block';
       btn.disabled = false;
-      btn.textContent = 'Créer mon espace →';
+      btn.textContent = ADDING_CLUB ? 'Ajouter ce club →' : 'Créer mon espace →';
     }
   } catch (e) {
     errEl.textContent = '⚠ Erreur réseau, réessaie';
     errEl.style.display = 'block';
     btn.disabled = false;
-    btn.textContent = 'Créer mon espace →';
+    btn.textContent = ADDING_CLUB ? 'Ajouter ce club →' : 'Créer mon espace →';
   }
 }
 </script>

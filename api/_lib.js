@@ -69,31 +69,77 @@ const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 const TOKEN_TTL_REMEMBER_MS = 30 * 24 * 60 * 60 * 1000;
 
 // ── Club BCC (chantier multitenant, étape C) ──
-// Depuis l'étape C, la table `clubs` a une vraie ligne (slug='bcc') dont
-// l'id EST cette constante — choisie à l'avance à l'étape B pour qu'aucune
-// donnée déjà écrite avec ce club_id n'ait eu besoin d'être réécrite au
-// moment du backfill. admin-login.js et portal-write.js ne s'appuient plus
-// sur cette constante pour émettre un token/résoudre un code — ils lisent la
-// table `clubs` en base — mais elle reste utilisée par verifyAdminToken()
-// (repli pour un très vieux token émis avant l'étape B, sans club_id dans son
-// payload) et par les tests.
+// La table `clubs` a une vraie ligne (slug='bcc') dont l'id EST cette
+// constante — choisie à l'avance à l'étape B pour qu'aucune donnée déjà
+// écrite avec ce club_id n'ait eu besoin d'être réécrite au moment du
+// backfill. N'est plus utilisée comme repli par verifyAdminToken() depuis le
+// chantier "multi-club-admin" (voir plus bas) : un token qui ne porte pas la
+// forme attendue est rejeté, jamais traité comme "c'est sûrement le BCC".
+// Reste utilisée par index.html (repli tant qu'aucune session n'a encore
+// chargé la vraie identité) et par les scripts de migration/tests.
 export const BCC_CLUB_ID = '00000000-0000-4000-a000-0000000000bc';
 
-export function issueAdminToken(clubId, rememberMe = false) {
+// ── Chantier "multi-club-admin" : un compte, plusieurs clubs ──────────────
+// Le token ne porte plus un club_id isolé (1 token = 1 club, modèle d'avant
+// ce chantier) mais l'identité RÉELLE de connexion — un admin (table
+// `admins`, découplée d'un club précis) — plus la liste des clubs que cet
+// admin peut ouvrir dans cette session et lequel est actif :
+//   - adminId : id (uuid) de la ligne `admins`.
+//   - accessibleClubs : forme minimale [{id, name}, ...], embarquée telle
+//     quelle dans le token pour que le sélecteur de club (sidebar) s'affiche
+//     sans requête supplémentaire. Ce tableau ne sert JAMAIS, à lui seul, à
+//     autoriser un switch de club — /api/switch-club revérifie toujours
+//     contre admin_club_links en base avant de faire confiance à un club_id,
+//     même déjà présent ici et signé.
+//   - activeClubId : le club actuellement sélectionné dans cette session —
+//     c'est LUI que lisent les routes d'écriture scopées (auth.active_club_id
+//     dans admin-write.js/email.js), jamais accessibleClubs directement.
+//   - rememberMe : contrôle la durée de vie du token, EXACTEMENT comme avant
+//     ce chantier (v208) — fusionné ici plutôt que perdu. Le choix est aussi
+//     réécrit dans le payload (`remember`) : /api/switch-club et
+//     api/club-signup.js (chemin "ajouter un club à un compte déjà connecté")
+//     le relisent pour émettre leur nouveau token avec la MÊME durée que la
+//     session d'origine, sans qu'un switch ou un ajout de club ne dégrade
+//     silencieusement une session "se souvenir de moi" en session courte.
+export function issueAdminToken(adminId, accessibleClubs, activeClubId, rememberMe = false) {
   const secret = process.env.ADMIN_TOKEN_SECRET;
   if (!secret) throw new Error('ADMIN_TOKEN_SECRET manquante côté serveur');
+  if (!adminId || typeof adminId !== 'string') throw new Error('issueAdminToken: adminId requis');
+  if (!Array.isArray(accessibleClubs) || !accessibleClubs.length) throw new Error('issueAdminToken: accessibleClubs requis (non vide)');
+  if (!activeClubId || typeof activeClubId !== 'string') throw new Error('issueAdminToken: activeClubId requis');
   const exp = Date.now() + (rememberMe ? TOKEN_TTL_REMEMBER_MS : TOKEN_TTL_MS);
-  const payload = Buffer.from(JSON.stringify({ role: 'admin', club_id: clubId, exp })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({
+    role: 'admin',
+    admin_id: adminId,
+    accessible_clubs: accessibleClubs.map(c => ({ id: c.id, name: c.name })),
+    active_club_id: activeClubId,
+    remember: rememberMe === true,
+    exp,
+  })).toString('base64url');
   const sig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
   return { token: `${payload}.${sig}`, exp };
 }
 
-// Retourne les claims décodées { role, club_id, exp } si le token est valide
-// (signature correcte, non expiré), sinon null. Comme null est falsy, le
-// pattern d'appel existant `if (!verifyAdminToken(req))` continue de
+// Retourne les claims décodées { role, admin_id, accessible_clubs,
+// active_club_id, remember, exp } si le token est valide (signature
+// correcte, non expiré, forme attendue), sinon null. Comme null est falsy,
+// le pattern d'appel existant `if (!verifyAdminToken(req))` continue de
 // fonctionner tel quel pour les appelants qui n'ont besoin que du booléen ;
-// ceux qui ont besoin du club_id (routes d'écriture scopées) lisent
-// directement la propriété sur l'objet retourné.
+// ceux qui ont besoin du club actif (routes d'écriture scopées) lisent
+// `active_club_id` sur l'objet retourné — PAS `club_id`, qui n'existe plus
+// dans ce payload.
+//
+// Un token de l'ANCIEN format (avant ce chantier — payload {role, club_id,
+// exp}, un seul club par token, pas de admin_id) ne passe PLUS la validation
+// de forme ci-dessous : il est traité comme invalide, sans repli permissif
+// (jamais "on suppose que c'est le BCC"). Impact assumé : toute session
+// ouverte avant ce déploiement est invalidée et doit se reconnecter — avec
+// le remember-me (TTL max 30 jours), la fenêtre de sessions à invalider est
+// potentiellement large (jusqu'à 30 jours de sessions "se souvenir de moi"
+// ouvertes avant bascule), mais c'est un changement de modèle d'auth : même
+// compromis assumé que les bascules de modèle précédentes de ce projet (ex.
+// repli club_id retiré à l'étape C). Un seul admin actif aujourd'hui
+// (Bruce/BCC) — impact réel négligeable en pratique.
 export function verifyAdminToken(req) {
   const secret = process.env.ADMIN_TOKEN_SECRET;
   if (!secret) return null;
@@ -110,12 +156,22 @@ export function verifyAdminToken(req) {
   } catch {
     return null;
   }
-  if (!data || data.role !== 'admin' || typeof data.exp !== 'number') return null;
-  if (Date.now() > data.exp) return null;
-  // Repli : un token émis juste avant ce déploiement (TTL max 12h) n'a pas
-  // encore de club_id dans son payload — on le traite comme le club BCC.
-  const club_id = typeof data.club_id === 'string' && data.club_id ? data.club_id : BCC_CLUB_ID;
-  return { role: data.role, club_id, exp: data.exp };
+  if (!data || data.role !== 'admin') return null;
+  if (typeof data.exp !== 'number' || Date.now() > data.exp) return null;
+  if (typeof data.admin_id !== 'string' || !data.admin_id) return null;
+  if (!Array.isArray(data.accessible_clubs) || !data.accessible_clubs.length) return null;
+  const clubs = data.accessible_clubs.filter(c => c && typeof c.id === 'string' && c.id);
+  if (clubs.length !== data.accessible_clubs.length) return null; // forme inattendue -> rejet, jamais un repli permissif
+  if (typeof data.active_club_id !== 'string' || !data.active_club_id) return null;
+  if (!clubs.some(c => c.id === data.active_club_id)) return null; // cohérence interne : le club actif doit faire partie des clubs accessibles
+  return {
+    role: data.role,
+    admin_id: data.admin_id,
+    accessible_clubs: clubs,
+    active_club_id: data.active_club_id,
+    remember: data.remember === true,
+    exp: data.exp,
+  };
 }
 
 // ── Filtre de scoping club ──
