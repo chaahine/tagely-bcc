@@ -17,6 +17,14 @@
 //                        chantier multitenant étape D — remplace la mutation locale
 //                        de DAYS_CONFIG par une écriture DB scopée au club
 //  - removeScheduleSlot : supprime un créneau récurrent (par id)
+//  - updateClub       : écrit clubs.name/city/dispo_deadline_day pour le club
+//                        authentifié (bouton "Sauvegarder" de Réglages > Infos
+//                        du club — jusqu'ici ce bouton ne faisait qu'un toast,
+//                        rien n'était jamais persisté). dispo_deadline_day est
+//                        best-effort : si la colonne n'existe pas encore sur cet
+//                        environnement (migration pas encore appliquée), on
+//                        retombe sur nom/ville seuls plutôt que de faire
+//                        échouer toute la sauvegarde.
 
 import { applyCors, sbAdmin, verifyAdminToken, isNonEmptyString, SLOT_KEY_RE, clubOrFilter, newId } from './_lib.js';
 
@@ -204,6 +212,45 @@ export default async function handler(req, res) {
           params: `?id=eq.${encodeURIComponent(id)}&${scope}`,
         });
         return res.status(200).json({ success: true });
+      }
+
+      case 'updateClub': {
+        const p = payload || {};
+        const name = isNonEmptyString(p.name, 120) ? String(p.name).trim().slice(0, 120) : null;
+        if (!name) return res.status(400).json({ error: 'Le nom du club est requis' });
+        const city = typeof p.city === 'string' ? (p.city.trim().slice(0, 120) || null) : null;
+
+        let deadline = null;
+        if (p.dispo_deadline_day !== undefined && p.dispo_deadline_day !== null && p.dispo_deadline_day !== '') {
+          const d = Number(p.dispo_deadline_day);
+          if (!Number.isInteger(d) || d < 1 || d > 28) {
+            return res.status(400).json({ error: 'Deadline dispos : jour du mois entre 1 et 28' });
+          }
+          deadline = d;
+        }
+
+        // Scopé par id=eq.<clubId authentifié> (clubId vient du token vérifié,
+        // jamais du payload) — un admin ne peut modifier que sa propre ligne clubs.
+        const params = `?id=eq.${encodeURIComponent(clubId)}`;
+        const baseUpdate = { name, city };
+        let deadlineSaved = false;
+        if (deadline !== null) {
+          try {
+            await sbAdmin('clubs', { method: 'PATCH', params, body: { ...baseUpdate, dispo_deadline_day: deadline } });
+            deadlineSaved = true;
+          } catch (e) {
+            // Repli : colonne dispo_deadline_day pas encore migrée sur cet
+            // environnement — on sauvegarde au moins nom/ville, jamais bloquant.
+            await sbAdmin('clubs', { method: 'PATCH', params, body: baseUpdate });
+          }
+        } else {
+          await sbAdmin('clubs', { method: 'PATCH', params, body: baseUpdate });
+        }
+
+        return res.status(200).json({
+          success: true,
+          club: { id: clubId, name, city, dispo_deadline_day: deadlineSaved ? deadline : undefined },
+        });
       }
 
       case 'chatSend': {

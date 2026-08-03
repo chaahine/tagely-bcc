@@ -58,9 +58,9 @@ function fakeRes() {
 }
 
 const CLUBS_TABLE = [
-  { id: BCC_CLUB_ID, slug: 'bcc', portal_code: 'BCCD25', status: 'active' },
-  { id: SECOND_CLUB_ID, slug: 'club2', portal_code: 'CLUB2X', status: 'active' },
-  { id: 'suspended-club', slug: 'susp', portal_code: 'SUSPND', status: 'suspended' },
+  { id: BCC_CLUB_ID, slug: 'bcc', portal_code: 'BCCD25', status: 'active', name: 'Beer Comedy Club' },
+  { id: SECOND_CLUB_ID, slug: 'club2', portal_code: 'CLUB2X', status: 'active', name: 'Le Rire Jaune' },
+  { id: 'suspended-club', slug: 'susp', portal_code: 'SUSPND', status: 'suspended', name: 'Club suspendu' },
 ];
 
 function mockClubsTable(extra) {
@@ -121,6 +121,24 @@ test('portal-resolve : code CLUB2X → club_id du second club, jamais celui du B
   assert.notEqual(res.body.club_id, BCC_CLUB_ID);
 });
 
+// ── Correctif identité club (bug critique) — portal.html affichait
+// "Broadway Comedy Club" codé en dur pour tous les clubs. portal-resolve.js
+// renvoie désormais aussi "name", lu ici pour vérifier que deux clubs
+// distincts reçoivent bien CHACUN leur propre nom, jamais mélangés ni figés
+// sur celui du BCC. ──
+test('portal-resolve : renvoie le vrai nom du club résolu par le code, jamais celui d\'un autre club', async () => {
+  const mock = mockClubsTable();
+  const resBcc = fakeRes();
+  await portalResolveHandler(fakeReq({ body: { code: 'BCCD25' } }), resBcc);
+  const resOther = fakeRes();
+  await portalResolveHandler(fakeReq({ body: { code: 'CLUB2X' } }), resOther);
+  mock.restore();
+  assert.equal(resBcc.body.name, 'Beer Comedy Club');
+  assert.equal(resOther.body.name, 'Le Rire Jaune');
+  assert.notEqual(resOther.body.name, resBcc.body.name);
+  assert.notEqual(resOther.body.name, 'Broadway Comedy Club');
+});
+
 test('portal-resolve : code inconnu → 403, pas de club_id renvoyé', async () => {
   const mock = mockClubsTable();
   const req = fakeReq({ body: { code: 'INCONNU' } });
@@ -140,13 +158,13 @@ test('portal-resolve : club suspendu → 403 même si le code existe bel et bien
   assert.equal(res.statusCode, 403);
 });
 
-test('portal-resolve : ne sélectionne que id,status côté Supabase — jamais admin_pwd_hash ni autre champ sensible', async () => {
+test('portal-resolve : ne sélectionne que id,status,name côté Supabase — jamais admin_pwd_hash ni autre champ sensible', async () => {
   const mock = mockClubsTable();
   const req = fakeReq({ body: { code: 'BCCD25' } });
   await portalResolveHandler(req, fakeRes());
   const clubsCall = mock.calls.find(c => c.url.includes('/clubs'));
   mock.restore();
-  assert.ok(clubsCall.url.includes('select=id,status'));
+  assert.ok(clubsCall.url.includes('select=id,status,name'));
   assert.ok(!clubsCall.url.includes('admin_pwd_hash'));
 });
 

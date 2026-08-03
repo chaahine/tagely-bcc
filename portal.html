@@ -146,7 +146,7 @@ input,select,textarea,button{font-family:'Inter',sans-serif}
       <div class="home-hero">
         <span class="home-mic">🎤</span>
         <div class="home-title">Portail Humoriste</div>
-        <div class="home-sub">Broadway Comedy Club</div>
+        <div class="home-sub" id="home-sub">BCC</div>
       </div>
       <label class="lbl" style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;font-weight:600">Prénom</label>
       <input class="inp" id="f-prenom" placeholder="Ton prénom" style="width:100%;background:#111;border:1px solid #222;border-radius:10px;padding:13px 14px;color:#f0f0f8;font-size:14px;margin-bottom:14px;box-sizing:border-box">
@@ -213,7 +213,7 @@ input,select,textarea,button{font-family:'Inter',sans-serif}
   <div class="tab-content" id="tab-dispos" style="display:none;flex:1;overflow-y:auto;padding:20px">
     <div class="dispo-header">
       <div class="dispo-name" id="d-name">—</div>
-      <div class="dispo-sub" id="d-sub">Broadway Comedy Club · Disponibilités</div>
+      <div class="dispo-sub" id="d-sub">BCC · Disponibilités</div>
       <div class="deadline">⏰ Deadline : <span id="d-deadline">—</span></div>
     </div>
     <div class="help">👆 Coche ✓ les créneaux où tu es disponible. Active <strong>MC</strong> si tu peux animer.</div>
@@ -246,7 +246,7 @@ input,select,textarea,button{font-family:'Inter',sans-serif}
         <div class="avatar" id="p-avatar">?</div>
         <div>
           <div class="profil-name" id="p-name">—</div>
-          <div class="profil-role">Humoriste · Broadway Comedy Club</div>
+          <div class="profil-role">Humoriste · <span id="profil-club-name">BCC</span></div>
         </div>
       </div>
       <div class="stats">
@@ -257,7 +257,7 @@ input,select,textarea,button{font-family:'Inter',sans-serif}
     <div class="profil-card">
       <div class="info-row"><span class="info-key">Email</span><span id="p-email">—</span></div>
       <div class="info-row"><span class="info-key">Téléphone</span><span id="p-phone">—</span></div>
-      <div class="info-row"><span class="info-key">Club</span><span style="color:#f97316;font-weight:700">Broadway Comedy Club</span></div>
+      <div class="info-row"><span class="info-key">Club</span><span id="p-club-name" style="color:#f97316;font-weight:700">BCC</span></div>
     </div>
     <button class="logout-btn" id="btn-logout">Se déconnecter</button>
   </div>
@@ -358,6 +358,21 @@ let manageDates = {};
 // même promesse). Si le code est invalide, clubIdPromise résout à null et
 // les lectures ci-dessous filtrent alors sur club_id=eq.<vide> — zéro ligne
 // renvoyée plutôt qu'une fuite cross-tenant.
+// Nom réel du club connecté — CORRECTIF BUG CRITIQUE : jusqu'ici "Broadway
+// Comedy Club" était codé en dur à plusieurs endroits de ce fichier, pour
+// TOUS les clubs, faute d'un moyen de connaître le vrai nom sans token admin.
+// api/portal-resolve.js renvoie désormais aussi "name" (public, déjà exposé
+// par ailleurs via club-signup.js) — appliqué ici partout où c'était figé.
+let PORTAL_CLUB_NAME = 'BCC';
+function applyPortalClubName(name) {
+  if (typeof name !== 'string' || !name) return;
+  PORTAL_CLUB_NAME = name;
+  const setText = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  setText('home-sub', PORTAL_CLUB_NAME);
+  setText('profil-club-name', PORTAL_CLUB_NAME);
+  setText('p-club-name', PORTAL_CLUB_NAME);
+}
+
 let clubIdPromise = null;
 function getClubId() {
   if (!clubIdPromise) {
@@ -365,7 +380,10 @@ function getClubId() {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({code: PORTAL_CODE})
-    }).then(r => r.json()).then(d => (d && d.club_id) || null).catch(() => null);
+    }).then(r => r.json()).then(d => {
+      if (d && d.name) applyPortalClubName(d.name);
+      return (d && d.club_id) || null;
+    }).catch(() => null);
   }
   return clubIdPromise;
 }
@@ -568,7 +586,7 @@ async function renderDispos() {
   const nextM = (now.getMonth()+1) % 12;
   const nextY = now.getMonth()===11 ? now.getFullYear()+1 : now.getFullYear();
   document.getElementById('d-name').textContent = user.name;
-  document.getElementById('d-sub').textContent = `Broadway Comedy Club · ${MOIS_FULL[nextM]} ${nextY}`;
+  document.getElementById('d-sub').textContent = `${PORTAL_CLUB_NAME} · ${MOIS_FULL[nextM]} ${nextY}`;
   document.getElementById('d-deadline').textContent = `15 ${MOIS_FULL[nextM]} ${nextY}`;
 
   // Vérifier si déjà envoyé POUR LE MOIS CIBLE (pas pour la vie entière).
@@ -839,7 +857,7 @@ function exportCal() {
     const endH=parseInt(h)+1;
     const dt=`${y}${mo}${d}T${h.padStart(2,'0')}${(m||'00').padStart(2,'0')}00`;
     const dtend=`${y}${mo}${d}T${String(endH).padStart(2,'0')}${(m||'00').padStart(2,'0')}00`;
-    ics+=`BEGIN:VEVENT\nUID:stagely-${key}@bcc\nDTSTART:${dt}\nDTEND:${dtend}\nSUMMARY:${isFirst?'🎤 MC — ':''}Broadway Comedy Club\nLOCATION:Broadway Comedy Club\nEND:VEVENT\n`;
+    ics+=`BEGIN:VEVENT\nUID:stagely-${key}@bcc\nDTSTART:${dt}\nDTEND:${dtend}\nSUMMARY:${isFirst?'🎤 MC — ':''}${PORTAL_CLUB_NAME}\nLOCATION:${PORTAL_CLUB_NAME}\nEND:VEVENT\n`;
   });
   ics+='END:VCALENDAR';
   const blob=new Blob([ics],{type:'text/calendar'});

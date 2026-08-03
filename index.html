@@ -517,7 +517,7 @@ html.light{
   <div style="width:100%;max-width:400px;padding:32px 24px">
     <div style="text-align:center;margin-bottom:40px">
       <div style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:28px;color:#f97316;letter-spacing:4px;margin-bottom:6px">STAGELY</div>
-      <div style="font-size:12px;color:#555">Broadway Comedy Club</div>
+      <div style="font-size:12px;color:#555">Gestion de planning pour comedy clubs</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:12px">
       <button onclick="showAdminLogin()" style="width:100%;padding:18px 20px;background:#141414;border:1px solid #222;border-radius:14px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:14px;transition:.15s" onmouseover="this.style.borderColor='#f97316'" onmouseout="this.style.borderColor='#222'">
@@ -629,7 +629,12 @@ async function checkAdminPwd() {
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.success && data.token) {
-      localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({ token: data.token, expiresAt: data.expiresAt }));
+      // data.club (id/name/city/portal_code/dispo_deadline_day) est stocké
+      // avec le token — c'est ce qui permet à applyClubInfo() de recharger
+      // la vraie identité du club au prochain rechargement de page, sans
+      // repasser par /api/admin-login (voir DOMContentLoaded plus bas).
+      localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({ token: data.token, expiresAt: data.expiresAt, club: data.club || null }));
+      if (data.club) applyClubInfo(data.club);
       document.getElementById('admin-login-screen').style.display = 'none';
       document.getElementById('home-screen').style.display = 'none';
       document.getElementById('admin-screen').style.removeProperty('display');
@@ -653,6 +658,12 @@ window.addEventListener('DOMContentLoaded', () => {
   if (isPortal) {
     showHumoristPortal();
   } else if (isAdminSessionValid()) {
+    // Session déjà valide (page rechargée, ou "se souvenir de moi") : recharge
+    // l'identité du club depuis celle stockée à la connexion — sans ce
+    // rappel, currentCode/currentClub retomberaient sur les valeurs par
+    // défaut du BCC à chaque rechargement, pour n'importe quel autre club.
+    const session = getAdminSession();
+    if (session && session.club) applyClubInfo(session.club);
     document.getElementById('home-screen').style.display = 'none';
     document.getElementById('admin-login-screen').style.display = 'none';
     document.getElementById('admin-screen').style.removeProperty('display');
@@ -678,7 +689,7 @@ window.addEventListener('DOMContentLoaded', () => {
       <div style="text-align:center;margin-bottom:32px">
         <div style="font-size:44px;margin-bottom:12px">🎤</div>
         <div style="font-size:24px;font-weight:800;color:#f0f0f0;margin-bottom:4px;letter-spacing:-.5px">Portail Humoriste</div>
-        <div style="font-size:12px;color:#555;letter-spacing:.3px">Broadway Comedy Club</div>
+        <div style="font-size:12px;color:#555;letter-spacing:.3px" id="hv-club-name-static">BCC</div>
       </div>
 
       <!-- Choix action -->
@@ -977,9 +988,9 @@ window.addEventListener('DOMContentLoaded', () => {
           <div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px">
             <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);margin-bottom:16px;font-weight:700">📋 Infos du club</div>
             <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Nom du club</label><input class="fi" id="s-club" value="BCC" style="width:100%" oninput="document.getElementById('club-badge').textContent=this.value"></div>
-            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Ville</label><input class="fi" value="Lille" style="width:100%"></div>
+            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Ville</label><input class="fi" id="s-city" value="Lille" style="width:100%"></div>
             <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Deadline dispos (jour du mois)</label><input class="fi" id="s-deadline" type="number" value="15" min="1" max="28" style="width:100%"></div>
-            <button class="btn btn-o" onclick="toast('✓ Sauvegardé')" style="margin-top:4px;width:100%">💾 Sauvegarder</button>
+            <button class="btn btn-o" onclick="saveClubSettings()" style="margin-top:4px;width:100%">💾 Sauvegarder</button>
           </div>
 
           <!-- Lien portail -->
@@ -987,8 +998,8 @@ window.addEventListener('DOMContentLoaded', () => {
             <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);margin-bottom:16px;font-weight:700">🔗 Lien portail humoristes</div>
             <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Envoie ce lien à tes humoristes pour qu'ils accèdent au portail</div>
             <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
-              <div style="flex:1;background:var(--s3);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--b);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">tagely-bcc.vercel.app/portal.html</div>
-              <button class="btn btn-ghost" onclick="navigator.clipboard.writeText('https://tagely-bcc.vercel.app/portal.html');toast('✓ Lien copié')" style="font-size:10px;flex-shrink:0">📋 Copier</button>
+              <div id="s-portal-link" style="flex:1;background:var(--s3);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--b);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">tagely-bcc.vercel.app/portal.html?code=BCCD25</div>
+              <button class="btn btn-ghost" onclick="copyPortalLinkSettings()" style="font-size:10px;flex-shrink:0">📋 Copier</button>
             </div>
           </div>
 
@@ -1036,7 +1047,7 @@ window.addEventListener('DOMContentLoaded', () => {
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-shrink:0">
         <div style="width:32px;height:32px;border-radius:50%;background:var(--o2);border:1px solid var(--ob);display:flex;align-items:center;justify-content:center;font-size:14px">💬</div>
         <div>
-          <div style="font-size:12px;font-weight:600" id="chat-group-name">BCC — Broadway Comedy Club</div>
+          <div style="font-size:12px;font-weight:600" id="chat-group-name">BCC — Groupe général</div>
           <div style="font-size:10px;color:var(--muted)" id="chat-members-count">15 membres</div>
         </div>
         <div style="margin-left:auto;display:flex;gap:6px">
@@ -1154,12 +1165,110 @@ BCC</textarea></div>
 // DATA
 // ══════════════════════════════════════════════════
 
+// ── Identité du club connecté (correctif bug critique multitenant) ──
+// AVANT ce correctif, `currentCode` était initialisé une seule fois depuis
+// localStorage (ou, à défaut, depuis CLUB_CODE='BCCD25' codé en dur), et
+// n'était JAMAIS remis à jour depuis la vraie ligne `clubs` du club connecté.
+// Conséquence en prod : le lien portail copié depuis Réglages était codé en
+// dur SANS ?code= du tout (voir buildPortalLink() / copyPortalLinkSettings()
+// plus bas), et portal.html retombe sur 'BCCD25' (le code du BCC) quand
+// aucun ?code= n'est présent — donc TOUT club non-BCC qui envoyait son
+// "lien portail" à ses humoristes les envoyait en réalité s'inscrire dans
+// les données du BCC. Cause racine : rien côté client ne chargeait jamais
+// l'identité réelle du club après connexion. Corrigé par applyClubInfo()
+// ci-dessous, appelée après login (checkAdminPwd) ET au rechargement d'une
+// session déjà valide (voir DOMContentLoaded plus bas dans ce fichier).
+// ── TEST-EXTRACT-START: club-identity ──
 const CLUB_CODE = 'BCCD25';
-// Toujours s'assurer que le code est BCCD25 si pas encore défini
-if (!localStorage.getItem('stagely_club_code')) {
-  localStorage.setItem('stagely_club_code', CLUB_CODE);
+// Repli avant qu'une session admin ait chargé la vraie identité (jamais
+// persisté comme valeur définitive — écrasé par applyClubInfo() dès que la
+// vraie ligne `clubs` est connue). Correspond au BCC pour ne rien changer à
+// son comportement tant qu'aucune session n'est encore chargée.
+let currentCode = CLUB_CODE;
+
+// Nom/ville/portal_code/deadline du club connecté — source de vérité unique
+// pour tout ce qui affichait auparavant "BCC"/"Broadway Comedy Club"/BCCD25
+// en dur. Valeurs par défaut = celles du BCC (repli avant login uniquement).
+let currentClub = { id: null, name: 'BCC', city: 'Lille', portal_code: CLUB_CODE, dispo_deadline_day: 15 };
+
+// Lien portail humoriste — SOURCE UNIQUE utilisée à la fois par l'affichage
+// (Réglages) et par le bouton "Copier" : élimine la classe de bug où le
+// texte affiché et le lien réellement copié pouvaient diverger (c'était
+// exactement le bug initial — les deux étaient codés en dur séparément).
+function buildPortalLink() {
+  return `https://tagely-bcc.vercel.app/portal.html?code=${currentClub.portal_code}`;
 }
-let currentCode = localStorage.getItem('stagely_club_code') || CLUB_CODE;
+
+// Applique l'identité réelle d'un club (reçue de /api/admin-login ou
+// /api/club-signup, toutes deux renvoient désormais { id, name, city,
+// portal_code, dispo_deadline_day }) partout où c'était jusqu'ici codé en
+// dur ou jamais synchronisé. Appelée après un login réussi ET au
+// rechargement d'une session déjà valide — sans ce deuxième appel, recharger
+// la page perdrait l'identité chargée et retomberait sur les valeurs par
+// défaut ci-dessus (celles du BCC) pour n'importe quel autre club.
+function applyClubInfo(club) {
+  if (!club || typeof club !== 'object') return;
+  if (typeof club.id === 'string' && club.id) currentClub.id = club.id;
+  if (typeof club.name === 'string' && club.name) currentClub.name = club.name;
+  if (typeof club.city === 'string' || club.city === null) currentClub.city = club.city || '';
+  if (typeof club.portal_code === 'string' && club.portal_code) currentClub.portal_code = club.portal_code;
+  if (Number.isFinite(club.dispo_deadline_day)) currentClub.dispo_deadline_day = club.dispo_deadline_day;
+
+  // currentCode piloté désormais par la vraie valeur DB du club connecté —
+  // plus jamais par le défaut BCCD25 partagé entre tous les clubs.
+  currentCode = currentClub.portal_code;
+  try { localStorage.setItem('stagely_club_code', currentCode); } catch (e) {}
+
+  if (typeof document === 'undefined') return; // sandbox de test (pas de DOM)
+  const setText = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  setText('club-badge', currentClub.name);
+  setText('hv-club-name-static', currentClub.name);
+  setVal('s-club', currentClub.name);
+  setVal('s-city', currentClub.city || '');
+  setVal('s-deadline', currentClub.dispo_deadline_day);
+  const linkEl = document.getElementById('s-portal-link');
+  if (linkEl) linkEl.textContent = buildPortalLink().replace('https://', '');
+}
+// ── TEST-EXTRACT-END: club-identity ──
+
+// Bouton "Copier" du lien portail (Réglages) — utilise buildPortalLink(),
+// la même source que l'affichage juste au-dessus, donc les deux ne peuvent
+// plus jamais diverger (c'était exactement le bug initial : le texte
+// affiché ET le lien copié étaient chacun codés en dur séparément, sans
+// ?code=, et retombaient donc côté portail sur 'BCCD25' pour tout le monde).
+function copyPortalLinkSettings() {
+  const link = buildPortalLink();
+  navigator.clipboard?.writeText(link).then(() => toast('✓ Lien copié'));
+}
+
+// Bouton "Sauvegarder" de Réglages > Infos du club — jusqu'ici ne faisait
+// qu'un toast, rien n'était jamais persisté (nom "BCC"/ville "Lille"/
+// deadline "15" restaient des valeurs d'affichage figées, jamais lues
+// depuis ni écrites vers la base). Écrit désormais clubs.name/city (et
+// dispo_deadline_day si la colonne existe déjà sur cet environnement, voir
+// api/admin-write.js action 'updateClub') puis resynchronise currentClub
+// avec ce qui a réellement été confirmé par le serveur.
+async function saveClubSettings() {
+  const name = (document.getElementById('s-club')?.value || '').trim();
+  const city = (document.getElementById('s-city')?.value || '').trim();
+  const deadlineRaw = document.getElementById('s-deadline')?.value;
+  const deadline = deadlineRaw !== '' && deadlineRaw !== undefined ? parseInt(deadlineRaw, 10) : null;
+  if (!name) { toast('✕ Le nom du club est requis'); return; }
+  const result = await adminWrite('updateClub', { name, city, dispo_deadline_day: deadline });
+  if (result && result.success) {
+    applyClubInfo({
+      id: currentClub.id,
+      name: result.club?.name || name,
+      city: result.club?.city ?? city,
+      portal_code: currentClub.portal_code,
+      dispo_deadline_day: Number.isFinite(result.club?.dispo_deadline_day) ? result.club.dispo_deadline_day : currentClub.dispo_deadline_day,
+    });
+    toast('✓ Sauvegardé');
+  } else {
+    toast('✕ Erreur de sauvegarde');
+  }
+}
 
 // ── Grille hebdomadaire (chantier multitenant, étape D) ──
 // Source de vérité désormais : la table `schedule_templates` (scopée par
@@ -1511,9 +1620,9 @@ function hvExportCalendar() {
     const endH = parseInt(h) + 1;
     const dtend = `${year}${month}${day}T${String(endH).padStart(2,'0')}${String(m||'00').padStart(2,'0')}00`;
     const uid = `stagely-${key}-${hvUser.id}@bcc`;
-    const summary = isFirst ? `🎤 MC — Broadway Comedy Club` : `🎤 Broadway Comedy Club`;
-    
-    ics += `BEGIN:VEVENT\nUID:${uid}\nDTSTART:${dtstart}\nDTEND:${dtend}\nSUMMARY:${summary}\nLOCATION:Broadway Comedy Club — BCC\nDESCRIPTION:Passage au BCC. Portail: https://tagely-bcc.vercel.app?code=${currentCode}&manage=${hvUser.id}\nEND:VEVENT\n`;
+    const summary = isFirst ? `🎤 MC — ${currentClub.name}` : `🎤 ${currentClub.name}`;
+
+    ics += `BEGIN:VEVENT\nUID:${uid}\nDTSTART:${dtstart}\nDTEND:${dtend}\nSUMMARY:${summary}\nLOCATION:${currentClub.name}\nDESCRIPTION:Passage au ${currentClub.name}. Portail: https://tagely-bcc.vercel.app?code=${currentCode}&manage=${hvUser.id}\nEND:VEVENT\n`;
   });
   
   ics += 'END:VCALENDAR';
@@ -2984,22 +3093,6 @@ function testReminders() {
   toast('🔔 Notification test envoyée !');
 }
 
-function regenCode(){
-  const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code='';for(let i=0;i<5;i++) code+=chars[Math.floor(Math.random()*chars.length)];
-  currentCode=code;
-  localStorage.setItem('stagely_club_code', code);
-  document.getElementById('club-code').textContent=code;
-  toast('✓ Nouveau code généré');
-}
-
-function copyShareLink() {
-  const code = document.getElementById('club-code')?.textContent || currentCode;
-  const link = `https://tagely-bcc.vercel.app/portal?code=${code}`;
-  navigator.clipboard?.writeText(link).catch(()=>{});
-  toast('✓ Lien copié');
-}
-
 function toggleTheme(btn) {
   btn.classList.toggle('on');
   const isLight = btn.classList.contains('on');
@@ -3142,7 +3235,7 @@ function buildPlanningMessage(comedianId, keys) {
 
   return `Bonjour ${prenom} ! 🎤
 
-Voici tes passages au BCC pour ${mois} :
+Voici tes passages au ${currentClub.name} pour ${mois} :
 
 ${dateLines}
 
@@ -3152,7 +3245,7 @@ ${dateLines}
 ${link}
 
 À très vite sur scène !
-L'équipe Broadway Comedy Club`;
+L'équipe ${currentClub.name}`;
 }
 
 function openSendPlanningModal() {

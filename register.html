@@ -144,7 +144,15 @@ async function register() {
     if (res.ok && data.success && data.token) {
       // Auto-connexion : même clé de session que index.html (checkAdminPwd()),
       // pour atterrir directement dans le dashboard sans re-saisir quoi que ce soit.
-      localStorage.setItem('stagely_admin_session', JSON.stringify({ token: data.token, expiresAt: data.expiresAt }));
+      // data.club (id/name/city/portal_code/dispo_deadline_day) est déjà
+      // renvoyé par /api/club-signup depuis toujours — jusqu'ici il n'était
+      // simplement jamais lu ni stocké ici, c'est ce qui faisait qu'un club
+      // fraîchement inscrit atterrissait sur le dashboard avec l'identité du
+      // BCC (nom "BCC", lien portail codé en dur BCCD25) tant qu'il n'avait
+      // pas fait un aller-retour login manuel. index.html (checkAdminPwd /
+      // DOMContentLoaded) lit ce même champ `club` de la session pour
+      // appliquer la vraie identité du club — voir applyClubInfo().
+      localStorage.setItem('stagely_admin_session', JSON.stringify({ token: data.token, expiresAt: data.expiresAt, club: data.club || null }));
       okEl.style.display = 'block';
       setTimeout(() => { window.location.href = '/'; }, 1200);
     } else {

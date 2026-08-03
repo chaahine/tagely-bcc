@@ -156,7 +156,12 @@ export default async function handler(req, res) {
       success: true,
       token,
       expiresAt: exp,
-      club: { id: clubId, slug, name: cleanName, portal_code: portalCode },
+      // city + dispo_deadline_day (repli 15, pas encore configurable à
+      // l'inscription) ajoutés pour que register.html puisse stocker la
+      // même forme de `club` que admin-login.js — cohérence avec le
+      // correctif identité club (register.html ne stockait avant que le
+      // token, jamais ces infos pourtant déjà présentes ici).
+      club: { id: clubId, slug, name: cleanName, city: cleanCity, portal_code: portalCode, dispo_deadline_day: 15 },
     });
   } catch (e) {
     return res.status(500).json({ error: 'Erreur serveur, réessaie plus tard' });

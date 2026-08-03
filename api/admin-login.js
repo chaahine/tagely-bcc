@@ -38,10 +38,32 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Email et mot de passe requis' });
   }
 
+  const emailFilter = `admin_email=eq.${encodeURIComponent(email.trim().toLowerCase())}`;
+
   try {
-    const rows = await sbAdmin('clubs', {
-      params: `?admin_email=eq.${encodeURIComponent(email.trim().toLowerCase())}&select=id,status,admin_pwd_hash`,
-    });
+    // Correctif identité club (bug critique) : jusqu'ici cette réponse ne
+    // renvoyait QUE le token — rien côté client ne chargeait jamais la
+    // vraie ligne `clubs` (nom, ville, portal_code) du club connecté. Le
+    // lien portail copié depuis Réglages restait alors codé en dur sur
+    // 'BCCD25' (le code du BCC) pour TOUS les clubs, envoyant les dispos de
+    // n'importe quel autre club dans les données du BCC. On renvoie donc
+    // ces champs ici, dans la même requête, comme club-signup.js le fait
+    // déjà pour l'inscription.
+    //
+    // dispo_deadline_day est sélectionné à part avec repli : cette colonne
+    // vient d'un chantier Réglages séparé et peut ne pas encore exister sur
+    // cet environnement tant que sa migration SQL n'a pas tourné — la
+    // connexion admin ne doit JAMAIS dépendre de ce champ optionnel.
+    let rows;
+    try {
+      rows = await sbAdmin('clubs', {
+        params: `?${emailFilter}&select=id,status,admin_pwd_hash,name,city,portal_code,dispo_deadline_day`,
+      });
+    } catch (e) {
+      rows = await sbAdmin('clubs', {
+        params: `?${emailFilter}&select=id,status,admin_pwd_hash,name,city,portal_code`,
+      });
+    }
     const club = Array.isArray(rows) && rows.length ? rows[0] : null;
 
     // Toujours exécuter la comparaison (contre le hash réel si le club
@@ -56,7 +78,18 @@ export default async function handler(req, res) {
     }
 
     const { token, exp } = issueAdminToken(club.id, rememberMe === true);
-    return res.status(200).json({ success: true, token, expiresAt: exp });
+    return res.status(200).json({
+      success: true,
+      token,
+      expiresAt: exp,
+      club: {
+        id: club.id,
+        name: club.name,
+        city: club.city,
+        portal_code: club.portal_code,
+        dispo_deadline_day: Number.isFinite(club.dispo_deadline_day) ? club.dispo_deadline_day : 15,
+      },
+    });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }

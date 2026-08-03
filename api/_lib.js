@@ -188,12 +188,29 @@ export function newId() {
 // envoyé par le client : il re-résout le code à chaque appel, par une
 // lecture de clubs.portal_code. Un code inconnu, ou un club suspendu, est
 // rejeté — pas de repli permissif.
-export async function resolveClubIdByPortalCode(code) {
+async function fetchClubByPortalCode(code) {
   if (typeof code !== 'string' || !code.trim()) return null;
   const rows = await sbAdmin('clubs', {
-    params: `?portal_code=eq.${encodeURIComponent(code.trim().toUpperCase())}&select=id,status`,
+    // "name" ajouté (correctif identité club) : portal.html affichait
+    // "Broadway Comedy Club" codé en dur pour tous les clubs faute d'un
+    // moyen de connaître le vrai nom sans token admin — portal-resolve.js
+    // l'expose désormais ici. Rien de sensible n'est ajouté (name est déjà
+    // public via club-signup.js).
+    params: `?portal_code=eq.${encodeURIComponent(code.trim().toUpperCase())}&select=id,status,name`,
   });
   const club = Array.isArray(rows) && rows.length ? rows[0] : null;
   if (!club || club.status === 'suspended') return null;
-  return club.id;
+  return club;
+}
+
+export async function resolveClubIdByPortalCode(code) {
+  const club = await fetchClubByPortalCode(code);
+  return club ? club.id : null;
+}
+
+// Variante utilisée par portal-resolve.js — a besoin du nom du club en plus
+// de l'id, contrairement à portal-write.js (resolveClubIdByPortalCode
+// ci-dessus, inchangée) qui n'a besoin que de l'id pour scoper ses écritures.
+export async function resolveClubByPortalCode(code) {
+  return fetchClubByPortalCode(code);
 }
