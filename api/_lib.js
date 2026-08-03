@@ -200,6 +200,39 @@ export function verifyPasswordHash(candidate, expectedHash) {
   return timingSafeEqualStr(got, expected);
 }
 
+// ── Paliers tarifaires (chantier gating plan, 2026-08) ─────────────────────
+// clubs.plan : colonne text nullable ('essentiel' | 'pro' | 'reseau'),
+// présente dans le schéma multitenant initial (stagely-multitenant-schema.sql,
+// étape A) mais jamais lue/écrite par le code jusqu'ici. NULL == 'essentiel'
+// (palier d'entrée, jamais un accès Pro par défaut).
+//
+// Règle produit tranchée par Chahine : PENDANT L'ESSAI (clubs.status ===
+// 'trial'), un club a TOUJOURS accès à l'intégralité des fonctionnalités
+// existantes, quelle que soit la valeur de clubs.plan — c'est la période de
+// démonstration de valeur, on ne restreint jamais un essai. Une fois
+// status === 'active' (bascule manuelle par Chahine aujourd'hui, pas de
+// Stripe), seul un plan 'pro' ou 'reseau' débloque les fonctionnalités
+// listées comme Pro. Un club 'suspended' n'a de toute façon plus accès à
+// rien (bloqué bien plus en amont, voir admin-login.js/switch-club.js).
+//
+// IMPORTANT — honnêteté sur ce qui existe vraiment (audit du 2026-08) :
+// parmi les fonctionnalités vendues comme "Pro" (chapeau/cachet + tableau de
+// bord financier + export comptable + mode tournée), SEULS le chapeau et le
+// tableau de bord financier (revenu/remplissage/top artistes) sont
+// réellement construits à ce jour. Le cachet, l'export comptable et le mode
+// tournée n'ont AUCUNE UI ni logique — ils ne sont donc gatés nulle part
+// (rien à gater), juste documentés comme un écart à combler avant de vendre
+// le palier Pro tel quel. Voir aussi le commentaire en tête de
+// api/admin-write.js.
+export const PRO_PLANS = ['pro', 'reseau'];
+
+export function computePlanAccess(club) {
+  const status = (club && typeof club.status === 'string' && club.status) || 'trial';
+  const plan = (club && typeof club.plan === 'string' && club.plan) || 'essentiel';
+  const proFeatures = status === 'trial' || PRO_PLANS.includes(plan);
+  return { status, plan, proFeatures };
+}
+
 // ── Validateurs communs ──
 export const SLOT_KEY_RE = /^\d{4}-\d{2}-\d{2}-\d{2}h\d{2}$/i;
 

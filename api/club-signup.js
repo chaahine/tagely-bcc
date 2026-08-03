@@ -57,6 +57,7 @@ import {
   isValidEmail,
   slugify,
   newId,
+  computePlanAccess,
 } from './_lib.js';
 
 const TRIAL_DAYS = 30;
@@ -139,8 +140,22 @@ async function createClubAndRoom({ name, city, contactEmail, contactPwdHash }) {
     admin_pwd_hash: contactPwdHash || null,
     status: 'trial',
     trial_ends_at: trialEndsAt,
+    // Palier par défaut d'un nouveau club (chantier gating plan, 2026-08).
+    // Sans effet pendant l'essai (accès complet quel que soit `plan`, voir
+    // computePlanAccess() dans _lib.js) — ne compte qu'à partir du jour où le
+    // club passe status='active'.
+    plan: 'essentiel',
   };
-  await sbAdmin('clubs', { method: 'POST', body: [clubRow] });
+  try {
+    await sbAdmin('clubs', { method: 'POST', body: [clubRow] });
+  } catch (e) {
+    // Repli si la colonne `plan` n'existe pas encore sur cet environnement
+    // (migration pas encore appliquée) — ne doit jamais faire échouer une
+    // inscription pour un champ non-critique (computePlanAccess() retombe de
+    // toute façon sur 'essentiel' quand la colonne est absente en lecture).
+    delete clubRow.plan;
+    await sbAdmin('clubs', { method: 'POST', body: [clubRow] });
+  }
 
   // Salle par défaut — non bloquant si ça échoue : resolveDefaultRoomId()
   // (api/admin-write.js) recrée une salle par défaut à la volée au premier
@@ -196,11 +211,17 @@ export default async function handler(req, res) {
       }
       const accessibleClubs = [...auth.accessible_clubs, { id: clubId, name: nc.name }];
       const { token, exp } = issueAdminToken(auth.admin_id, accessibleClubs, clubId, auth.remember);
+      // Club tout juste créé : status='trial' + plan='essentiel' toujours —
+      // computePlanAccess() en déduit un accès complet (essai), cf. _lib.js.
+      const planAccess = computePlanAccess({ status: 'trial', plan: 'essentiel' });
       return res.status(201).json({
         success: true,
         token,
         expiresAt: exp,
-        club: { id: clubId, slug, name: nc.name, city: nc.city, portal_code: portalCode, dispo_deadline_day: 12 },
+        club: {
+          id: clubId, slug, name: nc.name, city: nc.city, portal_code: portalCode, dispo_deadline_day: 12,
+          plan: planAccess.plan, status: planAccess.status, pro_features: planAccess.proFeatures,
+        },
         accessible_clubs: accessibleClubs,
       });
     } catch (e) {
@@ -271,15 +292,22 @@ export default async function handler(req, res) {
 
     const accessibleClubs = [{ id: clubId, name: nc.name }];
     const { token, exp } = issueAdminToken(adminId, accessibleClubs, clubId);
+    // Club tout juste créé : status='trial' + plan='essentiel' toujours —
+    // computePlanAccess() en déduit un accès complet (essai), cf. _lib.js.
+    const planAccess = computePlanAccess({ status: 'trial', plan: 'essentiel' });
     return res.status(201).json({
       success: true,
       token,
       expiresAt: exp,
       // city + dispo_deadline_day (repli 12 — la valeur métier par défaut,
       // cohérente avec la colonne clubs.dispo_deadline_day DEFAULT 12, pas
-      // encore configurable à l'inscription) ajoutés pour que register.html
-      // puisse stocker la même forme de `club` que admin-login.js.
-      club: { id: clubId, slug, name: nc.name, city: nc.city, portal_code: portalCode, dispo_deadline_day: 12 },
+      // encore configurable à l'inscription) + plan/status/pro_features
+      // ajoutés pour que register.html puisse stocker la même forme de
+      // `club` que admin-login.js (gating de palier dès la 1ère session).
+      club: {
+        id: clubId, slug, name: nc.name, city: nc.city, portal_code: portalCode, dispo_deadline_day: 12,
+        plan: planAccess.plan, status: planAccess.status, pro_features: planAccess.proFeatures,
+      },
       accessible_clubs: accessibleClubs,
     });
   } catch (e) {

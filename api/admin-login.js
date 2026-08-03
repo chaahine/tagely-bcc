@@ -28,7 +28,7 @@
 // bidon est comparé (avec la même fonction constant-time) même quand aucun
 // admin ne correspond à l'email.
 
-import { applyCors, sbAdmin, verifyPasswordHash, issueAdminToken } from './_lib.js';
+import { applyCors, sbAdmin, verifyPasswordHash, issueAdminToken, computePlanAccess } from './_lib.js';
 
 const GENERIC_ERROR = 'Email ou mot de passe incorrect';
 // Hash sha256 valide (64 caractères hex) mais qui ne correspond à aucun mot
@@ -48,11 +48,14 @@ async function fetchAdminByEmail(email) {
 // pas dépendre de la détection de la relation FK par le schema cache) — même
 // approche que resolveClubIdByPortalCode() dans _lib.js.
 //
-// dispo_deadline_day est sélectionné avec repli : cette colonne vient d'un
-// chantier Réglages séparé et peut ne pas encore exister sur cet
-// environnement tant que sa migration SQL n'a pas tourné — la connexion
-// admin ne doit JAMAIS dépendre de ce champ optionnel (même garde qu'avant
-// ce chantier).
+// dispo_deadline_day/plan/trial_ends_at sont sélectionnés avec repli : ces
+// colonnes viennent de chantiers séparés et peuvent ne pas toutes exister sur
+// cet environnement tant que leur migration SQL n'a pas tourné — la connexion
+// admin ne doit JAMAIS dépendre de ces champs optionnels (même garde qu'avant
+// ce chantier). "plan" alimente le gating de palier (chapeau + dashboard
+// financier) — voir computePlanAccess() dans _lib.js ; si la colonne manque
+// encore, le repli ci-dessous ne la sélectionne pas et computePlanAccess()
+// retombe sur 'essentiel' par défaut (jamais un accès Pro accordé par erreur).
 async function fetchAccessibleClubs(adminId) {
   const links = await sbAdmin('admin_club_links', {
     params: `?admin_id=eq.${encodeURIComponent(adminId)}&select=club_id`,
@@ -63,7 +66,7 @@ async function fetchAccessibleClubs(adminId) {
   let rows;
   try {
     rows = await sbAdmin('clubs', {
-      params: `?id=in.(${idsFilter})&select=id,status,name,city,portal_code,dispo_deadline_day`,
+      params: `?id=in.(${idsFilter})&select=id,status,name,city,portal_code,dispo_deadline_day,plan,trial_ends_at`,
     });
   } catch (e) {
     rows = await sbAdmin('clubs', {
@@ -118,6 +121,10 @@ export default async function handler(req, res) {
     const accessibleClubs = activeClubs.map((c) => ({ id: c.id, name: c.name }));
     const activeClub = activeClubs[0];
     const { token, exp } = issueAdminToken(admin.id, accessibleClubs, activeClub.id, rememberMe === true);
+    // plan/status relus EN BASE à l'instant du login (jamais devinés/mis en
+    // cache côté client) — c'est la seule source de vérité pour le gating de
+    // palier (chapeau + dashboard financier). Voir computePlanAccess() /_lib.js.
+    const planAccess = computePlanAccess(activeClub);
     return res.status(200).json({
       success: true,
       token,
@@ -128,6 +135,10 @@ export default async function handler(req, res) {
         city: activeClub.city,
         portal_code: activeClub.portal_code,
         dispo_deadline_day: Number.isFinite(activeClub.dispo_deadline_day) ? activeClub.dispo_deadline_day : 12,
+        plan: planAccess.plan,
+        status: planAccess.status,
+        pro_features: planAccess.proFeatures,
+        trial_ends_at: activeClub.trial_ends_at || null,
       },
       accessible_clubs: accessibleClubs,
     });

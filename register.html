@@ -201,6 +201,16 @@ async function register() {
       // index.html (checkAdminPwd / DOMContentLoaded) lit pour appliquer la
       // vraie identité du club — voir applyClubInfo().
       localStorage.setItem(SESSION_KEY, JSON.stringify({ token: data.token, expiresAt: data.expiresAt, club: data.club || null }));
+      // Marqueur d'éligibilité au tutoriel de première visite (chantier
+      // onboarding, 2026-08) — posé UNIQUEMENT pour une inscription complète
+      // (nouveau compte + nouveau club), jamais quand un admin déjà connecté
+      // ajoute un second club (il connaît déjà l'app). C'est ce flag, lu par
+      // index.html, qui garantit qu'un club déjà existant avant ce chantier
+      // (le BCC notamment, jamais passé par ce chemin) ne verra jamais le
+      // tutoriel apparaître — voir onboardingEligible() dans index.html.
+      if (!ADDING_CLUB) {
+        try { localStorage.setItem('stagely_onboarding_eligible', '1'); } catch (e) {}
+      }
       okEl.textContent = ADDING_CLUB ? '✓ Club ajouté ! Redirection en cours...' : '✓ Votre espace a été créé ! Redirection en cours...';
       okEl.style.display = 'block';
       setTimeout(() => { window.location.href = '/'; }, 1200);

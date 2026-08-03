@@ -944,7 +944,7 @@ window.addEventListener('DOMContentLoaded', () => {
       <!-- Stats club — remplace les anciens widgets "Statut dispos"/"Top fiabilité"
            (jugés peu utiles) par des métriques orientées gérant de club : revenu,
            remplissage du planning, top artistes. -->
-      <div class="dash-grid">
+      <div class="dash-grid" id="dash-grid">
         <div class="dash-card">
           <div class="dc-title">Revenu du mois <button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="nav('chapeau')">→</button></div>
           <div id="dash-revenue"></div>
@@ -958,6 +958,7 @@ window.addEventListener('DOMContentLoaded', () => {
           <div id="dash-top"></div>
         </div>
       </div>
+      <div id="dash-grid-locked" style="display:none"></div>
     </div>
 
     <!-- PLANNING -->
@@ -1006,6 +1007,14 @@ window.addEventListener('DOMContentLoaded', () => {
 
         <!-- COLONNE GAUCHE -->
         <div style="display:flex;flex-direction:column;gap:14px">
+          <!-- Palier Stagely (chantier gating, 2026-08) — visibilité honnête sur le
+               plan actuel du club, sans flux de changement en self-service (pas de
+               Stripe) : voir la fonction renderPlanCard() plus bas dans le fichier. -->
+          <div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);margin-bottom:16px;font-weight:700">🎫 Mon palier Stagely</div>
+            <div id="plan-card-body"></div>
+          </div>
+
           <!-- Infos club -->
           <div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px">
             <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);margin-bottom:16px;font-weight:700">📋 Infos du club</div>
@@ -1210,7 +1219,25 @@ let currentCode = CLUB_CODE;
 // Nom/ville/portal_code/deadline du club connecté — source de vérité unique
 // pour tout ce qui affichait auparavant "BCC"/"Broadway Comedy Club"/BCCD25
 // en dur. Valeurs par défaut = celles du BCC (repli avant login uniquement).
-let currentClub = { id: null, name: 'BCC', city: 'Lille', portal_code: CLUB_CODE, dispo_deadline_day: 12 };
+// plan/status : palier tarifaire (chantier gating, 2026-08), TOUJOURS reçus
+// du serveur (/api/admin-login, /api/switch-club, /api/club-signup — jamais
+// devinés côté client). Défauts BCC (plan 'pro', status 'active') choisis
+// pour ne rien changer tant qu'aucune session n'est encore chargée.
+let currentClub = { id: null, name: 'BCC', city: 'Lille', portal_code: CLUB_CODE, dispo_deadline_day: 12, plan: 'pro', status: 'active' };
+
+// Accès aux fonctionnalités Pro (chapeau + tableau de bord financier) — voir
+// computePlanAccess() côté serveur (api/_lib.js), même règle reproduite ici :
+// pendant l'essai, accès complet quel que soit `plan` ; une fois actif, il
+// faut plan 'pro' ou 'reseau'. `status` manquant (ex. session localStorage
+// mise en cache AVANT ce chantier, qui ne contenait pas encore ce champ) est
+// traité comme 'trial' — accès complet — pour ne jamais faire régresser une
+// session déjà ouverte (ex. BCC) tant qu'elle n'a pas rechargé une identité
+// fraîche via un prochain login/switch de club.
+function hasProAccess() {
+  const status = currentClub.status || 'trial';
+  const plan = currentClub.plan || 'essentiel';
+  return status === 'trial' || plan === 'pro' || plan === 'reseau';
+}
 
 // Lien portail humoriste — SOURCE UNIQUE utilisée à la fois par l'affichage
 // (Réglages) et par le bouton "Copier" : élimine la classe de bug où le
@@ -1234,6 +1261,13 @@ function applyClubInfo(club) {
   if (typeof club.city === 'string' || club.city === null) currentClub.city = club.city || '';
   if (typeof club.portal_code === 'string' && club.portal_code) currentClub.portal_code = club.portal_code;
   if (Number.isFinite(club.dispo_deadline_day)) currentClub.dispo_deadline_day = club.dispo_deadline_day;
+  // plan/status/trial_ends_at : uniquement écrasés si présents dans le payload
+  // reçu — un appel avec un objet partiel (ex. saveClubSettings() ci-dessous,
+  // qui ne renvoie que name/city/deadline) ne doit JAMAIS effacer le palier
+  // déjà connu de la session.
+  if (typeof club.plan === 'string' && club.plan) currentClub.plan = club.plan;
+  if (typeof club.status === 'string' && club.status) currentClub.status = club.status;
+  if (typeof club.trial_ends_at === 'string' || club.trial_ends_at === null) currentClub.trial_ends_at = club.trial_ends_at;
 
   // currentCode piloté désormais par la vraie valeur DB du club connecté —
   // plus jamais par le défaut BCCD25 partagé entre tous les clubs.
@@ -1250,8 +1284,177 @@ function applyClubInfo(club) {
   setVal('s-deadline', currentClub.dispo_deadline_day);
   const linkEl = document.getElementById('s-portal-link');
   if (linkEl) linkEl.textContent = buildPortalLink().replace('https://', '');
+  applyPlanGating();
+  renderPlanCard();
 }
 // ── TEST-EXTRACT-END: club-identity ──
+
+// ══════════════════════════════════════════════════
+// GATING DE PALIER — chapeau + tableau de bord financier (Pro/Réseau)
+// ══════════════════════════════════════════════════
+// Rappel honnête (voir aussi computePlanAccess() côté serveur, api/_lib.js,
+// et le commentaire en tête de api/admin-write.js) : parmi les
+// fonctionnalités vendues comme "Pro" (chapeau/cachet + dashboard financier +
+// export comptable + mode tournée), SEULS le chapeau et le dashboard
+// financier (revenu/remplissage/top artistes) sont réellement construits ici.
+// Cachet, export comptable et mode tournée n'ont aucune UI — donc rien à
+// gater pour eux, juste un écart documenté (visible dans renderPlanCard()).
+//
+// Applique/retire l'accès visuel aux fonctionnalités Pro dès que l'identité
+// du club (donc son palier) est (re)chargée — login, switch de club, ou
+// sauvegarde de Réglages. Le VRAI gate (le seul qui protège une donnée)
+// reste server-side : ceci ne fait que refléter dans l'UI ce que le serveur
+// a déjà décidé (club.plan/status reçus, jamais choisis par le client).
+function applyPlanGating() {
+  if (typeof document === 'undefined') return;
+  const pro = hasProAccess();
+  const chapeauNav = document.querySelector(`.ni[onclick="nav('chapeau')"]`);
+  if (chapeauNav) chapeauNav.style.display = pro ? '' : 'none';
+
+  // Si l'admin est déjà sur une vue impactée au moment où le palier change
+  // (ex. switch vers un club moins équipé), on la rafraîchit immédiatement
+  // plutôt que de laisser une UI Pro périmée affichée.
+  const activeView = document.querySelector('.view.on')?.id?.replace('view-', '');
+  if (activeView === 'chapeau') nav('chapeau');
+  if (activeView === 'dashboard' && typeof renderDashboardStats === 'function') renderDashboardStats();
+}
+
+// Bloc "Pro verrouillé" réutilisé partout où une fonctionnalité Pro existante
+// (chapeau, dashboard financier) doit s'effacer proprement pour un club actif
+// au palier Essentiel — jamais un écran cassé/vide.
+function renderProLockedBlock(featureLabel) {
+  return `<div style="text-align:center;padding:48px 20px;background:var(--s1);border:1px solid var(--border);border-radius:10px">
+    <div style="font-size:28px;margin-bottom:10px">🔒</div>
+    <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px">${featureLabel} — fonctionnalité Pro</div>
+    <div style="font-size:12px;color:var(--muted);max-width:420px;margin:0 auto 18px;line-height:1.6">Cette fonctionnalité fait partie du palier Pro (99€/mois) — chapeau, tableau de bord financier, et plus. Contacte Stagely pour passer au palier Pro.</div>
+    <button class="btn btn-o" onclick="nav('reglages')">Voir mon palier →</button>
+  </div>`;
+}
+
+// Carte "Palier" affichée en Réglages (visibilité honnête — mission gating
+// 2026-08, point 6 : pas de flux de changement de palier en self-service,
+// juste une visibilité claire sur ce que le club a débloqué).
+const PLAN_LABELS = { essentiel: 'Essentiel', pro: 'Pro', reseau: 'Réseau' };
+function renderPlanCard() {
+  if (typeof document === 'undefined') return;
+  const el = document.getElementById('plan-card-body');
+  if (!el) return;
+  const pro = hasProAccess();
+  const status = currentClub.status || 'trial';
+  const plan = currentClub.plan || 'essentiel';
+  const planLabel = PLAN_LABELS[plan] || plan;
+  let statusLine;
+  if (status === 'trial') {
+    const until = currentClub.trial_ends_at ? new Date(currentClub.trial_ends_at) : null;
+    const untilTxt = until && !isNaN(until) ? ` jusqu'au ${until.toLocaleDateString('fr-FR')}` : '';
+    statusLine = `<span style="color:var(--g)">● Essai en cours${untilTxt}</span> — accès complet à toutes les fonctionnalités existantes, quel que soit le palier ci-dessous.`;
+  } else if (status === 'active') {
+    statusLine = `<span style="color:var(--g)">● Compte actif</span>`;
+  } else {
+    statusLine = `<span style="color:var(--r)">● ${status}</span>`;
+  }
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <span style="font-size:11px;font-weight:800;padding:4px 12px;border-radius:20px;background:var(--o2);color:var(--o);border:1px solid var(--ob)">${planLabel.toUpperCase()}</span>
+      <span style="font-size:11px;color:var(--muted)">${statusLine}</span>
+    </div>
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;font-weight:600">Toujours inclus</div>
+    <div style="font-size:11px;color:var(--text);line-height:1.8">✓ Planning &amp; dispos · ✓ Portail humoriste · ✓ Rappels automatiques · ✓ Notifications d'annulation · ✓ Export calendrier</div>
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;font-weight:600">Palier Pro / Réseau</div>
+    <div style="font-size:11px;color:${pro ? 'var(--text)' : 'var(--muted)'};line-height:1.8">${pro ? '✓' : '🔒'} Chapeau · ${pro ? '✓' : '🔒'} Tableau de bord financier (revenu, remplissage, top artistes)</div>
+    <div style="font-size:10px;color:var(--muted);margin-top:14px;padding-top:14px;border-top:1px solid var(--border2);line-height:1.6">
+      ⚠️ Pas encore construits, même en palier Pro/Réseau : cachet (montant fixe/humoriste), export comptable, mode tournée, gestion multi-salle. À développer avant de vendre ces paliers à un vrai client sur ces critères.
+    </div>
+    <button class="btn btn-ghost" style="margin-top:14px;font-size:10px" onclick="resetOnboarding()">🔄 Revoir le tutoriel de bienvenue</button>
+  `;
+}
+
+// ══════════════════════════════════════════════════
+// ONBOARDING — tutoriel contextuel de 1ère visite (chantier 2026-08)
+// ══════════════════════════════════════════════════
+// Bandeau discret, dismissible, affiché UNE SEULE fois par écran (mémorisé en
+// localStorage — stagely_onboarding_seen_<écran>) sur les 4 écrans
+// principaux : dashboard, planning, dispos, reglages. Zéro nouvelle
+// librairie, même style visuel que le reste de l'app (variables CSS
+// existantes --o/--o2/--ob/--muted/--text).
+//
+// Éligibilité : contrôlée par le flag stagely_onboarding_eligible, posé
+// UNIQUEMENT par register.html au moment d'une inscription complète (nouveau
+// compte + nouveau club) — jamais quand un admin déjà connecté ajoute un
+// second club à son compte (il connaît déjà l'app), et surtout jamais posé
+// pour une session déjà existante avant ce chantier. C'est ce qui garantit
+// qu'un club déjà en prod (le BCC, jamais passé par register.html avec ce
+// chantier actif) ne voit JAMAIS ce tutoriel apparaître spontanément. Le
+// bouton "🔄 Revoir le tutoriel de bienvenue" (Réglages > Mon palier) reste
+// le seul moyen de le déclencher explicitement pour un test/une démo.
+const ONBOARDING_SCREENS = ['dashboard', 'planning', 'dispos', 'reglages'];
+const ONBOARDING_CONTENT = {
+  dashboard: {
+    icon: '📊',
+    title: 'Ton dashboard',
+    text: "Vue d'ensemble de ton club : humoristes, créneaux assignés, dispos reçues. Clique sur « Planning → » pour commencer à construire ta programmation de la semaine.",
+  },
+  planning: {
+    icon: '🗓️',
+    title: 'Le planning',
+    text: "Clique un créneau pour y assigner un humoriste disponible. Une fois ta semaine prête, « Envoyer le planning » prévient chaque humoriste assigné de ses dates par email.",
+  },
+  dispos: {
+    icon: '📅',
+    title: 'Les disponibilités',
+    text: "Ici tu vois qui a répondu à la demande de dispos du mois à venir. « Relancer » renvoie un rappel à ceux qui n'ont pas encore répondu avant la deadline.",
+  },
+  reglages: {
+    icon: '⚙️',
+    title: 'Les réglages',
+    text: "Configure le nom/ville de ton club et tes séances récurrentes (jours + horaires). Le lien portail ci-dessous est à envoyer à tes humoristes pour qu'ils saisissent leurs dispos.",
+  },
+};
+
+function onboardingEligible() {
+  try { return localStorage.getItem('stagely_onboarding_eligible') === '1'; } catch (e) { return false; }
+}
+function onboardingSeenKey(screen) { return `stagely_onboarding_seen_${screen}`; }
+function onboardingSeen(screen) {
+  try { return localStorage.getItem(onboardingSeenKey(screen)) === '1'; } catch (e) { return true; }
+}
+function dismissOnboarding(screen) {
+  try { localStorage.setItem(onboardingSeenKey(screen), '1'); } catch (e) {}
+  const el = document.getElementById(`onboarding-${screen}`);
+  if (el) el.remove();
+}
+function showOnboardingBanner(screen) {
+  const view = document.getElementById('view-' + screen);
+  const content = ONBOARDING_CONTENT[screen];
+  if (!view || !content) return;
+  const existing = document.getElementById(`onboarding-${screen}`);
+  if (existing) existing.remove(); // pas de doublon si on revisite l'écran dans la session
+  if (!onboardingEligible() || onboardingSeen(screen)) return;
+  const banner = document.createElement('div');
+  banner.id = `onboarding-${screen}`;
+  banner.style.cssText = 'display:flex;align-items:flex-start;gap:12px;background:var(--o2);border:1px solid var(--ob);border-radius:10px;padding:14px 16px;margin-bottom:16px';
+  banner.innerHTML = `
+    <div style="font-size:20px;flex-shrink:0">${content.icon}</div>
+    <div style="flex:1">
+      <div style="font-size:12px;font-weight:700;color:var(--o);margin-bottom:3px">${content.title}</div>
+      <div style="font-size:11px;color:var(--text);line-height:1.5">${content.text}</div>
+    </div>
+    <button onclick="dismissOnboarding('${screen}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:2px;flex-shrink:0" aria-label="Fermer">✕</button>`;
+  view.insertBefore(banner, view.firstChild);
+}
+
+// Réinitialise le tutoriel (bouton Réglages > Mon palier, ou console pour
+// tester) — repose le flag d'éligibilité ET efface les "déjà vu" par écran,
+// pour repasser dessus volontairement même sur une session existante.
+function resetOnboarding() {
+  try {
+    localStorage.setItem('stagely_onboarding_eligible', '1');
+    ONBOARDING_SCREENS.forEach(s => localStorage.removeItem(onboardingSeenKey(s)));
+  } catch (e) {}
+  toast('✓ Tutoriel réinitialisé — reviens sur Dashboard/Planning/Dispos/Réglages');
+  const activeView = document.querySelector('.view.on')?.id?.replace('view-', '');
+  if (activeView) showOnboardingBanner(activeView);
+}
 
 // Bouton "Copier" du lien portail (Réglages) — utilise buildPortalLink(),
 // la même source que l'affichage juste au-dessus, donc les deux ne peuvent
@@ -1991,6 +2194,15 @@ function nav(id) {
     cv.classList.add('on');
     document.querySelectorAll('.ni').forEach(n=>{if(n.getAttribute('onclick')===`nav('chapeau')`) n.classList.add('on');});
     document.getElementById('ptitle').textContent = '🎩 Chapeau';
+    // Gating de palier — le chapeau est une fonctionnalité Pro (voir
+    // hasProAccess() / applyPlanGating() plus haut). Rejoué ici (pas
+    // seulement en cachant l'item de sidebar) pour rester correct même si
+    // cette vue est atteinte autrement que par un clic sidebar.
+    if (!hasProAccess()) {
+      document.getElementById('tactions').innerHTML = '';
+      cv.innerHTML = renderProLockedBlock('Chapeau');
+      return;
+    }
     document.getElementById('tactions').innerHTML = `<button class="btn btn-o" onclick="nav_chapeau_open()">+ Ajouter une soirée</button>`;
     renderChapeau();
     return;
@@ -2024,12 +2236,17 @@ function nav(id) {
   if(id==='planning') { renderPlanning(); scheduleReminders(); }
   if(id==='dispos') renderDispos();
   if(id==='humoristes') renderHumoristes();
-  if(id==='reglages') { 
+  if(id==='reglages') {
     const vr = document.getElementById('view-reglages');
     if(vr) vr.style.display = 'block';
     renderSlotsCfg();
+    renderPlanCard();
   }
 
+  // Tutoriel de 1ère visite — appelé APRÈS le render de la vue (sinon le
+  // bandeau serait écrasé par un renderXxx() qui réécrit le HTML statique de
+  // la vue). Non-op silencieux sur tout écran hors des 4 couverts.
+  if (ONBOARDING_SCREENS.includes(id)) showOnboardingBanner(id);
 }
 // Connecter la vraie nav au proxy temporaire
 window._navReady = nav;
@@ -2124,6 +2341,20 @@ function renderDashboard() {
 // des données déjà chargées (chapeauData en localStorage, assignments/
 // DAYS_CONFIG déjà en mémoire) : pas de nouvelle requête serveur.
 function renderDashboardStats() {
+  // Gating de palier — revenu/remplissage/top artistes forment le "tableau
+  // de bord financier", vendu comme fonctionnalité Pro (voir hasProAccess()).
+  // Le bloc entier s'efface proprement pour un club actif au palier
+  // Essentiel plutôt que d'afficher des chiffres à moitié calculés.
+  const dashGrid = document.getElementById('dash-grid');
+  const dashLocked = document.getElementById('dash-grid-locked');
+  if (!hasProAccess()) {
+    if (dashGrid) dashGrid.style.display = 'none';
+    if (dashLocked) { dashLocked.style.display = 'block'; dashLocked.innerHTML = renderProLockedBlock('Tableau de bord financier'); }
+    return;
+  }
+  if (dashGrid) dashGrid.style.display = '';
+  if (dashLocked) { dashLocked.style.display = 'none'; dashLocked.innerHTML = ''; }
+
   const today = new Date();
   const monthPrefix = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
 
@@ -4499,6 +4730,7 @@ function updateChapeauTotal() {
 }
 
 function nav_chapeau_open() {
+  if (!hasProAccess()) { toast('🔒 Le chapeau est une fonctionnalité Pro'); return; }
   document.getElementById('ch-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('ch-especes').value = '';
   document.getElementById('ch-cb').value = '';
@@ -4508,6 +4740,7 @@ function nav_chapeau_open() {
 }
 
 function openChapeauForSlot(date, slot) {
+  if (!hasProAccess()) { toast('🔒 Le chapeau est une fonctionnalité Pro'); return; }
   document.getElementById('ch-date').value = date;
   document.getElementById('ch-especes').value = '';
   document.getElementById('ch-cb').value = '';
@@ -4523,6 +4756,7 @@ function openChapeauForSlot(date, slot) {
 
 
 function saveChapeau() {
+  if (!hasProAccess()) { toast('🔒 Le chapeau est une fonctionnalité Pro'); return; }
   const date = document.getElementById('ch-date').value;
   const slot = document.getElementById('ch-slot').value;
   const especes = parseFloat(document.getElementById('ch-especes').value) || 0;

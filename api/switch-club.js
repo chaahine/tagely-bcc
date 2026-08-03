@@ -26,7 +26,7 @@
 // défiance que le reste du projet (cf. resolveClubIdByPortalCode() dans
 // api/_lib.js).
 
-import { applyCors, sbAdmin, verifyAdminToken, issueAdminToken, isNonEmptyString } from './_lib.js';
+import { applyCors, sbAdmin, verifyAdminToken, issueAdminToken, isNonEmptyString, computePlanAccess } from './_lib.js';
 
 export default async function handler(req, res) {
   applyCors(res);
@@ -66,7 +66,7 @@ export default async function handler(req, res) {
     let rows;
     try {
       rows = await sbAdmin('clubs', {
-        params: `?id=eq.${encodeURIComponent(club_id)}&select=id,status,name,city,portal_code,dispo_deadline_day&limit=1`,
+        params: `?id=eq.${encodeURIComponent(club_id)}&select=id,status,name,city,portal_code,dispo_deadline_day,plan,trial_ends_at&limit=1`,
       });
     } catch (e) {
       rows = await sbAdmin('clubs', {
@@ -79,6 +79,9 @@ export default async function handler(req, res) {
     }
 
     const { token, exp } = issueAdminToken(auth.admin_id, auth.accessible_clubs, club_id, auth.remember);
+    // Même logique qu'admin-login.js : plan/status relus en base à l'instant
+    // du switch, jamais mis en cache côté client au-delà de cette réponse.
+    const planAccess = computePlanAccess(club);
     return res.status(200).json({
       success: true,
       token,
@@ -89,6 +92,10 @@ export default async function handler(req, res) {
         city: club.city,
         portal_code: club.portal_code,
         dispo_deadline_day: Number.isFinite(club.dispo_deadline_day) ? club.dispo_deadline_day : 12,
+        plan: planAccess.plan,
+        status: planAccess.status,
+        pro_features: planAccess.proFeatures,
+        trial_ends_at: club.trial_ends_at || null,
       },
     });
   } catch (e) {

@@ -29,6 +29,31 @@
 //                        séparée : le rappel automatique (api/cron-dispo-
 //                        reminders.js) lit directement la colonne en base,
 //                        aucune route dédiée nécessaire côté lecture non plus.
+//
+// ── Gating de palier (chantier 2026-08) — pourquoi le CHAPEAU n'a AUCUNE
+//    action ici ──
+// Audit fait dans le cadre du chantier de gating par palier (essentiel/pro/
+// réseau, voir computePlanAccess() dans _lib.js) : le chapeau (montants
+// saisis en Réglages > Chapeau) n'est PAS persisté ici, ni nulle part
+// ailleurs côté serveur — index.html le stocke intégralement dans
+// localStorage (clé 'stagely_chapeau', cf. index.html), jamais envoyé au
+// backend. Conséquence honnête à deux niveaux :
+//   1) Ce n'est même pas multitenant-safe (deux admins du même club sur deux
+//      navigateurs voient des chapeaux différents ; rien ne survit à un
+//      changement de navigateur/appareil) — un défaut préexistant, pas
+//      introduit par ce chantier, mais qui mérite d'être connu avant de
+//      vendre le palier Pro à un vrai client sur la base du chapeau.
+//   2) Il n'existe donc AUCUNE route d'écriture serveur à gater par palier
+//      ici aujourd'hui — le gating du chapeau (voir index.html,
+//      hasProAccess()/applyPlanGating()) reste pour l'instant un gate
+//      d'AFFICHAGE, appuyé sur un plan/status renvoyés par le serveur
+//      (jamais choisis par le client) à la connexion/switch de club, mais
+//      sans donnée serveur à protéger derrière puisqu'aucune n'existe.
+// Le jour où le chapeau (ou le cachet/export comptable/mode tournée, tout
+// aussi absents aujourd'hui) obtient une vraie persistance serveur, CETTE
+// action devra appeler computePlanAccess(club).proFeatures et refuser
+// l'écriture (403) si false — exactement le même réflexe que les autres
+// actions ci-dessus vérifient déjà `clubId`/`scope`.
 
 import { applyCors, sbAdmin, verifyAdminToken, isNonEmptyString, SLOT_KEY_RE, clubOrFilter, newId } from './_lib.js';
 
