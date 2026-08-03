@@ -215,15 +215,19 @@ export function verifyPasswordHash(candidate, expectedHash) {
 // listées comme Pro. Un club 'suspended' n'a de toute façon plus accès à
 // rien (bloqué bien plus en amont, voir admin-login.js/switch-club.js).
 //
-// IMPORTANT — honnêteté sur ce qui existe vraiment (audit du 2026-08) :
-// parmi les fonctionnalités vendues comme "Pro" (chapeau/cachet + tableau de
-// bord financier + export comptable + mode tournée), SEULS le chapeau et le
-// tableau de bord financier (revenu/remplissage/top artistes) sont
-// réellement construits à ce jour. Le cachet, l'export comptable et le mode
-// tournée n'ont AUCUNE UI ni logique — ils ne sont donc gatés nulle part
-// (rien à gater), juste documentés comme un écart à combler avant de vendre
-// le palier Pro tel quel. Voir aussi le commentaire en tête de
-// api/admin-write.js.
+// IMPORTANT — honnêteté sur ce qui existe vraiment (mise à jour chantier
+// "cachet + export comptable", 2026-08) : parmi les fonctionnalités vendues
+// comme "Pro" (chapeau/cachet + tableau de bord financier + export comptable
+// + mode tournée), sont désormais réellement construits : le chapeau (avec
+// une vraie persistance serveur, table chapeau_entries — plus du tout de
+// localStorage), le cachet (montant fixe par humoriste, colonne
+// comedians.cachet_amount + vue "Cachets"), le tableau de bord financier et
+// l'export comptable CSV (chapeau OU cachet selon clubs.payment_mode, jamais
+// les deux à la fois pour un même club), ET le mode tournée (dates
+// ponctuelles hors grille, table `events`, actions addEvent/removeEvent —
+// chantier fusionné séparément, voir le commentaire en tête de
+// api/admin-write.js). Les 4 fonctionnalités vendues comme Pro sont donc
+// désormais réellement construites.
 export const PRO_PLANS = ['pro', 'reseau'];
 
 export function computePlanAccess(club) {
@@ -231,6 +235,22 @@ export function computePlanAccess(club) {
   const plan = (club && typeof club.plan === 'string' && club.plan) || 'essentiel';
   const proFeatures = status === 'trial' || PRO_PLANS.includes(plan);
   return { status, plan, proFeatures };
+}
+
+// ── Mode de paiement des artistes (chantier "cachet + export comptable",
+// 2026-08) ──────────────────────────────────────────────────────────────
+// clubs.payment_mode : 'chapeau' (défaut historique, recette de la soirée
+// répartie) | 'cachet' (montant fixe par humoriste, réglé par l'admin dans
+// la fiche du comédien — comedians.cachet_amount). Un club Pro/Réseau peut
+// choisir l'un OU l'autre, JAMAIS les deux en même temps (décision produit
+// de Chahine) : quand 'cachet' est actif, la rubrique chapeau disparaît de
+// l'UI (et inversement). Repli sûr sur 'chapeau' si la colonne est absente
+// (migration pas encore appliquée sur cet environnement) OU si la valeur
+// stockée est inattendue — garantit qu'un club qui n'y touche jamais (le BCC
+// compris) ne change jamais de comportement.
+export function resolvePaymentMode(club) {
+  const mode = club && typeof club.payment_mode === 'string' ? club.payment_mode : 'chapeau';
+  return mode === 'cachet' ? 'cachet' : 'chapeau';
 }
 
 // ── Validateurs communs ──

@@ -26,7 +26,7 @@
 // défiance que le reste du projet (cf. resolveClubIdByPortalCode() dans
 // api/_lib.js).
 
-import { applyCors, sbAdmin, verifyAdminToken, issueAdminToken, isNonEmptyString, computePlanAccess } from './_lib.js';
+import { applyCors, sbAdmin, verifyAdminToken, issueAdminToken, isNonEmptyString, computePlanAccess, resolvePaymentMode } from './_lib.js';
 
 export default async function handler(req, res) {
   applyCors(res);
@@ -66,12 +66,18 @@ export default async function handler(req, res) {
     let rows;
     try {
       rows = await sbAdmin('clubs', {
-        params: `?id=eq.${encodeURIComponent(club_id)}&select=id,status,name,city,portal_code,dispo_deadline_day,plan,trial_ends_at&limit=1`,
+        params: `?id=eq.${encodeURIComponent(club_id)}&select=id,status,name,city,portal_code,dispo_deadline_day,plan,trial_ends_at,payment_mode&limit=1`,
       });
     } catch (e) {
-      rows = await sbAdmin('clubs', {
-        params: `?id=eq.${encodeURIComponent(club_id)}&select=id,status,name,city,portal_code&limit=1`,
-      });
+      try {
+        rows = await sbAdmin('clubs', {
+          params: `?id=eq.${encodeURIComponent(club_id)}&select=id,status,name,city,portal_code,dispo_deadline_day,plan,trial_ends_at&limit=1`,
+        });
+      } catch (e2) {
+        rows = await sbAdmin('clubs', {
+          params: `?id=eq.${encodeURIComponent(club_id)}&select=id,status,name,city,portal_code&limit=1`,
+        });
+      }
     }
     const club = Array.isArray(rows) && rows.length ? rows[0] : null;
     if (!club || club.status === 'suspended') {
@@ -96,6 +102,7 @@ export default async function handler(req, res) {
         status: planAccess.status,
         pro_features: planAccess.proFeatures,
         trial_ends_at: club.trial_ends_at || null,
+        payment_mode: resolvePaymentMode(club),
       },
     });
   } catch (e) {

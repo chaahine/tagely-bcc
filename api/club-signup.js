@@ -221,6 +221,11 @@ export default async function handler(req, res) {
         club: {
           id: clubId, slug, name: nc.name, city: nc.city, portal_code: portalCode, dispo_deadline_day: 12,
           plan: planAccess.plan, status: planAccess.status, pro_features: planAccess.proFeatures,
+          // Un club tout juste créé démarre toujours en mode 'chapeau' (défaut
+          // DB, clubs.payment_mode) — pas de lecture DB nécessaire ici, cette
+          // ligne vient d'être créée par createClubAndRoom() ci-dessus sans
+          // payment_mode explicite, donc forcément la valeur par défaut.
+          payment_mode: 'chapeau',
         },
         accessible_clubs: accessibleClubs,
       });
@@ -307,6 +312,7 @@ export default async function handler(req, res) {
       club: {
         id: clubId, slug, name: nc.name, city: nc.city, portal_code: portalCode, dispo_deadline_day: 12,
         plan: planAccess.plan, status: planAccess.status, pro_features: planAccess.proFeatures,
+        payment_mode: 'chapeau', // défaut DB clubs.payment_mode — voir commentaire jumeau plus haut
       },
       accessible_clubs: accessibleClubs,
     });

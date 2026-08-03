@@ -28,7 +28,7 @@
 // bidon est comparé (avec la même fonction constant-time) même quand aucun
 // admin ne correspond à l'email.
 
-import { applyCors, sbAdmin, verifyPasswordHash, issueAdminToken, computePlanAccess } from './_lib.js';
+import { applyCors, sbAdmin, verifyPasswordHash, issueAdminToken, computePlanAccess, resolvePaymentMode } from './_lib.js';
 
 const GENERIC_ERROR = 'Email ou mot de passe incorrect';
 // Hash sha256 valide (64 caractères hex) mais qui ne correspond à aucun mot
@@ -48,14 +48,17 @@ async function fetchAdminByEmail(email) {
 // pas dépendre de la détection de la relation FK par le schema cache) — même
 // approche que resolveClubIdByPortalCode() dans _lib.js.
 //
-// dispo_deadline_day/plan/trial_ends_at sont sélectionnés avec repli : ces
-// colonnes viennent de chantiers séparés et peuvent ne pas toutes exister sur
-// cet environnement tant que leur migration SQL n'a pas tourné — la connexion
-// admin ne doit JAMAIS dépendre de ces champs optionnels (même garde qu'avant
-// ce chantier). "plan" alimente le gating de palier (chapeau + dashboard
-// financier) — voir computePlanAccess() dans _lib.js ; si la colonne manque
-// encore, le repli ci-dessous ne la sélectionne pas et computePlanAccess()
-// retombe sur 'essentiel' par défaut (jamais un accès Pro accordé par erreur).
+// dispo_deadline_day/plan/trial_ends_at/payment_mode sont sélectionnés avec
+// repli : ces colonnes viennent de chantiers séparés et peuvent ne pas toutes
+// exister sur cet environnement tant que leur migration SQL n'a pas tourné —
+// la connexion admin ne doit JAMAIS dépendre de ces champs optionnels (même
+// garde qu'avant ce chantier). "plan" alimente le gating de palier (chapeau +
+// cachet + dashboard financier + export comptable) — voir computePlanAccess()
+// dans _lib.js ; si la colonne manque encore, le repli ci-dessous ne la
+// sélectionne pas et computePlanAccess() retombe sur 'essentiel' par défaut
+// (jamais un accès Pro accordé par erreur). "payment_mode" (chantier
+// "cachet", 2026-08) suit le même repli — si absente, resolvePaymentMode()
+// (_lib.js) retombe sur 'chapeau', le comportement historique.
 async function fetchAccessibleClubs(adminId) {
   const links = await sbAdmin('admin_club_links', {
     params: `?admin_id=eq.${encodeURIComponent(adminId)}&select=club_id`,
@@ -66,12 +69,18 @@ async function fetchAccessibleClubs(adminId) {
   let rows;
   try {
     rows = await sbAdmin('clubs', {
-      params: `?id=in.(${idsFilter})&select=id,status,name,city,portal_code,dispo_deadline_day,plan,trial_ends_at`,
+      params: `?id=in.(${idsFilter})&select=id,status,name,city,portal_code,dispo_deadline_day,plan,trial_ends_at,payment_mode`,
     });
   } catch (e) {
-    rows = await sbAdmin('clubs', {
-      params: `?id=in.(${idsFilter})&select=id,status,name,city,portal_code`,
-    });
+    try {
+      rows = await sbAdmin('clubs', {
+        params: `?id=in.(${idsFilter})&select=id,status,name,city,portal_code,dispo_deadline_day,plan,trial_ends_at`,
+      });
+    } catch (e2) {
+      rows = await sbAdmin('clubs', {
+        params: `?id=in.(${idsFilter})&select=id,status,name,city,portal_code`,
+      });
+    }
   }
   return Array.isArray(rows) ? rows : [];
 }
@@ -139,6 +148,7 @@ export default async function handler(req, res) {
         status: planAccess.status,
         pro_features: planAccess.proFeatures,
         trial_ends_at: activeClub.trial_ends_at || null,
+        payment_mode: resolvePaymentMode(activeClub),
       },
       accessible_clubs: accessibleClubs,
     });

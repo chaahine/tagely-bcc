@@ -900,7 +900,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <div class="ni" onclick="nav('dispos')"><span class="ni-lbl">Disponibilités</span><span class="nbadge" id="bdg-dispos">8</span></div>
   <div class="ns">Gestion</div>
   <div class="ni" onclick="nav('humoristes')"><span class="ni-lbl">Humoristes</span><span class="nbadge" id="bdg-humoristes" style="background:var(--s3);color:var(--muted)">0</span></div>
-  <div class="ni" onclick="nav('chapeau')"><span class="ni-lbl">Chapeau</span></div>
+  <div class="ni" id="ni-money" onclick="nav('chapeau')"><span class="ni-lbl" id="ni-money-lbl">Chapeau</span></div>
   <div class="ni" onclick="nav('reglages')"><span class="ni-lbl">Réglages</span></div>
   <div class="ns">Communication</div>
   <div class="ni" onclick="openUrgenceModal()" style="color:var(--r);border:1px solid rgba(239,68,68,.2);border-radius:4px;margin:4px 8px"><span class="ni-lbl">🚨 Remplacement urgent</span></div>
@@ -946,7 +946,7 @@ window.addEventListener('DOMContentLoaded', () => {
            remplissage du planning, top artistes. -->
       <div class="dash-grid" id="dash-grid">
         <div class="dash-card">
-          <div class="dc-title">Revenu du mois <button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="nav('chapeau')">→</button></div>
+          <div class="dc-title"><span id="dash-revenue-title">Revenu du mois</span> <button class="btn btn-ghost" id="dash-revenue-arrow" style="font-size:9px;padding:1px 6px" onclick="nav('chapeau')">→</button></div>
           <div id="dash-revenue"></div>
         </div>
         <div class="dash-card">
@@ -1029,6 +1029,19 @@ window.addEventListener('DOMContentLoaded', () => {
             <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Nom du club</label><input class="fi" id="s-club" value="BCC" style="width:100%" oninput="document.getElementById('club-badge').textContent=this.value"></div>
             <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Ville</label><input class="fi" id="s-city" value="Lille" style="width:100%"></div>
             <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Deadline dispos (jour du mois)</label><input class="fi" id="s-deadline" type="number" value="12" min="1" max="28" style="width:100%"></div>
+            <!-- Mode de paiement des artistes (chapeau OU cachet, jamais les deux —
+                 chantier "cachet + export comptable", 2026-08) : Pro uniquement,
+                 masqué entièrement pour un club Essentiel (inutile sans accès aux
+                 deux rubriques qu'il contrôle). Visibilité gérée par
+                 applyPlanGating() ci-dessous. -->
+            <div id="s-payment-mode-row" style="margin-bottom:12px;display:none">
+              <label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Mode de paiement des artistes</label>
+              <select class="fsl" id="s-payment-mode" style="width:100%">
+                <option value="chapeau">🎩 Chapeau (recette de la soirée)</option>
+                <option value="cachet">💶 Cachet (montant fixe par artiste)</option>
+              </select>
+              <div style="font-size:9px;color:var(--muted);margin-top:4px;line-height:1.5">Un seul mode actif à la fois — la rubrique correspondante remplace "Chapeau" dans le menu de gauche.</div>
+            </div>
             <button class="btn btn-o" onclick="saveClubSettings()" style="margin-top:4px;width:100%">💾 Sauvegarder</button>
           </div>
 
@@ -1231,7 +1244,10 @@ let currentCode = CLUB_CODE;
 // du serveur (/api/admin-login, /api/switch-club, /api/club-signup — jamais
 // devinés côté client). Défauts BCC (plan 'pro', status 'active') choisis
 // pour ne rien changer tant qu'aucune session n'est encore chargée.
-let currentClub = { id: null, name: 'BCC', city: 'Lille', portal_code: CLUB_CODE, dispo_deadline_day: 12, plan: 'pro', status: 'active' };
+// payment_mode (chantier "cachet + export comptable", 2026-08) : 'chapeau' |
+// 'cachet', reçu du serveur comme plan/status — défaut 'chapeau' = le
+// comportement du BCC, qui n'y touche jamais.
+let currentClub = { id: null, name: 'BCC', city: 'Lille', portal_code: CLUB_CODE, dispo_deadline_day: 12, plan: 'pro', status: 'active', payment_mode: 'chapeau' };
 
 // Accès aux fonctionnalités Pro (chapeau + tableau de bord financier) — voir
 // computePlanAccess() côté serveur (api/_lib.js), même règle reproduite ici :
@@ -1276,6 +1292,10 @@ function applyClubInfo(club) {
   if (typeof club.plan === 'string' && club.plan) currentClub.plan = club.plan;
   if (typeof club.status === 'string' && club.status) currentClub.status = club.status;
   if (typeof club.trial_ends_at === 'string' || club.trial_ends_at === null) currentClub.trial_ends_at = club.trial_ends_at;
+  // payment_mode : même garde qu'au-dessus — un appel partiel (ex.
+  // saveClubSettings() quand seul le nom/ville/deadline changent) ne doit
+  // jamais faire retomber un club 'cachet' sur 'chapeau' par erreur.
+  if (club.payment_mode === 'chapeau' || club.payment_mode === 'cachet') currentClub.payment_mode = club.payment_mode;
 
   // currentCode piloté désormais par la vraie valeur DB du club connecté —
   // plus jamais par le défaut BCCD25 partagé entre tous les clubs.
@@ -1294,38 +1314,67 @@ function applyClubInfo(club) {
   if (linkEl) linkEl.textContent = buildPortalLink().replace('https://', '');
   applyPlanGating();
   renderPlanCard();
+  // Chapeau/cachet (chantier "cachet + export comptable", 2026-08) : données
+  // financières désormais persistées serveur (plus de localStorage), donc
+  // rechargées ici — le seul point où l'identité du club (donc son
+  // plan/payment_mode) vient d'être confirmée par le serveur. `typeof
+  // loadChapeauEntries === 'function'` : loadChapeauEntries() est définie
+  // bien plus bas dans ce fichier et n'existe pas dans le sandbox de test qui
+  // extrait ce bloc seul (tests/plan-gating.test.mjs) — appel silencieusement
+  // ignoré dans ce contexte, sans casser le test.
+  if (hasProAccess() && typeof loadChapeauEntries === 'function') loadChapeauEntries();
 }
 // ── TEST-EXTRACT-END: club-identity ──
 
 // ══════════════════════════════════════════════════
-// GATING DE PALIER — chapeau + tableau de bord financier (Pro/Réseau)
+// GATING DE PALIER — chapeau/cachet + dashboard financier + export comptable
+// + mode tournée (Pro/Réseau)
 // ══════════════════════════════════════════════════
-// Rappel honnête (voir aussi computePlanAccess() côté serveur, api/_lib.js,
-// et le commentaire en tête de api/admin-write.js) : parmi les
-// fonctionnalités vendues comme "Pro" (chapeau/cachet + dashboard financier +
-// export comptable + mode tournée), le chapeau, le dashboard financier
-// (revenu/remplissage/top artistes) ET le mode tournée (dates ponctuelles
-// hors grille, voir renderTourneeSection()/openAddEventModal() dans
-// Planning) sont désormais réellement construits. Cachet et export
-// comptable n'ont toujours aucune UI — rien à gater pour eux, juste un écart
+// Mise à jour chantier "cachet + export comptable" (2026-08) : chapeau,
+// cachet, dashboard financier, export comptable ET mode tournée (dates
+// ponctuelles hors grille, voir renderTourneeSection()/openAddEventModal()
+// dans Planning) sont désormais tous réellement construits (voir
+// computePlanAccess() côté serveur, api/_lib.js, et le commentaire en tête de
+// api/admin-write.js). Seule la gestion multi-salle reste un écart
 // documenté (visible dans renderPlanCard()).
 //
 // Applique/retire l'accès visuel aux fonctionnalités Pro dès que l'identité
-// du club (donc son palier) est (re)chargée — login, switch de club, ou
-// sauvegarde de Réglages. Le VRAI gate (le seul qui protège une donnée)
-// reste server-side : ceci ne fait que refléter dans l'UI ce que le serveur
-// a déjà décidé (club.plan/status reçus, jamais choisis par le client).
+// du club (donc son palier ET son payment_mode) est (re)chargée — login,
+// switch de club, ou sauvegarde de Réglages. Le VRAI gate (le seul qui
+// protège une donnée) reste server-side : ceci ne fait que refléter dans
+// l'UI ce que le serveur a déjà décidé (club.plan/status/payment_mode reçus,
+// jamais choisis par le client).
+//
+// Chapeau XOR cachet (jamais les deux) : un seul item de sidebar sert les
+// deux ("Chapeau" ou "Cachets" selon currentClub.payment_mode), qui pointe
+// vers nav('chapeau') ou nav('cachet') en conséquence — décision produit de
+// Chahine, jamais les deux rubriques visibles en même temps pour un club.
 function applyPlanGating() {
   if (typeof document === 'undefined') return;
   const pro = hasProAccess();
-  const chapeauNav = document.querySelector(`.ni[onclick="nav('chapeau')"]`);
-  if (chapeauNav) chapeauNav.style.display = pro ? '' : 'none';
+  const mode = currentClub.payment_mode === 'cachet' ? 'cachet' : 'chapeau';
+  const moneyNav = document.getElementById('ni-money');
+  if (moneyNav) {
+    moneyNav.style.display = pro ? '' : 'none';
+    moneyNav.setAttribute('onclick', `nav('${mode}')`);
+  }
+  const moneyLbl = document.getElementById('ni-money-lbl');
+  if (moneyLbl) moneyLbl.textContent = mode === 'cachet' ? 'Cachets' : 'Chapeau';
 
-  // Si l'admin est déjà sur une vue impactée au moment où le palier change
-  // (ex. switch vers un club moins équipé), on la rafraîchit immédiatement
-  // plutôt que de laisser une UI Pro périmée affichée.
+  // Sélecteur de mode de paiement (Réglages > Infos du club) — masqué pour
+  // un club Essentiel (aucune des deux rubriques qu'il contrôle n'est
+  // accessible de toute façon), affiché avec la valeur courante sinon.
+  const pmRow = document.getElementById('s-payment-mode-row');
+  if (pmRow) pmRow.style.display = pro ? '' : 'none';
+  const pmSelect = document.getElementById('s-payment-mode');
+  if (pmSelect) pmSelect.value = mode;
+
+  // Si l'admin est déjà sur une vue impactée au moment où le palier/mode
+  // change (ex. switch vers un club moins équipé, ou bascule chapeau<->
+  // cachet en Réglages), on la rafraîchit/redirige immédiatement plutôt que
+  // de laisser une UI périmée affichée.
   const activeView = document.querySelector('.view.on')?.id?.replace('view-', '');
-  if (activeView === 'chapeau') nav('chapeau');
+  if (activeView === 'chapeau' || activeView === 'cachet') nav(mode);
   if (activeView === 'dashboard' && typeof renderDashboardStats === 'function') renderDashboardStats();
   // Mode tournée : le bouton "+ Date ponctuelle" (renderTourneeSection, vue
   // Planning) dépend aussi de hasProAccess() — même réflexe que chapeau/
@@ -1335,13 +1384,14 @@ function applyPlanGating() {
 }
 
 // Bloc "Pro verrouillé" réutilisé partout où une fonctionnalité Pro existante
-// (chapeau, dashboard financier) doit s'effacer proprement pour un club actif
-// au palier Essentiel — jamais un écran cassé/vide.
+// (chapeau/cachet, dashboard financier, export comptable, mode tournée) doit
+// s'effacer proprement pour un club actif au palier Essentiel — jamais un
+// écran cassé/vide.
 function renderProLockedBlock(featureLabel) {
   return `<div style="text-align:center;padding:48px 20px;background:var(--s1);border:1px solid var(--border);border-radius:10px">
     <div style="font-size:28px;margin-bottom:10px">🔒</div>
     <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px">${featureLabel} — fonctionnalité Pro</div>
-    <div style="font-size:12px;color:var(--muted);max-width:420px;margin:0 auto 18px;line-height:1.6">Cette fonctionnalité fait partie du palier Pro (99€/mois) — chapeau, tableau de bord financier, et plus. Contacte Stagely pour passer au palier Pro.</div>
+    <div style="font-size:12px;color:var(--muted);max-width:420px;margin:0 auto 18px;line-height:1.6">Cette fonctionnalité fait partie du palier Pro (99€/mois) — chapeau ou cachet, tableau de bord financier, export comptable, et plus. Contacte Stagely pour passer au palier Pro.</div>
     <button class="btn btn-o" onclick="nav('reglages')">Voir mon palier →</button>
   </div>`;
 }
@@ -1376,9 +1426,9 @@ function renderPlanCard() {
     <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;font-weight:600">Toujours inclus</div>
     <div style="font-size:11px;color:var(--text);line-height:1.8">✓ Planning &amp; dispos · ✓ Portail humoriste · ✓ Rappels automatiques · ✓ Notifications d'annulation · ✓ Export calendrier</div>
     <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;font-weight:600">Palier Pro / Réseau</div>
-    <div style="font-size:11px;color:${pro ? 'var(--text)' : 'var(--muted)'};line-height:1.8">${pro ? '✓' : '🔒'} Chapeau · ${pro ? '✓' : '🔒'} Tableau de bord financier (revenu, remplissage, top artistes) · ${pro ? '✓' : '🔒'} Mode tournée (dates ponctuelles hors grille)</div>
+    <div style="font-size:11px;color:${pro ? 'var(--text)' : 'var(--muted)'};line-height:1.8">${pro ? '✓' : '🔒'} Chapeau ou cachet (au choix) · ${pro ? '✓' : '🔒'} Tableau de bord financier (revenu, remplissage, top artistes) · ${pro ? '✓' : '🔒'} Export comptable (CSV) · ${pro ? '✓' : '🔒'} Mode tournée (dates ponctuelles hors grille)</div>
     <div style="font-size:10px;color:var(--muted);margin-top:14px;padding-top:14px;border-top:1px solid var(--border2);line-height:1.6">
-      ⚠️ Pas encore construits, même en palier Pro/Réseau : cachet (montant fixe/humoriste), export comptable, gestion multi-salle (l'admin peut choisir une salle existante pour une date ponctuelle, mais rien pour en créer/gérer plusieurs). À développer avant de vendre ces paliers à un vrai client sur ces critères.
+      ⚠️ Pas encore construit, même en palier Pro/Réseau : gestion multi-salle (l'admin peut choisir une salle existante pour une date ponctuelle, mais rien pour en créer/gérer plusieurs). À développer avant de vendre ces paliers à un vrai client sur ce critère précis.
     </div>
     <button class="btn btn-ghost" style="margin-top:14px;font-size:10px" onclick="resetOnboarding()">🔄 Revoir le tutoriel de bienvenue</button>
   `;
@@ -1484,17 +1534,23 @@ function copyPortalLinkSettings() {
 // Bouton "Sauvegarder" de Réglages > Infos du club — jusqu'ici ne faisait
 // qu'un toast, rien n'était jamais persisté (nom "BCC"/ville "Lille"/
 // deadline "15" restaient des valeurs d'affichage figées, jamais lues
-// depuis ni écrites vers la base). Écrit désormais clubs.name/city (et
-// dispo_deadline_day si la colonne existe déjà sur cet environnement, voir
-// api/admin-write.js action 'updateClub') puis resynchronise currentClub
-// avec ce qui a réellement été confirmé par le serveur.
+// depuis ni écrites vers la base). Écrit désormais clubs.name/city/
+// dispo_deadline_day/payment_mode (chacun best-effort si sa colonne
+// n'existe pas encore sur cet environnement, voir api/admin-write.js action
+// 'updateClub') puis resynchronise currentClub avec ce qui a réellement été
+// confirmé par le serveur.
 async function saveClubSettings() {
   const name = (document.getElementById('s-club')?.value || '').trim();
   const city = (document.getElementById('s-city')?.value || '').trim();
   const deadlineRaw = document.getElementById('s-deadline')?.value;
   const deadline = deadlineRaw !== '' && deadlineRaw !== undefined ? parseInt(deadlineRaw, 10) : null;
   if (!name) { toast('✕ Le nom du club est requis'); return; }
-  const result = await adminWrite('updateClub', { name, city, dispo_deadline_day: deadline });
+  // Le sélecteur de mode n'est présent/visible que pour un club Pro (voir
+  // applyPlanGating()) — un club Essentiel n'envoie donc jamais ce champ,
+  // ce qui laisse payment_mode inchangé côté serveur (repli sur l'existant).
+  const pmEl = document.getElementById('s-payment-mode');
+  const paymentMode = (pmEl && pmEl.offsetParent !== null && (pmEl.value === 'chapeau' || pmEl.value === 'cachet')) ? pmEl.value : undefined;
+  const result = await adminWrite('updateClub', { name, city, dispo_deadline_day: deadline, ...(paymentMode ? { payment_mode: paymentMode } : {}) });
   if (result && result.success) {
     applyClubInfo({
       id: currentClub.id,
@@ -1502,6 +1558,7 @@ async function saveClubSettings() {
       city: result.club?.city ?? city,
       portal_code: currentClub.portal_code,
       dispo_deadline_day: Number.isFinite(result.club?.dispo_deadline_day) ? result.club.dispo_deadline_day : currentClub.dispo_deadline_day,
+      payment_mode: (result.club?.payment_mode === 'chapeau' || result.club?.payment_mode === 'cachet') ? result.club.payment_mode : currentClub.payment_mode,
     });
     toast('✓ Sauvegardé');
   } else {
@@ -2256,7 +2313,7 @@ async function hvSubmit() {
 // NAVIGATION ADMIN
 // ══════════════════════════════════════════════════
 
-const PTITLES = {dashboard:'Dashboard',planning:'Planning',dispos:'Disponibilités',humoristes:'Humoristes',reglages:'Réglages',chapeau:'🎩 Chapeau'};
+const PTITLES = {dashboard:'Dashboard',planning:'Planning',dispos:'Disponibilités',humoristes:'Humoristes',reglages:'Réglages',chapeau:'🎩 Chapeau',cachet:'💶 Cachets'};
 const PACTIONS = {
   planning:`<button class="btn btn-ghost" onclick="clearAll()">Réinitialiser</button><button class="btn btn-ghost" onclick="exportPDF()" style="font-size:9px">📄 PDF</button><button class="btn btn-ghost" onclick="exportLU()">↓ Exporter</button><button class="btn btn-o" onclick="openSendPlanningModal()" style="font-weight:700">📲 Envoyer le planning</button>`,
   dispos:`<button class="btn btn-b" onclick="relancerTous()">⏰ Relancer</button><button class="btn btn-o" onclick="openModal('modal-dispo')">✉ Demandes</button>`,
@@ -2264,7 +2321,8 @@ const PACTIONS = {
   reglages:`<button class="btn btn-o" onclick="toast('✓ Sauvegardé')">Sauvegarder</button>`,
   dashboard:`<button class="btn btn-ghost" style="font-size:9px" onclick="toggleSearch()">🔍</button><button class="btn btn-ghost" style="font-size:9px" onclick="goToPortal()">👁 Portail</button><button class="btn btn-ghost" style="font-size:9px" onclick="nav('planning')">Planning →</button>`,
   chat:'',
-  chapeau:`<button class="btn btn-o" onclick="nav_chapeau_open()">+ Ajouter une soirée</button>`,
+  chapeau:`<button class="btn btn-ghost" style="font-size:9px" onclick="openExportComptableModal()">📥 Export comptable</button><button class="btn btn-o" onclick="nav_chapeau_open()">+ Ajouter une soirée</button>`,
+  cachet:`<button class="btn btn-o" style="font-size:9px" onclick="openExportComptableModal()">📥 Export comptable</button>`,
 };
 
 function nav(id) {
@@ -2280,29 +2338,37 @@ function nav(id) {
     document.getElementById('sidebar').classList.remove('mobile-open');
   }
 
-  // Chapeau — vue dynamique
-  if (id === 'chapeau') {
-    let cv = document.getElementById('view-chapeau');
+  // Chapeau / Cachets — vues dynamiques, mutuellement exclusives (jamais les
+  // deux visibles pour un même club — voir applyPlanGating()/payment_mode).
+  if (id === 'chapeau' || id === 'cachet') {
+    let cv = document.getElementById('view-'+id);
     if (!cv) {
       cv = document.createElement('div');
-      cv.id = 'view-chapeau';
+      cv.id = 'view-'+id;
       cv.className = 'view';
       document.querySelector('.content').appendChild(cv);
     }
     cv.classList.add('on');
-    document.querySelectorAll('.ni').forEach(n=>{if(n.getAttribute('onclick')===`nav('chapeau')`) n.classList.add('on');});
-    document.getElementById('ptitle').textContent = '🎩 Chapeau';
-    // Gating de palier — le chapeau est une fonctionnalité Pro (voir
+    document.querySelectorAll('.ni').forEach(n=>{if(n.getAttribute('onclick')===`nav('${id}')`) n.classList.add('on');});
+    document.getElementById('ptitle').textContent = PTITLES[id];
+    // Gating de palier — chapeau/cachet sont une fonctionnalité Pro (voir
     // hasProAccess() / applyPlanGating() plus haut). Rejoué ici (pas
     // seulement en cachant l'item de sidebar) pour rester correct même si
     // cette vue est atteinte autrement que par un clic sidebar.
     if (!hasProAccess()) {
       document.getElementById('tactions').innerHTML = '';
-      cv.innerHTML = renderProLockedBlock('Chapeau');
+      cv.innerHTML = renderProLockedBlock(id === 'cachet' ? 'Cachets' : 'Chapeau');
       return;
     }
-    document.getElementById('tactions').innerHTML = `<button class="btn btn-o" onclick="nav_chapeau_open()">+ Ajouter une soirée</button>`;
-    renderChapeau();
+    document.getElementById('tactions').innerHTML = PACTIONS[id];
+    if (id === 'chapeau') renderChapeau(); else renderCachet();
+    // Filet de sécurité : si le chargement initial déclenché par
+    // applyClubInfo() (au login/switch) n'a pas encore abouti quand l'admin
+    // clique directement sur Chapeau/Cachets, on (re)déclenche ici — sans
+    // bloquer l'affichage synchrone déjà fait juste au-dessus, qui se
+    // corrigera automatiquement quand loadChapeauEntries() résout (voir son
+    // propre re-render ciblé sur la vue active).
+    if (!chapeauLoaded) loadChapeauEntries();
     return;
   }
 
@@ -2436,8 +2502,9 @@ function renderDashboard() {
 // Argument de vente identifié en audit : un gérant de club veut voir son
 // revenu, le remplissage de son planning, et ses artistes les plus présents —
 // pas la fiabilité individuelle en pourcentage. Calculé côté client à partir
-// des données déjà chargées (chapeauData en localStorage, assignments/
-// DAYS_CONFIG déjà en mémoire) : pas de nouvelle requête serveur.
+// des données déjà chargées (chapeauData, chargée depuis le serveur par
+// loadChapeauEntries() — plus du localStorage — / assignments / DAYS_CONFIG
+// déjà en mémoire) : pas de nouvelle requête serveur à CE moment précis.
 function renderDashboardStats() {
   // Gating de palier — revenu/remplissage/top artistes forment le "tableau
   // de bord financier", vendu comme fonctionnalité Pro (voir hasProAccess()).
@@ -2455,15 +2522,34 @@ function renderDashboardStats() {
 
   const today = new Date();
   const monthPrefix = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+  const cachetMode = currentClub.payment_mode === 'cachet';
 
-  // Revenu du mois — somme des entrées chapeau (localStorage) du mois en cours.
-  const monthChapeau = chapeauData.filter(e => e.date && e.date.startsWith(monthPrefix));
-  const revenueTotal = monthChapeau.reduce((s,e)=>s+(e.montant||0),0);
+  // Widget "Revenu du mois" (chapeau) / "Dû du mois" (cachet) — la carte est
+  // partagée, seuls le libellé, la cible du bouton → et le calcul changent
+  // (jamais les deux affichés en même temps, cohérent avec le reste du
+  // gating chapeau XOR cachet).
+  const titleEl = document.getElementById('dash-revenue-title');
+  const arrowEl = document.getElementById('dash-revenue-arrow');
+  if (titleEl) titleEl.textContent = cachetMode ? 'Dû du mois (cachets)' : 'Revenu du mois';
+  if (arrowEl) arrowEl.setAttribute('onclick', cachetMode ? "nav('cachet')" : "nav('chapeau')");
+
   const dashRevenue = document.getElementById('dash-revenue');
-  if (dashRevenue) {
-    dashRevenue.innerHTML = `
-      <div style="font-size:24px;font-weight:700;color:var(--gold)">${revenueTotal}€</div>
-      <div style="font-size:10px;color:var(--muted);margin-top:2px">${monthChapeau.length} séance${monthChapeau.length>1?'s':''} renseignée${monthChapeau.length>1?'s':''} — ${MOIS_FULL[today.getMonth()]}</div>`;
+  if (cachetMode) {
+    const { totalDue, totalPassages } = computeCachetDue(today.getFullYear(), today.getMonth());
+    if (dashRevenue) {
+      dashRevenue.innerHTML = `
+        <div style="font-size:24px;font-weight:700;color:var(--gold)">${totalDue.toFixed(2)}€</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${totalPassages} passage${totalPassages>1?'s':''} caché${totalPassages>1?'s':''} — ${MOIS_FULL[today.getMonth()]}</div>`;
+    }
+  } else {
+    // Revenu du mois — somme des entrées chapeau (serveur) du mois en cours.
+    const monthChapeau = chapeauData.filter(e => e.date && e.date.startsWith(monthPrefix));
+    const revenueTotal = monthChapeau.reduce((s,e)=>s+(e.montant||0),0);
+    if (dashRevenue) {
+      dashRevenue.innerHTML = `
+        <div style="font-size:24px;font-weight:700;color:var(--gold)">${revenueTotal}€</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${monthChapeau.length} séance${monthChapeau.length>1?'s':''} renseignée${monthChapeau.length>1?'s':''} — ${MOIS_FULL[today.getMonth()]}</div>`;
+    }
   }
 
   // Taux de remplissage — créneaux assignés / créneaux du mois en cours
@@ -3199,6 +3285,8 @@ function openFiche(id) {
         </select></div>
       <div class="fr"><label class="fl">Taux de présence (%)</label>
         <input class="fi" id="fiche-pres" type="number" value="${c.presence}" min="0" max="100"></div>
+      ${hasProAccess() ? `<div class="fr"><label class="fl">💶 Cachet (€ / passage)</label>
+        <input class="fi" id="fiche-cachet" type="number" min="0" step="0.01" value="${Number.isFinite(c.cachet_amount) ? c.cachet_amount : ''}" placeholder="Non défini"></div>` : ''}
       <div class="fr" style="grid-column:1/-1"><label class="fl">Notes</label>
         <textarea class="fta" id="fiche-notes" style="min-height:60px" placeholder="Notes perso, contraintes, préférences...">${c.notes||''}</textarea></div>
     </div>
@@ -3246,6 +3334,17 @@ async function saveFiche() {
   c.prio = document.getElementById('fiche-prio')?.value || c.prio;
   c.presence = parseInt(document.getElementById('fiche-pres')?.value) || c.presence;
   c.notes = document.getElementById('fiche-notes')?.value || '';
+  // Cachet (chantier "cachet", 2026-08) — champ absent du DOM pour un club
+  // non-Pro (openFiche() ne le rend pas du tout, voir hasProAccess() plus
+  // haut) : c.cachet_amount reste alors tel quel, jamais réinitialisé par
+  // erreur. Présent : vide -> null (efface explicitement), sinon le nombre
+  // saisi.
+  const cachetEl = document.getElementById('fiche-cachet');
+  if (cachetEl) {
+    const raw = cachetEl.value.trim();
+    const parsed = raw === '' ? NaN : parseFloat(raw);
+    c.cachet_amount = raw !== '' && Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  }
   // Sauvegarder en localStorage
   saveAll();
   // Forcer upsert immédiat dans Supabase
@@ -3254,7 +3353,11 @@ async function saveFiche() {
       comedians: [{
         id: c.id, name: c.name, prio: c.prio, presence: c.presence,
         gender: c.gender, duration: c.duration, phone: c.phone||'',
-        email: c.email||'', notes: c.notes||'', active: c.active!==false
+        email: c.email||'', notes: c.notes||'', active: c.active!==false,
+        // cachet_amount seulement inclus si le champ était présent dans le
+        // formulaire (club Pro) — voir sanitizeComedian()/requireProAccess()
+        // côté serveur (api/admin-write.js) pour le gate définitif.
+        ...(cachetEl ? { cachet_amount: c.cachet_amount } : {})
       }]
     });
     showSaveIndicator('✓ Synchronisé');
@@ -4483,7 +4586,14 @@ async function saveToSupabase() {
       ...(COMEDIANS.length ? {comedians: COMEDIANS.map(c => ({
         id: c.id, name: c.name, prio: c.prio, presence: c.presence,
         gender: c.gender, duration: c.duration, phone: c.phone||'',
-        email: c.email||'', notes: c.notes||'', active: c.active!==false
+        email: c.email||'', notes: c.notes||'', active: c.active!==false,
+        // cachet_amount : re-propage une valeur DÉJÀ connue (chargée depuis
+        // le serveur ou réglée via la fiche) à chaque autosave, sans jamais
+        // l'effacer par ce chemin — undefined ici = clé absente du JSON
+        // envoyé (JSON.stringify l'omet), donc colonne non touchée par cet
+        // upsert (voir sanitizeComedian(), api/admin-write.js). Effacer un
+        // cachet ne passe QUE par la fiche (saveFiche()), jamais ici.
+        cachet_amount: Number.isFinite(c.cachet_amount) ? c.cachet_amount : undefined,
       }))} : {}),
       assignments: asgnRows, // toujours présent : remplace intégralement (reflète clearAll aussi)
       ...(statusRows.length ? {dispoStatus: statusRows} : {}),
@@ -4944,7 +5054,57 @@ async function checkCancellations() {
 }
 setInterval(checkCancellations, 30000);
 // ══════════════════════════════════════════════════
-let chapeauData = JSON.parse(localStorage.getItem('stagely_chapeau') || '[]');
+// ── Chapeau — persistance serveur (chantier "cachet + export comptable",
+// 2026-08) ──────────────────────────────────────────────────────────────
+// Jusqu'ici entièrement en localStorage (clé 'stagely_chapeau') : ni
+// multitenant-safe (deux admins du même club sur deux navigateurs voyaient
+// des chapeaux différents), ni exportable proprement. Remplacé par la table
+// chapeau_entries (api/admin-write.js : saveChapeauEntry/getChapeauEntries/
+// deleteChapeauEntry, scopées club_id + gatées Pro). LIMITE CONNUE ET
+// ASSUMÉE : les entrées déjà saisies en localStorage sur la machine de Bruce
+// avant ce déploiement ne sont PAS migrées automatiquement (aucune API
+// serveur n'a jamais eu accès au localStorage d'un navigateur) — il devra
+// ressaisir depuis ce déploiement si besoin ; l'historique très récent
+// perdu n'a rien de critique.
+let chapeauData = [];
+let chapeauLoaded = false;
+
+// Convertit une ligne serveur (slot_key + montants) vers la forme utilisée
+// par renderChapeau()/renderDashboardStats() (date + slot séparés, comme
+// avant ce chantier) — un seul endroit qui sait parser slot_key ici, plutôt
+// que de dupliquer le split('-') partout.
+function rowToChapeauEntry(row) {
+  const parts = String(row?.slot_key || '').split('-');
+  const date = parts.length >= 4 ? `${parts[0]}-${parts[1]}-${parts[2]}` : '';
+  const slot = parts.length >= 4 ? parts[3].replace(/h/i, ':') : '';
+  return {
+    id: row.id,
+    slot_key: row.slot_key,
+    date, slot,
+    especes: Number(row.amount_especes) || 0,
+    cb: Number(row.amount_cb) || 0,
+    montant: Number(row.amount_total) || 0,
+  };
+}
+
+// Charge (ou recharge) chapeauData depuis le serveur. Appelée dès que
+// l'identité du club est connue (applyClubInfo(), si hasProAccess()) et
+// après chaque saveChapeau()/deleteChapeau() pour rester à jour. Rafraîchit
+// silencieusement les vues déjà affichées qui en dépendent (chapeau,
+// dashboard) — pas d'erreur bloquante si l'appel échoue (chapeauData reste
+// simplement tel quel, comme un échec réseau ordinaire ailleurs dans l'app).
+async function loadChapeauEntries() {
+  const result = await adminWrite('getChapeauEntries', {});
+  if (!result || !result.success || !Array.isArray(result.entries)) return chapeauLoaded;
+  chapeauData = result.entries.map(rowToChapeauEntry);
+  chapeauLoaded = true;
+  if (typeof document === 'undefined') return chapeauLoaded;
+  const activeView = document.querySelector('.view.on')?.id?.replace('view-', '');
+  if (activeView === 'chapeau') renderChapeau();
+  if (activeView === 'cachet' && typeof renderCachet === 'function') renderCachet();
+  if (activeView === 'dashboard' && typeof renderDashboardStats === 'function') renderDashboardStats();
+  return chapeauLoaded;
+}
 
 function openUrgenceModal() {
   const weekStart = getWeekStart();
@@ -5010,7 +5170,7 @@ function openChapeauForSlot(date, slot) {
 
 
 
-function saveChapeau() {
+async function saveChapeau() {
   if (!hasProAccess()) { toast('🔒 Le chapeau est une fonctionnalité Pro'); return; }
   const date = document.getElementById('ch-date').value;
   const slot = document.getElementById('ch-slot').value;
@@ -5020,19 +5180,26 @@ function saveChapeau() {
   const montant = (especes + cb) || parPersonne;
   if (!date) { toast('⚠ Ajoute une date'); return; }
   if (!montant) { toast('⚠ Saisis un montant'); return; }
-  chapeauData.unshift({id:Date.now(), date, slot, montant, especes, cb, parPersonne});
-  localStorage.setItem('stagely_chapeau', JSON.stringify(chapeauData));
+  // slot_key — même format que partout ailleurs dans l'app (assignments/
+  // dispos) : date + suffixe "HH'H'MM" (ex. "20:15" -> "20H15").
+  const slotKey = `${date}-${slot.replace(':', 'H')}`;
+  const result = await adminWrite('saveChapeauEntry', { slot_key: slotKey, amount_especes: especes, amount_cb: cb, amount_total: montant });
+  if (!result || !result.success) { toast('✕ Erreur de sauvegarde'); return; }
   closeModal('modal-chapeau');
+  await loadChapeauEntries();
   renderChapeau();
   toast(`✓ Chapeau enregistré — ${montant}€`);
 }
 
 function chgWkChapeau(d) { weekOffset += d; renderChapeau(); }
 
-function deleteChapeau(id) {
+async function deleteChapeau(id) {
   if (!confirm('Supprimer cette entrée ?')) return;
-  chapeauData = chapeauData.filter(e => e.id !== id);
-  localStorage.setItem('stagely_chapeau', JSON.stringify(chapeauData));
+  const entry = chapeauData.find(e => e.id === id);
+  if (!entry) return;
+  const result = await adminWrite('deleteChapeauEntry', { slot_key: entry.slot_key });
+  if (!result || !result.success) { toast('✕ Erreur de suppression'); return; }
+  await loadChapeauEntries();
   renderChapeau();
 }
 
@@ -5150,7 +5317,7 @@ function renderChapeau(periode = 'semaine') {
             ${e.parPersonne?`<div style="font-size:10px;color:var(--text);margin-top:2px">👤 ${e.parPersonne}€/pers.</div>`:''}
           </div>
         </div>
-        <button onclick="deleteChapeau(${e.id})" style="margin-top:6px;background:none;border:none;color:var(--muted2);cursor:pointer;font-size:10px" onmouseover="this.style.color='var(--r)'" onmouseout="this.style.color='var(--muted2)'">✕ Supprimer</button>
+        <button onclick="deleteChapeau('${e.id}')" style="margin-top:6px;background:none;border:none;color:var(--muted2);cursor:pointer;font-size:10px" onmouseover="this.style.color='var(--r)'" onmouseout="this.style.color='var(--muted2)'">✕ Supprimer</button>
       </div>`;
     });
     html += `</div>`;
@@ -5159,6 +5326,206 @@ function renderChapeau(periode = 'semaine') {
   }
 
   view.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════
+// CACHET — alternative au chapeau, par club (chantier "cachet + export
+// comptable", 2026-08). clubs.payment_mode='cachet' : comedians.cachet_amount
+// (montant fixe par passage, réglé par l'admin dans la fiche — voir
+// openFiche()/saveFiche()) × nombre de créneaux assignés sur la période
+// affichée = total dû par artiste. Pas de suivi "payé/pas payé" dans cette
+// itération (hors scope, décision de Chahine).
+// ══════════════════════════════════════════════════
+
+let cachetMonthOffset = 0;
+
+// Calcule le dû par artiste pour un mois donné (year, month 0-indexed) à
+// partir des assignments déjà en mémoire — même source que le reste de
+// l'app (planning), aucune requête serveur supplémentaire. Réutilisé par
+// renderCachet() ET par l'export CSV (buildAccountingCSV()) pour ne jamais
+// faire diverger l'écran et l'export. getMonthSlots() inclut désormais aussi
+// les dates ponctuelles du mode tournée (voir mergeMonthSlotsWithEvents) —
+// un passage caché sur une date tournée compte donc naturellement ici aussi.
+function computeCachetDue(year, month) {
+  const monthSlots = getMonthSlots(year, month);
+  const monthKeys = new Set(monthSlots.map(s => s.key));
+  const rows = [];
+  let totalDue = 0, totalPassages = 0;
+  COMEDIANS.forEach(c => {
+    if (!Number.isFinite(c.cachet_amount) || c.cachet_amount <= 0) return;
+    const count = Object.entries(assignments)
+      .filter(([key, ids]) => monthKeys.has(key) && (ids || []).includes(c.id))
+      .length;
+    if (count > 0) {
+      const total = count * c.cachet_amount;
+      rows.push({ id: c.id, name: c.name, count, cachetAmount: c.cachet_amount, total });
+      totalDue += total;
+      totalPassages += count;
+    }
+  });
+  rows.sort((a, b) => b.total - a.total);
+  return { rows, totalDue, totalPassages };
+}
+
+function chgMonthCachet(d) { cachetMonthOffset += d; renderCachet(); }
+
+function renderCachet() {
+  const view = document.getElementById('view-cachet');
+  if (!view) return;
+  const today = new Date();
+  const target = new Date(today.getFullYear(), today.getMonth() + cachetMonthOffset, 1);
+  const monthLabel = target.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  const { rows, totalDue, totalPassages } = computeCachetDue(target.getFullYear(), target.getMonth());
+
+  let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+    <button onclick="chgMonthCachet(-1)" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--s2);color:var(--text);cursor:pointer;font-size:14px">←</button>
+    <span style="font-size:12px;font-weight:600;color:var(--text);flex:1;text-align:center;text-transform:capitalize">${monthLabel}</span>
+    <button onclick="chgMonthCachet(1)" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--s2);color:var(--text);cursor:pointer;font-size:14px">→</button>
+    <button onclick="cachetMonthOffset=0;renderCachet()" style="padding:5px 10px;border-radius:8px;font-size:10px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer">Ce mois</button>
+  </div>`;
+
+  html += `<div class="kpi-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+    <div class="kpi"><div class="kpi-v" style="color:var(--gold)">${totalDue.toFixed(2)}€</div><div class="kpi-l">Total dû</div></div>
+    <div class="kpi"><div class="kpi-v" style="color:var(--g)">${totalPassages}</div><div class="kpi-l">Passages cachetés</div></div>
+    <div class="kpi"><div class="kpi-v" style="color:var(--b)">${rows.length}</div><div class="kpi-l">Artiste${rows.length>1?'s':''} concerné${rows.length>1?'s':''}</div></div>
+  </div>`;
+
+  html += `<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;font-weight:600">Détail par artiste — ${monthLabel}</div>`;
+  if (rows.length) {
+    html += `<div style="display:flex;flex-direction:column;gap:8px">`;
+    rows.forEach(r => {
+      html += `<div style="display:flex;align-items:center;gap:12px;background:var(--s1);border:1px solid var(--border2);border-radius:8px;padding:12px 16px">
+        <div style="flex:1;font-size:13px;font-weight:600;color:var(--text)">${r.name}</div>
+        <div style="font-size:11px;color:var(--muted)">${r.count} passage${r.count>1?'s':''} × ${r.cachetAmount.toFixed(2)}€</div>
+        <div style="font-size:18px;font-weight:800;color:var(--gold);min-width:90px;text-align:right">${r.total.toFixed(2)}€</div>
+      </div>`;
+    });
+    html += `</div>`;
+  } else {
+    html += `<div style="text-align:center;padding:40px;color:var(--muted)">Aucun passage caché à ce mois-ci (ou aucun cachet réglé sur les fiches humoristes — voir Humoristes > fiche d'un artiste).</div>`;
+  }
+
+  view.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════
+// EXPORT COMPTABLE (CSV) — chapeau OU cachet selon le mode du club
+// (chantier "cachet + export comptable", 2026-08)
+// ══════════════════════════════════════════════════
+
+let exportComptableMonth = null;
+
+function openExportComptableModal() {
+  if (!hasProAccess()) { toast('🔒 L\'export comptable est une fonctionnalité Pro'); return; }
+  const mode = currentClub.payment_mode === 'cachet' ? 'cachet' : 'chapeau';
+  const lblEl = document.getElementById('exp-compta-mode-label');
+  if (lblEl) lblEl.textContent = mode === 'cachet' ? 'des cachets' : 'du chapeau';
+
+  const now = new Date();
+  // Mois courant + 2 mois précédents — contrairement à l'envoi de planning
+  // (qui regarde vers l'avenir), un export comptable porte le plus souvent
+  // sur une période déjà terminée.
+  const months = [-2, -1, 0].map(offset => {
+    const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+    return { prefix: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`, label: d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) };
+  });
+  exportComptableMonth = months[months.length - 1].prefix;
+  const bar = document.getElementById('export-compta-month-bar');
+  if (bar) {
+    bar.innerHTML = months.map(m => `<button onclick="setExportComptableMonth('${m.prefix}')" id="ecm-btn-${m.prefix}"
+      style="font-size:10px;padding:5px 12px;border-radius:20px;cursor:pointer;border:1px solid ${m.prefix===exportComptableMonth?'var(--o)':'var(--border2)'};background:${m.prefix===exportComptableMonth?'var(--o)':'var(--s2)'};color:${m.prefix===exportComptableMonth?'#fff':'var(--text)'};text-transform:capitalize">${m.label}</button>`).join('');
+  }
+  openModal('modal-export-comptable');
+}
+
+function setExportComptableMonth(prefix) {
+  exportComptableMonth = prefix;
+  document.querySelectorAll('[id^="ecm-btn-"]').forEach(btn => {
+    const active = btn.id === `ecm-btn-${prefix}`;
+    btn.style.background = active ? 'var(--o)' : 'var(--s2)';
+    btn.style.color = active ? '#fff' : 'var(--text)';
+    btn.style.borderColor = active ? 'var(--o)' : 'var(--border2)';
+  });
+}
+
+// Échappement CSV basique (RFC 4180) — entoure de guillemets une cellule qui
+// contient le séparateur, un guillemet, ou un retour à la ligne ; double les
+// guillemets internes.
+function csvEscape(v) {
+  const s = String(v ?? '');
+  return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+// Construit le CSV (séparateur ';' — convention FR/Excel, où ',' est déjà le
+// séparateur décimal) pour le mois `monthPrefix` (YYYY-MM), détaillé par
+// soirée ET par artiste :
+//  - mode 'cachet' : une ligne par (soirée, artiste caché) — Date, Créneau,
+//    Artiste, Cachet.
+//  - mode 'chapeau' : une ligne par soirée renseignée — Date, Créneau,
+//    Artistes présents ce soir-là (assignments), Espèces, CB, Total. Le
+//    chapeau n'étant pas réparti nominativement par artiste (seule la
+//    recette totale de la soirée est saisie), la colonne "Artistes" liste
+//    qui était sur scène ce soir-là plutôt que d'inventer une répartition
+//    chiffrée qui n'existe pas dans les données.
+function buildAccountingCSV(monthPrefix) {
+  const mode = currentClub.payment_mode === 'cachet' ? 'cachet' : 'chapeau';
+  const [y, m] = monthPrefix.split('-').map(Number);
+  const rows = [];
+
+  if (mode === 'cachet') {
+    rows.push(['Date', 'Créneau', 'Artiste', 'Cachet (€)']);
+    const monthSlots = getMonthSlots(y, m - 1);
+    let total = 0;
+    monthSlots.forEach(s => {
+      (assignments[s.key] || []).forEach(id => {
+        const c = COMEDIANS.find(cc => cc.id === id);
+        if (!c || !Number.isFinite(c.cachet_amount) || c.cachet_amount <= 0) return;
+        const dd = String(s.date.getDate()).padStart(2, '0');
+        const mm = String(s.date.getMonth() + 1).padStart(2, '0');
+        rows.push([`${dd}/${mm}/${s.date.getFullYear()}`, s.slot.replace('H', ':'), c.name, c.cachet_amount.toFixed(2)]);
+        total += c.cachet_amount;
+      });
+    });
+    rows.push(['', '', 'TOTAL', total.toFixed(2)]);
+  } else {
+    rows.push(['Date', 'Créneau', 'Artistes', 'Espèces (€)', 'CB (€)', 'Total (€)']);
+    const monthEntries = chapeauData
+      .filter(e => e.date && e.date.startsWith(monthPrefix))
+      .slice()
+      .sort((a, b) => (a.date + a.slot).localeCompare(b.date + b.slot));
+    let totalE = 0, totalC = 0, totalT = 0;
+    monthEntries.forEach(e => {
+      const key = `${e.date}-${e.slot.replace(':', 'H')}`;
+      const ids = assignments[key] || [];
+      const names = ids.map(id => COMEDIANS.find(c => c.id === id)?.name || '?').join(' / ');
+      const [yy, mm, dd] = e.date.split('-');
+      rows.push([`${dd}/${mm}/${yy}`, e.slot, names, e.especes.toFixed(2), e.cb.toFixed(2), e.montant.toFixed(2)]);
+      totalE += e.especes; totalC += e.cb; totalT += e.montant;
+    });
+    rows.push(['', '', 'TOTAL', totalE.toFixed(2), totalC.toFixed(2), totalT.toFixed(2)]);
+  }
+
+  return rows.map(r => r.map(csvEscape).join(';')).join('\r\n');
+}
+
+async function downloadAccountingCSV() {
+  if (!hasProAccess()) { toast('🔒 L\'export comptable est une fonctionnalité Pro'); return; }
+  const mode = currentClub.payment_mode === 'cachet' ? 'cachet' : 'chapeau';
+  // Le chapeau vit désormais côté serveur — s'assurer qu'il est chargé avant
+  // d'exporter (ex. mois précédent jamais consulté dans cette session).
+  if (mode === 'chapeau' && !chapeauLoaded) await loadChapeauEntries();
+  const monthPrefix = exportComptableMonth || getTargetMonthPrefix();
+  const csv = buildAccountingCSV(monthPrefix);
+  const bom = '﻿'; // BOM UTF-8 — accents corrects à l'ouverture dans Excel
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${(currentClub.name||'stagely').replace(/[^a-z0-9]+/gi, '_')}_${mode}_${monthPrefix}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  closeModal('modal-export-comptable');
+  toast('✓ Export CSV téléchargé');
 }
 </script>
 
@@ -5214,6 +5581,20 @@ function renderChapeau(periode = 'semaine') {
     <div class="ma">
       <button class="btn btn-ghost" onclick="closeModal('modal-add-event')">Annuler</button>
       <button class="btn btn-o" onclick="saveManualEvent()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EXPORT COMPTABLE (chapeau OU cachet selon le club) -->
+<div class="overlay" id="modal-export-comptable">
+  <div class="modal" style="width:420px">
+    <div class="modal-title">📥 Export comptable</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Export CSV <span id="exp-compta-mode-label">du chapeau</span>, détaillé par soirée et par artiste — ouvrable dans Excel ou ton logiciel de comptabilité.</div>
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;font-weight:600">Mois</div>
+    <div id="export-compta-month-bar" style="display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap"></div>
+    <div class="ma">
+      <button class="btn btn-ghost" onclick="closeModal('modal-export-comptable')">Annuler</button>
+      <button class="btn btn-o" onclick="downloadAccountingCSV()">⬇ Télécharger le CSV</button>
     </div>
   </div>
 </div>

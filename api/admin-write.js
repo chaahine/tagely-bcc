@@ -9,7 +9,9 @@
 //  - sync             : upsert comédiens / remplacement complet des assignments /
 //                        upsert dispo_status / upsert dispos (reflète saveToSupabase()
 //                        et saveHumoristeFiche() côté client — un seul point d'entrée
-//                        pour toutes les sauvegardes "planning courant")
+//                        pour toutes les sauvegardes "planning courant"). Les comédiens
+//                        peuvent porter cachet_amount (montant fixe/passage, chantier
+//                        "cachet") — voir sanitizeComedian()/requireProAccess() plus bas.
 //  - deleteComedian   : supprime un comédien + toutes ses lignes liées
 //  - clearAll         : vide entièrement les 4 tables (reset total, très destructif)
 //  - chatSend         : insère un message admin dans chat_messages (alerte urgence)
@@ -17,24 +19,22 @@
 //                        chantier multitenant étape D — remplace la mutation locale
 //                        de DAYS_CONFIG par une écriture DB scopée au club
 //  - removeScheduleSlot : supprime un créneau récurrent (par id)
-//  - updateClub       : écrit clubs.name/city/dispo_deadline_day pour le club
-//                        authentifié (bouton "Sauvegarder" de Réglages > Infos
+//  - updateClub       : écrit clubs.name/city/dispo_deadline_day/payment_mode pour le
+//                        club authentifié (bouton "Sauvegarder" de Réglages > Infos
 //                        du club — jusqu'ici ce bouton ne faisait qu'un toast,
-//                        rien n'était jamais persisté). dispo_deadline_day est
-//                        best-effort : si la colonne n'existe pas encore sur cet
-//                        environnement (migration pas encore appliquée), on
-//                        retombe sur nom/ville seuls plutôt que de faire
-//                        échouer toute la sauvegarde. SEULE action qui écrit
-//                        dispo_deadline_day — pas d'action 'updateDeadline'
-//                        séparée : le rappel automatique (api/cron-dispo-
-//                        reminders.js) lit directement la colonne en base,
-//                        aucune route dédiée nécessaire côté lecture non plus.
+//                        rien n'était jamais persisté). dispo_deadline_day et
+//                        payment_mode sont chacun best-effort : si la colonne
+//                        n'existe pas encore sur cet environnement (migration pas
+//                        encore appliquée), on retombe sur les champs qui existent
+//                        plutôt que de faire échouer toute la sauvegarde. SEULE
+//                        action qui écrit ces deux colonnes — pas d'action dédiée
+//                        séparée (même raisonnement que dispo_deadline_day avant ce
+//                        chantier : un seul point d'entrée suffit).
 //  - addEvent         : ajoute une date ponctuelle hors grille (table `events`,
-//                        source='manual') — mode tournée, chantier 2026-08.
-//                        SEULE action de ce fichier gatée par palier (voir
-//                        computePlanAccess() ci-dessous) : un club au palier
-//                        Essentiel (hors essai) reçoit un 403, quel que soit
-//                        ce qu'affiche le client (jamais fait confiance à
+//                        source='manual') — mode tournée, chantier 2026-08. Gatée
+//                        Pro (voir requireProAccess() plus bas) : un club au palier
+//                        Essentiel (hors essai) reçoit un 403, quel que soit ce
+//                        qu'affiche le client (jamais fait confiance à
 //                        hasProAccess() côté client seul).
 //  - removeEvent      : retire une date ponctuelle créée via addEvent (par id,
 //                        scopée club + source='manual' — ne touche jamais une
@@ -44,31 +44,28 @@
 //                        Pas de gating palier ici à dessein : un club qui
 //                        redescend au palier Essentiel doit pouvoir nettoyer
 //                        des dates déjà créées, seul l'AJOUT est verrouillé.
+//  - saveChapeauEntry : upsert (par club_id+slot_key) une recette de soirée dans
+//                        chapeau_entries — Pro (voir requireProAccess()).
+//  - getChapeauEntries: lit toutes les entrées chapeau du club authentifié —
+//                        volontairement PAS exposé via sbFetch (clé anon) comme le
+//                        reste des lectures : donnée financière, on préfère payer le
+//                        coût d'un aller-retour serveur plutôt que de la rendre
+//                        lisible par n'importe qui connaissant club_id (sbFetch n'a
+//                        qu'une policy RLS "lecture publique", cf. stagely-rls-fix.sql).
+//                        Pro (voir requireProAccess()).
+//  - deleteChapeauEntry : supprime une entrée chapeau (par slot_key). Pro.
 //
-// ── Gating de palier (chantier 2026-08) — pourquoi le CHAPEAU n'a AUCUNE
-//    action ici (le mode tournée, lui, en a une — voir addEvent) ──
-// Audit fait dans le cadre du chantier de gating par palier (essentiel/pro/
-// réseau, voir computePlanAccess() dans _lib.js) : le chapeau (montants
-// saisis en Réglages > Chapeau) n'est PAS persisté ici, ni nulle part
-// ailleurs côté serveur — index.html le stocke intégralement dans
-// localStorage (clé 'stagely_chapeau', cf. index.html), jamais envoyé au
-// backend. Conséquence honnête à deux niveaux :
-//   1) Ce n'est même pas multitenant-safe (deux admins du même club sur deux
-//      navigateurs voient des chapeaux différents ; rien ne survit à un
-//      changement de navigateur/appareil) — un défaut préexistant, pas
-//      introduit par ce chantier, mais qui mérite d'être connu avant de
-//      vendre le palier Pro à un vrai client sur la base du chapeau.
-//   2) Il n'existe donc AUCUNE route d'écriture serveur à gater par palier
-//      pour le chapeau aujourd'hui — son gating (voir index.html,
-//      hasProAccess()/applyPlanGating()) reste pour l'instant un gate
-//      d'AFFICHAGE, appuyé sur un plan/status renvoyés par le serveur
-//      (jamais choisis par le client) à la connexion/switch de club, mais
-//      sans donnée serveur à protéger derrière puisqu'aucune n'existe.
-// Le jour où le chapeau (ou le cachet/export comptable, toujours absents
-// aujourd'hui) obtient une vraie persistance serveur, CETTE action devra
-// appeler computePlanAccess(club).proFeatures et refuser l'écriture (403) si
-// false — exactement ce que fait déjà addEvent ci-dessous pour le mode
-// tournée, premier exemple concret de ce réflexe dans ce fichier.
+// ── Gating de palier (chantier 2026-08, mis à jour chantier "cachet + export
+//    comptable") ──
+// Le mode tournée (addEvent) ET le chapeau (désormais une vraie persistance
+// serveur, table chapeau_entries — ce n'était pas le cas jusqu'ici : index.html
+// le stockait entièrement dans localStorage, clé 'stagely_chapeau', jamais
+// envoyé au backend, ni multitenant-safe ni exportable proprement) sont gatés
+// par palier. Le cachet (comedians.cachet_amount) l'est également, écrit via
+// l'action 'sync' existante. Toutes ces actions/champs Pro appellent
+// requireProAccess(clubId) (voir plus bas) et refusent l'écriture/lecture
+// (403) si le club n'a pas accès — jamais une confiance au client, exactement
+// le même réflexe que clubId/scope pour l'isolation multitenant.
 
 import { applyCors, sbAdmin, verifyAdminToken, isNonEmptyString, SLOT_KEY_RE, clubOrFilter, newId, computePlanAccess } from './_lib.js';
 
@@ -113,10 +110,24 @@ async function resolveDefaultRoomId(clubId) {
   return room.id;
 }
 
+// ── Gate Pro (mode tournée/chapeau/cachet/export comptable, chantier 2026-08) ──
+// Relit le club EN BASE à chaque écriture/lecture gatée — jamais une
+// confiance au plan/status embarqués dans le token admin (issueAdminToken()
+// ne les porte de toute façon pas, cf. _lib.js) ni à quoi que ce soit fourni
+// par le client. Même philosophie que le reste du fichier : `clubId` vient
+// TOUJOURS de auth.active_club_id (token vérifié), jamais du payload.
+async function requireProAccess(clubId) {
+  const rows = await sbAdmin('clubs', {
+    params: `?id=eq.${encodeURIComponent(clubId)}&select=id,status,plan&limit=1`,
+  });
+  const club = Array.isArray(rows) && rows.length ? rows[0] : null;
+  return computePlanAccess(club).proFeatures;
+}
+
 function sanitizeComedian(row) {
   if (!row || typeof row !== 'object') return null;
   if (!isNonEmptyString(row.id, 100) || !isNonEmptyString(row.name, 200)) return null;
-  return {
+  const out = {
     id: String(row.id),
     name: String(row.name),
     prio: isNonEmptyString(row.prio, 20) ? row.prio : 'new',
@@ -127,6 +138,42 @@ function sanitizeComedian(row) {
     email: typeof row.email === 'string' ? row.email.slice(0, 200) : '',
     notes: typeof row.notes === 'string' ? row.notes.slice(0, 2000) : '',
     active: row.active !== false,
+  };
+  // cachet_amount (chantier "cachet", 2026-08) : montant fixe par passage,
+  // nullable. La clé n'est incluse dans la ligne sortante QUE si le client
+  // l'a explicitement fournie (nombre >=0 pour la régler, `null` pour
+  // l'effacer) — absente du payload (undefined, cas de tous les appelants
+  // qui ne touchent pas ce champ, ex. addH() à la création d'un comédien) =
+  // colonne non touchée par cet upsert. Voir handler() plus bas : le gate
+  // Pro ne s'applique QUE quand une valeur numérique positive est proposée
+  // (jamais quand elle est absente ou remise à null — effacer un cachet
+  // n'a besoin d'être bloqué pour personne).
+  if (row.cachet_amount === null) {
+    out.cachet_amount = null;
+  } else if (typeof row.cachet_amount === 'number' && Number.isFinite(row.cachet_amount) && row.cachet_amount >= 0) {
+    out.cachet_amount = row.cachet_amount;
+  }
+  return out;
+}
+
+// chapeau_entries — une ligne par soirée (unique sur club_id+slot_key, voir
+// SQL). amount_total est calculé ici plutôt que côté DB (pas de colonne
+// GENERATED) : reproduit exactement la règle déjà en place côté client avant
+// ce chantier (especes+cb, avec repli sur un montant "par personne" saisi
+// seul si especes/cb sont à zéro tous les deux).
+function sanitizeChapeauEntry(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  if (!SLOT_KEY_RE.test(payload.slot_key || '')) return null;
+  const especes = Number.isFinite(payload.amount_especes) && payload.amount_especes >= 0 ? payload.amount_especes : 0;
+  const cb = Number.isFinite(payload.amount_cb) && payload.amount_cb >= 0 ? payload.amount_cb : 0;
+  const fallbackTotal = Number.isFinite(payload.amount_total) && payload.amount_total >= 0 ? payload.amount_total : 0;
+  const total = (especes + cb) || fallbackTotal;
+  if (!total) return null; // un montant est requis (même garde que saveChapeau() côté client avant ce chantier)
+  return {
+    slot_key: String(payload.slot_key),
+    amount_especes: especes,
+    amount_cb: cb,
+    amount_total: total,
   };
 }
 
@@ -181,8 +228,26 @@ export default async function handler(req, res) {
         const out = {};
 
         if (Array.isArray(p.comedians)) {
-          const rows = p.comedians.map(sanitizeComedian).filter(Boolean).slice(0, MAX_BULK)
+          let rows = p.comedians.map(sanitizeComedian).filter(Boolean).slice(0, MAX_BULK)
             .map(r => ({ ...r, club_id: clubId }));
+          // Gate Pro sur cachet_amount — voir requireProAccess() plus haut. Ne
+          // se déclenche (coût d'un aller-retour DB) que si au moins une ligne
+          // propose réellement une VALEUR (nombre) à enregistrer ; remettre le
+          // champ à `null` (effacement) ou ne pas le toucher du tout ne coûte
+          // jamais cet aller-retour. Un club non-Pro qui tenterait quand même
+          // de régler un cachet (requête forgée, ou session dégradée après un
+          // downgrade de palier) voit la clé simplement retirée de sa ligne —
+          // jamais écrasée à null : une valeur déjà enregistrée avant un
+          // éventuel downgrade n'est jamais effacée par un sync ultérieur,
+          // cohérent avec le reste du gating (qui masque, ne détruit rien).
+          const touchesCachet = rows.some(r => typeof r.cachet_amount === 'number');
+          if (touchesCachet && !(await requireProAccess(clubId))) {
+            rows = rows.map(r => {
+              if (typeof r.cachet_amount !== 'number') return r;
+              const { cachet_amount, ...rest } = r;
+              return rest;
+            });
+          }
           if (rows.length) await sbAdmin('comedians', { method: 'POST', params: '?on_conflict=id', body: rows });
           out.comedians = rows.length;
         }
@@ -294,15 +359,9 @@ export default async function handler(req, res) {
         }
         const label = isNonEmptyString(p.label, 100) ? String(p.label).trim().slice(0, 100) : null;
 
-        // Gate Pro/Réseau — voir commentaire en tête de fichier. Lit le plan
-        // réel en base (jamais le club.plan éventuellement embarqué dans un
-        // vieux token, jamais un champ envoyé par le client) : source de
-        // vérité unique, comme partout ailleurs dans ce fichier pour clubId.
-        const clubRows = await sbAdmin('clubs', {
-          params: `?id=eq.${encodeURIComponent(clubId)}&select=id,status,plan&limit=1`,
-        });
-        const club = Array.isArray(clubRows) && clubRows.length ? clubRows[0] : null;
-        if (!computePlanAccess(club).proFeatures) {
+        // Gate Pro/Réseau — voir requireProAccess() plus haut (lit le plan réel
+        // en base, jamais le client ni un vieux token).
+        if (!(await requireProAccess(clubId))) {
           return res.status(403).json({ error: 'Le mode tournée (dates ponctuelles hors grille) est réservé au palier Pro' });
         }
 
@@ -366,19 +425,46 @@ export default async function handler(req, res) {
           deadline = d;
         }
 
+        // payment_mode (chantier "cachet", 2026-08) : 'chapeau' | 'cachet'
+        // uniquement. Pas de gate Pro ici — la valeur est inerte pour un club
+        // non-Pro (hasProAccess() masque chapeau ET cachet côté client quel
+        // que soit payment_mode), même raisonnement que dispo_deadline_day
+        // qui n'a jamais été gaté non plus.
+        let paymentMode = null;
+        if (p.payment_mode !== undefined && p.payment_mode !== null && p.payment_mode !== '') {
+          if (p.payment_mode !== 'chapeau' && p.payment_mode !== 'cachet') {
+            return res.status(400).json({ error: "payment_mode : 'chapeau' ou 'cachet' uniquement" });
+          }
+          paymentMode = p.payment_mode;
+        }
+
         // Scopé par id=eq.<clubId authentifié> (clubId vient du token vérifié,
         // jamais du payload) — un admin ne peut modifier que sa propre ligne clubs.
         const params = `?id=eq.${encodeURIComponent(clubId)}`;
         const baseUpdate = { name, city };
-        let deadlineSaved = false;
-        if (deadline !== null) {
+        const extra = {};
+        if (deadline !== null) extra.dispo_deadline_day = deadline;
+        if (paymentMode !== null) extra.payment_mode = paymentMode;
+
+        let saved = {};
+        if (Object.keys(extra).length) {
           try {
-            await sbAdmin('clubs', { method: 'PATCH', params, body: { ...baseUpdate, dispo_deadline_day: deadline } });
-            deadlineSaved = true;
+            await sbAdmin('clubs', { method: 'PATCH', params, body: { ...baseUpdate, ...extra } });
+            saved = extra;
           } catch (e) {
-            // Repli : colonne dispo_deadline_day pas encore migrée sur cet
-            // environnement — on sauvegarde au moins nom/ville, jamais bloquant.
-            await sbAdmin('clubs', { method: 'PATCH', params, body: baseUpdate });
+            // Repli : au moins une des colonnes optionnelles (dispo_deadline_day
+            // et/ou payment_mode) n'existe pas encore sur cet environnement
+            // (migration pas encore appliquée) — on sauve ce qu'on peut colonne
+            // par colonne plutôt que de tout perdre d'un coup.
+            for (const [k, v] of Object.entries(extra)) {
+              try {
+                await sbAdmin('clubs', { method: 'PATCH', params, body: { ...baseUpdate, [k]: v } });
+                saved[k] = v;
+              } catch (e2) { /* colonne indisponible sur cet environnement, ignorée */ }
+            }
+            if (!Object.keys(saved).length) {
+              await sbAdmin('clubs', { method: 'PATCH', params, body: baseUpdate });
+            }
           }
         } else {
           await sbAdmin('clubs', { method: 'PATCH', params, body: baseUpdate });
@@ -386,7 +472,11 @@ export default async function handler(req, res) {
 
         return res.status(200).json({
           success: true,
-          club: { id: clubId, name, city, dispo_deadline_day: deadlineSaved ? deadline : undefined },
+          club: {
+            id: clubId, name, city,
+            dispo_deadline_day: Number.isFinite(saved.dispo_deadline_day) ? saved.dispo_deadline_day : undefined,
+            payment_mode: typeof saved.payment_mode === 'string' ? saved.payment_mode : undefined,
+          },
         });
       }
 
@@ -396,6 +486,52 @@ export default async function handler(req, res) {
         await sbAdmin('chat_messages', {
           method: 'POST',
           body: { sender: 'ADMIN', sender_id: 'admin', text: String(text).slice(0, 2000), club_id: clubId },
+        });
+        return res.status(200).json({ success: true });
+      }
+
+      // ── Chapeau (chantier "cachet + export comptable", 2026-08) — vraie
+      // persistance serveur, table chapeau_entries, scopée club_id +
+      // gatée Pro (voir requireProAccess() plus haut). Remplace l'ancien
+      // stockage localStorage 'stagely_chapeau' (voir commentaire en tête de
+      // fichier) : les entrées déjà saisies sur la machine de Bruce avant ce
+      // déploiement restent dans le localStorage de SON navigateur (pas
+      // récupérables depuis le serveur, aucune API n'y avait jamais accès) —
+      // limite connue, documentée, pas bloquante (historique très récent,
+      // ressaisie triviale si besoin).
+      case 'saveChapeauEntry': {
+        if (!(await requireProAccess(clubId))) {
+          return res.status(403).json({ error: 'Le chapeau est une fonctionnalité Pro' });
+        }
+        const row = sanitizeChapeauEntry(payload);
+        if (!row) return res.status(400).json({ error: 'slot_key valide et montant requis' });
+        await sbAdmin('chapeau_entries', {
+          method: 'POST',
+          params: '?on_conflict=club_id,slot_key',
+          body: [{ ...row, club_id: clubId, updated_at: new Date().toISOString() }],
+        });
+        return res.status(200).json({ success: true, entry: { ...row, club_id: clubId } });
+      }
+
+      case 'getChapeauEntries': {
+        if (!(await requireProAccess(clubId))) {
+          return res.status(403).json({ error: 'Le chapeau est une fonctionnalité Pro' });
+        }
+        const rows = await sbAdmin('chapeau_entries', {
+          params: `?${scope}&select=id,slot_key,amount_especes,amount_cb,amount_total,created_at&order=slot_key.desc`,
+        });
+        return res.status(200).json({ success: true, entries: Array.isArray(rows) ? rows : [] });
+      }
+
+      case 'deleteChapeauEntry': {
+        if (!(await requireProAccess(clubId))) {
+          return res.status(403).json({ error: 'Le chapeau est une fonctionnalité Pro' });
+        }
+        const slotKey = payload?.slot_key;
+        if (!SLOT_KEY_RE.test(slotKey || '')) return res.status(400).json({ error: 'slot_key valide requis' });
+        await sbAdmin('chapeau_entries', {
+          method: 'DELETE',
+          params: `?slot_key=eq.${encodeURIComponent(slotKey)}&${scope}`,
         });
         return res.status(200).json({ success: true });
       }
