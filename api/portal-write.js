@@ -31,7 +31,7 @@
 // lectures/écritures — un id de comédien deviné/fuité d'un club A ne permet
 // plus d'agir sur les données d'un club B.
 
-import { applyCors, sbAdmin, isNonEmptyString, SLOT_KEY_RE, idFromEmail, clubOrFilter, resolveClubIdByPortalCode } from './_lib.js';
+import { applyCors, sbAdmin, isNonEmptyString, SLOT_KEY_RE, idFromEmail, clubOrFilter, resolveClubIdByPortalCode, sendTransactionalEmail } from './_lib.js';
 
 const MAX_ROWS = 500;
 
@@ -175,6 +175,35 @@ export default async function handler(req, res) {
           method: 'POST',
           body: { sender: comedianName, sender_id: comedianId, text: text.slice(0, 2000), club_id: clubId },
         });
+
+        // Email direct à l'admin du club, EN PLUS du message chat ci-dessus —
+        // la notification navigateur seule (index.html, checkCancellations())
+        // ne se déclenche que si l'onglet Stagely est ouvert, ce qui s'est
+        // révélé peu fiable pour être informé d'une annulation à temps.
+        // Best-effort : un échec Brevo ne doit jamais faire échouer
+        // l'annulation elle-même (le comédien doit pouvoir se désinscrire
+        // même si l'envoi d'email est indisponible).
+        try {
+          const clubRows = await sbAdmin('clubs', {
+            params: `?id=eq.${encodeURIComponent(clubId)}&select=name,admin_email`,
+          });
+          const club = Array.isArray(clubRows) && clubRows.length ? clubRows[0] : null;
+          if (club?.admin_email) {
+            const subject = p.mode === 'modify'
+              ? `📝 ${comedianName} a modifié une date — ${details}`
+              : `🚨 ${comedianName} a annulé une date — ${details}`;
+            const html = `<p>${text}</p><p style="color:#888;font-size:12px">Message automatique Stagely — reçu aussi dans le chat de l'app admin.</p>`;
+            await sendTransactionalEmail({
+              to: club.admin_email,
+              subject,
+              html,
+              senderName: club.name || 'Stagely',
+            });
+          }
+        } catch (e) {
+          // Ne bloque jamais l'annulation — l'échec est silencieux ici, le
+          // message chat_messages ci-dessus reste le filet de sécurité.
+        }
 
         return res.status(200).json({ success: true, removed: slotKeys.length });
       }

@@ -24,7 +24,11 @@
 //                        best-effort : si la colonne n'existe pas encore sur cet
 //                        environnement (migration pas encore appliquée), on
 //                        retombe sur nom/ville seuls plutôt que de faire
-//                        échouer toute la sauvegarde.
+//                        échouer toute la sauvegarde. SEULE action qui écrit
+//                        dispo_deadline_day — pas d'action 'updateDeadline'
+//                        séparée : le rappel automatique (api/cron-dispo-
+//                        reminders.js) lit directement la colonne en base,
+//                        aucune route dédiée nécessaire côté lecture non plus.
 
 import { applyCors, sbAdmin, verifyAdminToken, isNonEmptyString, SLOT_KEY_RE, clubOrFilter, newId } from './_lib.js';
 

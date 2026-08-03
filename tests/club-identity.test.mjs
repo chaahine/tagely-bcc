@@ -116,13 +116,13 @@ test('admin-login : deux clubs différents reçoivent chacun leur propre name/ci
   assert.notEqual(resB.body.club.portal_code, 'BCCD25', 'le club B ne doit JAMAIS recevoir le code portail du BCC');
 });
 
-test('admin-login : dispo_deadline_day absent en base (colonne pas encore migrée sur cet environnement) → repli 15, connexion jamais bloquée', async () => {
+test('admin-login : dispo_deadline_day absent en base (colonne pas encore migrée sur cet environnement) → repli 12 (valeur métier par défaut), connexion jamais bloquée', async () => {
   const mock = mockClubsByEmailOrId(CLUBS); // CLUBS n'ont pas de champ dispo_deadline_day
   const res = fakeRes();
   await adminLoginHandler(fakeReq({ body: { email: 'bruce@bcc.fr', password: 'bruce-pwd' } }), res);
   mock.restore();
   assert.equal(res.statusCode, 200);
-  assert.equal(res.body.club.dispo_deadline_day, 15);
+  assert.equal(res.body.club.dispo_deadline_day, 12);
 });
 
 // ════════════════════════════════════════════════════════════════════════

@@ -8,5 +8,11 @@
         { "key": "Expires", "value": "0" }
       ]
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron-dispo-reminders",
+      "schedule": "0 8 * * *"
+    }
   ]
 }

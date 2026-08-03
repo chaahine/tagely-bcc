@@ -266,7 +266,7 @@ html.light{
 .day-sep-date{font-size:10px;color:var(--muted);font-weight:400}
 
 /* ── DASH GRID ── */
-.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
 .dash-card{background:var(--s1);border:1px solid var(--border);border-radius:5px;padding:14px 16px}
 .dc-title{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;font-weight:600}
 .mrow{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)}
@@ -926,14 +926,21 @@ window.addEventListener('DOMContentLoaded', () => {
         <table class="lineup-table" id="lineup-tbl"></table>
       </div>
 
+      <!-- Stats club — remplace les anciens widgets "Statut dispos"/"Top fiabilité"
+           (jugés peu utiles) par des métriques orientées gérant de club : revenu,
+           remplissage du planning, top artistes. -->
       <div class="dash-grid">
         <div class="dash-card">
-          <div class="dc-title">Statut dispos <button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="nav('dispos')">→</button></div>
-          <div id="dash-dispo"></div>
+          <div class="dc-title">Revenu du mois <button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="nav('chapeau')">→</button></div>
+          <div id="dash-revenue"></div>
         </div>
         <div class="dash-card">
-          <div class="dc-title">Top fiabilité</div>
-          <div id="dash-rel"></div>
+          <div class="dc-title">Taux de remplissage <button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="nav('planning')">→</button></div>
+          <div id="dash-fillrate"></div>
+        </div>
+        <div class="dash-card">
+          <div class="dc-title">Top artistes</div>
+          <div id="dash-top"></div>
         </div>
       </div>
     </div>
@@ -989,7 +996,7 @@ window.addEventListener('DOMContentLoaded', () => {
             <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);margin-bottom:16px;font-weight:700">📋 Infos du club</div>
             <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Nom du club</label><input class="fi" id="s-club" value="BCC" style="width:100%" oninput="document.getElementById('club-badge').textContent=this.value"></div>
             <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Ville</label><input class="fi" id="s-city" value="Lille" style="width:100%"></div>
-            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Deadline dispos (jour du mois)</label><input class="fi" id="s-deadline" type="number" value="15" min="1" max="28" style="width:100%"></div>
+            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Deadline dispos (jour du mois)</label><input class="fi" id="s-deadline" type="number" value="12" min="1" max="28" style="width:100%"></div>
             <button class="btn btn-o" onclick="saveClubSettings()" style="margin-top:4px;width:100%">💾 Sauvegarder</button>
           </div>
 
@@ -1189,7 +1196,7 @@ let currentCode = CLUB_CODE;
 // Nom/ville/portal_code/deadline du club connecté — source de vérité unique
 // pour tout ce qui affichait auparavant "BCC"/"Broadway Comedy Club"/BCCD25
 // en dur. Valeurs par défaut = celles du BCC (repli avant login uniquement).
-let currentClub = { id: null, name: 'BCC', city: 'Lille', portal_code: CLUB_CODE, dispo_deadline_day: 15 };
+let currentClub = { id: null, name: 'BCC', city: 'Lille', portal_code: CLUB_CODE, dispo_deadline_day: 12 };
 
 // Lien portail humoriste — SOURCE UNIQUE utilisée à la fois par l'affichage
 // (Réglages) et par le bouton "Copier" : élimine la classe de bug où le
@@ -1749,7 +1756,7 @@ function hvLogin() {
     const nextM = (now2.getMonth()+1) % 12;
     const nextY = now2.getMonth()===11 ? now2.getFullYear()+1 : now2.getFullYear();
     document.getElementById('hv-club').textContent = `${clubName} · Disponibilités ${MOIS_FULL[nextM]} ${nextY}`;
-    const dl = document.getElementById('s-deadline')?.value || 15;
+    const dl = document.getElementById('s-deadline')?.value || 12;
     document.getElementById('hv-deadline').textContent = `${dl} ${MOIS_FULL[nextM]} ${nextY}`;
     document.getElementById('hv-header-name').textContent = `${prenom} ${nom}`;
     document.getElementById('hv-space').style.display = 'flex';
@@ -2091,29 +2098,62 @@ function renderDashboard() {
   });
   document.getElementById('lineup-tbl').innerHTML = tbl;
 
-  // Dispo status
-  const r=COMEDIANS.filter(c=>effectiveDispoStatus(c.id)==='replied').length;
-  const p=COMEDIANS.filter(c=>effectiveDispoStatus(c.id)==='pending').length;
-  const nn=COMEDIANS.filter(c=>effectiveDispoStatus(c.id)==='none').length;
-  const noneList=COMEDIANS.filter(c=>effectiveDispoStatus(c.id)==='none');
-  document.getElementById('dash-dispo').innerHTML=`
-    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
-      <span class="rs rs-r">✓ ${r}</span><span class="rs rs-p">⏳ ${p}</span><span class="rs rs-n">✕ ${nn}</span>
-    </div>
-    <div style="height:5px;background:var(--s3);border-radius:3px;display:flex;overflow:hidden;margin-bottom:10px">
-      <div style="width:${r/COMEDIANS.length*100}%;background:var(--g)"></div>
-      <div style="width:${p/COMEDIANS.length*100}%;background:var(--gold)"></div>
-      <div style="width:${nn/COMEDIANS.length*100}%;background:var(--r)"></div>
-    </div>
-    ${noneList.slice(0,4).map(c=>`<div class="mrow"><span class="gdot g${c.gender}"></span><span style="font-size:10px;flex:1">${c.name}</span><button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="sendRem('${c.id}')">Relancer</button></div>`).join('')}`;
-
-  // Top reliability
-  document.getElementById('dash-rel').innerHTML=[...COMEDIANS].sort((a,b)=>b.presence-a.presence).slice(0,6).map(c=>{
-    const col=c.presence>=90?'var(--g)':c.presence>=75?'var(--o)':'var(--r)';
-    return `<div class="mrow"><span class="gdot g${c.gender}"></span><span style="font-size:10px;flex:1">${c.name}</span><div class="mbar"><div class="mfill" style="width:${c.presence}%;background:${col}"></div></div><span style="font-size:9px;color:${col};width:25px;text-align:right">${c.presence}%</span></div>`;
-  }).join('');
+  renderDashboardStats();
 
   updateBadge();
+}
+
+// ── Stats club (remplace les anciens widgets "Statut dispos"/"Top fiabilité") ──
+// Argument de vente identifié en audit : un gérant de club veut voir son
+// revenu, le remplissage de son planning, et ses artistes les plus présents —
+// pas la fiabilité individuelle en pourcentage. Calculé côté client à partir
+// des données déjà chargées (chapeauData en localStorage, assignments/
+// DAYS_CONFIG déjà en mémoire) : pas de nouvelle requête serveur.
+function renderDashboardStats() {
+  const today = new Date();
+  const monthPrefix = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+
+  // Revenu du mois — somme des entrées chapeau (localStorage) du mois en cours.
+  const monthChapeau = chapeauData.filter(e => e.date && e.date.startsWith(monthPrefix));
+  const revenueTotal = monthChapeau.reduce((s,e)=>s+(e.montant||0),0);
+  const dashRevenue = document.getElementById('dash-revenue');
+  if (dashRevenue) {
+    dashRevenue.innerHTML = `
+      <div style="font-size:24px;font-weight:700;color:var(--gold)">${revenueTotal}€</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">${monthChapeau.length} séance${monthChapeau.length>1?'s':''} renseignée${monthChapeau.length>1?'s':''} — ${MOIS_FULL[today.getMonth()]}</div>`;
+  }
+
+  // Taux de remplissage — créneaux assignés / créneaux du mois en cours
+  // (grille récurrente DAYS_CONFIG projetée sur le mois, moins les séances
+  // annulées — même logique que getMonthSlots(), déjà utilisée pour l'export).
+  const monthSlots = getMonthSlots(today.getFullYear(), today.getMonth());
+  const filledSlots = monthSlots.filter(s => (assignments[s.key]||[]).length > 0);
+  const fillPct = monthSlots.length ? Math.round(filledSlots.length / monthSlots.length * 100) : 0;
+  const fillCol = fillPct>=75?'var(--g)':fillPct>=50?'var(--gold)':'var(--r)';
+  const dashFillrate = document.getElementById('dash-fillrate');
+  if (dashFillrate) {
+    dashFillrate.innerHTML = `
+      <div style="font-size:24px;font-weight:700;color:${fillCol}">${fillPct}%</div>
+      <div style="height:5px;background:var(--s3);border-radius:3px;overflow:hidden;margin:8px 0">
+        <div style="width:${fillPct}%;height:100%;background:${fillCol}"></div>
+      </div>
+      <div style="font-size:10px;color:var(--muted)">${filledSlots.length} sur ${monthSlots.length} créneaux — ${MOIS_FULL[today.getMonth()]}</div>`;
+  }
+
+  // Top artistes — nombre total de passages (toutes les assignations
+  // actuellement chargées, cf. loadFromSupabase() qui charge tout l'historique).
+  const passageCounts = {};
+  Object.values(assignments).forEach(ids => (ids||[]).forEach(id => { passageCounts[id] = (passageCounts[id]||0) + 1; }));
+  const topArtists = [...COMEDIANS]
+    .map(c => ({ c, count: passageCounts[c.id]||0 }))
+    .sort((a,b)=>b.count-a.count)
+    .slice(0,6);
+  const maxCount = topArtists.length ? Math.max(1, topArtists[0].count) : 1;
+  const dashTop = document.getElementById('dash-top');
+  if (dashTop) {
+    dashTop.innerHTML = topArtists.map(({c,count}) => `
+      <div class="mrow"><span class="gdot g${c.gender}"></span><span style="font-size:10px;flex:1">${c.name}</span><div class="mbar"><div class="mfill" style="width:${count/maxCount*100}%;background:var(--o)"></div></div><span style="font-size:9px;color:var(--o);width:25px;text-align:right">${count}</span></div>`).join('');
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -2531,7 +2571,7 @@ async function sendDispos(){
 
   const msgTemplate = document.getElementById('d-msg')?.value || '';
   const now = new Date();
-  const dl = document.getElementById('s-deadline')?.value || 15;
+  const dl = document.getElementById('s-deadline')?.value || 12;
   const nextM = (now.getMonth()+1) % 12;
   const nextY = now.getMonth()===11 ? now.getFullYear()+1 : now.getFullYear();
   const deadline = `${dl} ${MOIS_FULL[nextM]} ${nextY}`;

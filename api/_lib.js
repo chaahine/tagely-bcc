@@ -21,6 +21,15 @@ export async function sbAdmin(table, { method = 'GET', params = '', body } = {})
   };
   if (method === 'POST') headers['Prefer'] = 'resolution=merge-duplicates,return=minimal';
   if (method === 'DELETE') headers['Prefer'] = 'return=minimal';
+  // PATCH = vraie mise à jour SQL (UPDATE ... SET col=val WHERE filtre), à la
+  // différence du POST+on_conflict (upsert) : utile pour ne modifier QU'UNE
+  // colonne d'une ligne existante (ex. clubs.dispo_deadline_day) sans risquer
+  // de heurter une contrainte NOT NULL sur une colonne absente du body — un
+  // upsert partiel via POST reconstruit une ligne candidate complète avant de
+  // basculer sur ON CONFLICT DO UPDATE, ce qui échouerait si `clubs` a
+  // d'autres colonnes NOT NULL non fournies ici (name, slug, ...). Utilisé
+  // par l'action 'updateClub' (api/admin-write.js).
+  if (method === 'PATCH') headers['Prefer'] = 'return=minimal';
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, {
     method,
     headers,
@@ -213,4 +222,50 @@ export async function resolveClubIdByPortalCode(code) {
 // ci-dessus, inchangée) qui n'a besoin que de l'id pour scoper ses écritures.
 export async function resolveClubByPortalCode(code) {
   return fetchClubByPortalCode(code);
+}
+
+// ── Envoi transactionnel via Brevo — factorisé pour api/email.js (envoi
+// déclenché par l'admin, avec token) ET api/portal-write.js / les routes cron
+// (envoi déclenché côté serveur, sans token admin — ex. notification
+// d'annulation, rappel de dispos). Un seul endroit qui parle à Brevo : évite
+// de dupliquer le payload/l'auth Brevo à chaque nouvel appelant.
+//
+// Adresse d'expédition : voir la note produit du 2026-08-02 dans email.js —
+// une unique adresse Stagely déjà vérifiée (SPF/DKIM) chez Brevo, jamais
+// l'email personnel du club. Ce n'est pas un secret (juste une adresse
+// d'expédition visible dans n'importe quel email envoyé), donc pas besoin de
+// variable d'environnement pour elle — seule la clé API Brevo (BREVO_API_KEY)
+// est un vrai secret et reste en variable d'environnement.
+export const STAGELY_SENDER_EMAIL = 'chahinedjadel@gmail.com';
+
+export async function sendTransactionalEmail({ to, subject, html, senderName, replyToEmail, replyToName } = {}) {
+  if (!to || !subject || !html) {
+    return { success: false, error: 'Paramètres manquants (to, subject, html requis)' };
+  }
+  const payload = {
+    sender: { name: senderName || 'Stagely', email: STAGELY_SENDER_EMAIL },
+    to: [{ email: to }],
+    subject,
+    htmlContent: html,
+  };
+  // Reply-To = l'email réel du club destinataire des réponses, si connu —
+  // jamais bloquant si absent (voir email.js pour le même choix).
+  if (replyToEmail) {
+    payload.replyTo = { email: replyToEmail, name: replyToName || senderName || 'Stagely' };
+  }
+  try {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': process.env.BREVO_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (data && data.code) return { success: false, error: data.message };
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
 }

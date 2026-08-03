@@ -87,7 +87,7 @@ export default async function handler(req, res) {
         name: club.name,
         city: club.city,
         portal_code: club.portal_code,
-        dispo_deadline_day: Number.isFinite(club.dispo_deadline_day) ? club.dispo_deadline_day : 15,
+        dispo_deadline_day: Number.isFinite(club.dispo_deadline_day) ? club.dispo_deadline_day : 12,
       },
     });
   } catch (e) {

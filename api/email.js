@@ -19,7 +19,7 @@
 // Reply-To = l'email réel du club (déjà en base, aucune config requise) :
 // si l'humoriste répond, ça part directement chez le club, pas chez Stagely.
 
-import { applyCors, sbAdmin, verifyAdminToken } from './_lib.js';
+import { applyCors, sbAdmin, verifyAdminToken, sendTransactionalEmail } from './_lib.js';
 
 export default async function handler(req, res) {
   applyCors(res);
@@ -43,31 +43,15 @@ export default async function handler(req, res) {
     const club = Array.isArray(rows) && rows.length ? rows[0] : null;
     const clubName = club?.name || 'Stagely';
 
-    const payload = {
-      sender: { name: clubName, email: 'chahinedjadel@gmail.com' },
-      to: [{ email: to }],
-      subject,
-      htmlContent: html,
-    };
     // Reply-To = l'email réel du club, pour que les réponses de l'humoriste
     // arrivent directement chez le club plutôt que chez Stagely. Absent si
     // le club n'a pas encore d'admin_email renseigné (ne doit pas arriver en
-    // usage normal, mais ne bloque jamais l'envoi si c'est le cas).
-    if (club?.admin_email) {
-      payload.replyTo = { email: club.admin_email, name: clubName };
-    }
-
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'api-key': process.env.BREVO_API_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
+    // usage normal, mais ne bloque jamais l'envoi si c'est le cas) — géré par
+    // sendTransactionalEmail() elle-même (replyToEmail optionnel).
+    const result = await sendTransactionalEmail({
+      to, subject, html, senderName: clubName, replyToEmail: club?.admin_email, replyToName: clubName,
     });
-
-    const data = await response.json();
-    if (data.code) return res.status(400).json({ success: false, error: data.message });
+    if (!result.success) return res.status(400).json({ success: false, error: result.error });
     return res.status(200).json({ success: true });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
