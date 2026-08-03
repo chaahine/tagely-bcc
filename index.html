@@ -1023,11 +1023,10 @@ window.addEventListener('DOMContentLoaded', () => {
           <div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
               <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);font-weight:700">📧 Configuration Email</div>
-              <div style="font-size:9px;padding:3px 10px;border-radius:20px;background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.3);font-weight:600">✓ CONFIGURÉ</div>
+              <div style="font-size:9px;padding:3px 10px;border-radius:20px;background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.3);font-weight:600">✓ ACTIF</div>
             </div>
-            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Service</label><div style="font-size:12px;color:var(--text);padding:8px 12px;background:var(--s3);border-radius:6px;border:1px solid var(--border2)">EmailJS</div></div>
-            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Service ID</label><div style="font-size:11px;color:var(--b);padding:8px 12px;background:var(--s3);border-radius:6px;border:1px solid var(--border2);font-family:monospace">service_eyt0g4q</div></div>
-            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Template ID</label><div style="font-size:11px;color:var(--b);padding:8px 12px;background:var(--s3);border-radius:6px;border:1px solid var(--border2);font-family:monospace">template_322qzcp</div></div>
+            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Service</label><div style="font-size:12px;color:var(--text);padding:8px 12px;background:var(--s3);border-radius:6px;border:1px solid var(--border2)">Brevo</div></div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:14px">Les emails partent depuis nos serveurs, sous le nom de ton club. Rien à configurer de ton côté — la clé d'envoi est gérée de manière sécurisée côté serveur.</div>
             <div style="margin-bottom:14px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Test email</label><div style="display:flex;gap:6px"><input class="fi" id="test-email-input" placeholder="ton@email.com" style="flex:1"><button class="btn btn-o" onclick="sendEmail(document.getElementById('test-email-input').value,'Test BCC Stagely','Ceci est un test depuis Stagely').then(r=>toast(r.success?'✓ Email envoyé':'✕ Erreur'))" style="font-size:10px;flex-shrink:0">🚀 Tester</button></div></div>
           </div>
 
@@ -2186,6 +2185,21 @@ function renderPlanning() {
   const weekStart = getWeekStart(); // lundi
   let html = '';
 
+  // Club tout juste inscrit : grille de séances pas encore configurée
+  // (DAYS_CONFIG vide tant que schedule_templates n'a rien à charger).
+  if (!DAYS_CONFIG.length) {
+    document.getElementById('board').innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:60px 20px;background:var(--s1);border:1px solid var(--border);border-radius:10px">
+        <div style="font-size:28px;margin-bottom:10px">🎭</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px">Aucune séance configurée</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:18px">Configure tes séances pour commencer à remplir ton planning.</div>
+        <button class="btn btn-o" onclick="nav('reglages')">Configurer mes séances →</button>
+      </div>`;
+    const counters = document.getElementById('planning-counters');
+    if (counters) counters.innerHTML = '';
+    return;
+  }
+
   DAYS_CONFIG.forEach((day, di) => {
     // di=0=MAR(mardi), di=1=MER... lundi=weekStart, mardi=+1, etc.
     const date = new Date(weekStart);
@@ -2730,7 +2744,6 @@ function openFiche(id) {
     </div>` : ''}
 
     <div style="display:flex;gap:6px;padding-top:10px;border-top:1px solid var(--border2)">
-      <button class="btn btn-ghost" style="font-size:9px" onclick="sendWhatsAppText('${c.phone||''}','Bonjour ${c.name.split(' ')[0]} !').then(r=>toast(r.simulated?'⚠ Simulé':'✓ Message envoyé'))">📱 Envoyer WhatsApp</button>
       <button class="btn btn-r" style="font-size:9px" onclick="if(confirm('Retirer ${c.name} ?')){closeModal('modal-fiche');delH('${c.id}')}">Retirer du groupe</button>
     </div>`;
 
@@ -2948,17 +2961,16 @@ async function cancelSlot(key, slot, dateLabel) {
   const asgnIds = (assignments[key]||[]).filter(id => COMEDIANS.find(c=>c.id===id));
   const timeStr = slot.replace('H',':');
 
-  if (!confirm(`Annuler la séance ${dateLabel} à ${timeStr} ?\n\n${asgnIds.length ? `${asgnIds.length} humoriste(s) assigné(s) seront notifiés.` : 'Aucun humoriste assigné.'}`)) return;
+  if (!confirm(`Annuler la séance ${dateLabel} à ${timeStr} ?\n\n${asgnIds.length ? `${asgnIds.length} humoriste(s) assigné(s) seront retirés de cette séance.` : 'Aucun humoriste assigné.'}`)) return;
 
-  // Notifier les humoristes assignés
+  // Journaliser les humoristes qui étaient assignés (pas de notification
+  // automatique — l'envoi WhatsApp a été retiré, cf. décision produit :
+  // fonctionnalité jamais réellement branchée, ne pas laisser croire
+  // qu'un message part réellement).
   for (const humId of asgnIds) {
     const c = COMEDIANS.find(c=>c.id===humId);
     if (!c) continue;
-    const prenom = c.name.split(' ')[0];
-    const msg = `Bonjour ${prenom},\n\n❌ La séance du ${dateLabel} à ${timeStr} au BCC est annulée.\n\nNous t'informerons dès que de nouveaux créneaux seront disponibles. Désolé pour la gêne occasionnée.`;
-    if (c.phone) await sendWhatsAppText(c.phone, msg);
-    showAppNotif(`❌ ${c.name} notifié — séance ${timeStr} annulée`, 'var(--r)');
-    logAction('notification', { humId, name: c.name, message: msg, type: 'cancellation' });
+    logAction('notification', { humId, name: c.name, type: 'cancellation' });
   }
 
   // Supprimer les assignations
@@ -2974,7 +2986,7 @@ async function cancelSlot(key, slot, dateLabel) {
   renderPlanning();
 
   const msg = asgnIds.length
-    ? `❌ Séance annulée · ${asgnIds.length} humoriste(s) notifié(s)`
+    ? `❌ Séance annulée · ${asgnIds.length} humoriste(s) retiré(s)`
     : '❌ Séance annulée';
   toast(msg);
 }
@@ -3413,15 +3425,6 @@ async function sendPlanningToAll() {
         logAction('notification', {humId:id, name:c.name, type:'email_planning'});
         markEmailSent(id, exportMonthOverride || getTargetMonthPrefix());
       } else skipped++;
-    } else if (c.phone && WA_CONFIG.configured) {
-      // Fallback WhatsApp
-      const r = await sendWhatsAppText(c.phone, msg);
-      if (r.success && !r.simulated) {
-        sent++;
-        logAction('notification', {humId:id, name:c.name, type:'wa_planning'});
-        markEmailSent(id, exportMonthOverride || getTargetMonthPrefix());
-      }
-      else skipped++;
     } else {
       skipped++;
     }
@@ -3947,15 +3950,12 @@ function logAction(type, data) {
 }
 
 // ══════════════════════════════════════════════════
-// WHATSAPP BUSINESS API
+// EMAIL (Brevo)
 // ══════════════════════════════════════════════════
-
-// Config WhatsApp — chargée depuis localStorage
-const WA_CONFIG = {
-  token: localStorage.getItem('stagely_wa_token') || '',
-  phoneId: localStorage.getItem('stagely_wa_phone') || '2968361819687921',
-  configured: !!(localStorage.getItem('stagely_wa_token') && localStorage.getItem('stagely_wa_phone'))
-};
+// (le canal WhatsApp Business API a été retiré — jamais réellement
+// branché en prod, cf. audit de cohérence : le panneau de config avait
+// été dépublié, ce qui faisait tomber tous les envois en simulation
+// silencieuse tout en affichant "message envoyé" à l'admin.)
 
 // Config Email Brevo
 const EMAIL_CONFIG = {
@@ -3993,90 +3993,6 @@ async function sendEmail(to, subject, bodyText) {
     console.error('Email error:', e);
     return { success: false, error: e.message };
   }
-}
-
-async function sendWhatsApp(to, templateName, params = []) {
-  if (!WA_CONFIG.configured || !WA_CONFIG.token) {
-    // Mode simulation
-    console.log(`[WA Simulation] → ${to}: ${templateName}`, params);
-    return { success: true, simulated: true };
-  }
-  try {
-    const res = await fetch(`https://graph.facebook.com/v18.0/${WA_CONFIG.phoneId}/messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${WA_CONFIG.token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to: to.replace(/\s/g,'').replace('+',''),
-        type: 'template',
-        template: {
-          name: templateName,
-          language: { code: 'fr' },
-          components: params.length ? [{
-            type: 'body',
-            parameters: params.map(p => ({ type: 'text', text: p }))
-          }] : []
-        }
-      })
-    });
-    const data = await res.json();
-    return { success: !data.error, data };
-  } catch(e) {
-    return { success: false, error: e.message };
-  }
-}
-
-async function sendWhatsAppText(to, text) {
-  if (!WA_CONFIG.configured || !WA_CONFIG.token) {
-    console.log(`[WA Simulation] → ${to}: ${text}`);
-    return { success: true, simulated: true };
-  }
-  try {
-    // Passe par le proxy Vercel pour éviter les erreurs CORS
-    const res = await fetch('/api/whatsapp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to,
-        text,
-        token: WA_CONFIG.token,
-        phoneId: WA_CONFIG.phoneId
-      })
-    });
-    const data = await res.json();
-    return { success: data.success, data, error: data.error };
-  } catch(e) {
-    return { success: false, error: e.message };
-  }
-}
-
-async function notifyComedian(humId, messageText) {
-  const c = COMEDIANS.find(c => c.id === humId);
-  if (!c?.phone) return;
-  const result = await sendWhatsAppText(c.phone, messageText);
-  logAction('notification', { humId, name: c.name, message: messageText, result });
-  return result;
-}
-
-async function broadcastToGroup(messageText, targets = null) {
-  const list = targets || COMEDIANS.filter(c => c.phone);
-  let sent = 0;
-  const results = [];
-  for (const c of list) {
-    if (!c.phone) continue;
-    const personalMsg = messageText
-      .replace('{NOM}', c.name.split(' ')[0])
-      .replace('{CODE}', currentCode)
-      .replace('{LIEN}', `tagely-bcc.vercel.app/portal?code=${currentCode}`);
-    const r = await sendWhatsAppText(c.phone, personalMsg);
-    if (r.success) sent++;
-    results.push({ id: c.id, name: c.name, ...r });
-  }
-  logAction('broadcast', { message: messageText, sent, total: list.length });
-  return { sent, total: list.length, results };
 }
 
 // ══════════════════════════════════════════════════
