@@ -1176,13 +1176,13 @@ window.addEventListener('DOMContentLoaded', () => {
 
 Merci de renseigner tes disponibilités pour le mois à venir via le lien ci-dessous :
 
-👉 https://tagely-bcc.vercel.app/portal?code={CODE}
+👉 https://tagely-bcc.vercel.app/portal.html?code={CODE}
 
 Deadline : le {DEADLINE}.
 
 À très vite !
-BCC</textarea></div>
-    <div style="font-size:9px;color:var(--muted);margin-bottom:8px">Variables automatiques : {CODE} {DEADLINE} · Envoi par email si renseigné, sinon copie manuelle</div>
+{CLUB}</textarea></div>
+    <div style="font-size:9px;color:var(--muted);margin-bottom:8px">Variables automatiques : {CODE} {DEADLINE} {CLUB} · Envoi par email si renseigné, sinon copie manuelle</div>
     <div class="ma"><button class="btn btn-ghost" onclick="closeModal('modal-dispo')">Annuler</button><button class="btn btn-o" onclick="sendDispos()">✉ Envoyer</button></div>
   </div>
 </div>
@@ -3135,7 +3135,7 @@ function renderDispos(){
 }
 
 function copyPortalLink(comId) {
-  const link = `https://tagely-bcc.vercel.app/portal?code=${currentCode}&manage=${comId}`;
+  const link = `https://tagely-bcc.vercel.app/portal.html?code=${currentCode}&manage=${comId}`;
   navigator.clipboard?.writeText(link).then(() => toast('✓ Lien copié !'));
 }
 
@@ -3171,7 +3171,8 @@ async function sendDispos(){
     const msg = msgTemplate
       .replace(/{CODE}/g, currentCode)
       .replace(/{DEADLINE}/g, deadline)
-      .replace(/{NOM}/g, c.name.split(' ')[0]);
+      .replace(/{NOM}/g, c.name.split(' ')[0])
+      .replace(/{CLUB}/g, currentClub.name);
 
     if (c.email && EMAIL_CONFIG.configured) {
       const r = await sendEmail(c.email, `🎤 ${currentClub.name} — Tes disponibilités ${MOIS_FULL[nextM]}`, msg);
