@@ -1059,7 +1059,7 @@ window.addEventListener('DOMContentLoaded', () => {
             </div>
             <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Service</label><div style="font-size:12px;color:var(--text);padding:8px 12px;background:var(--s3);border-radius:6px;border:1px solid var(--border2)">Brevo</div></div>
             <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:14px">Les emails partent depuis nos serveurs, sous le nom de ton club. Rien à configurer de ton côté — la clé d'envoi est gérée de manière sécurisée côté serveur.</div>
-            <div style="margin-bottom:14px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Test email</label><div style="display:flex;gap:6px"><input class="fi" id="test-email-input" placeholder="ton@email.com" style="flex:1"><button class="btn btn-o" onclick="sendEmail(document.getElementById('test-email-input').value,'Test BCC Stagely','Ceci est un test depuis Stagely').then(r=>toast(r.success?'✓ Email envoyé':'✕ Erreur'))" style="font-size:10px;flex-shrink:0">🚀 Tester</button></div></div>
+            <div style="margin-bottom:14px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Test email</label><div style="display:flex;gap:6px"><input class="fi" id="test-email-input" placeholder="ton@email.com" style="flex:1"><button class="btn btn-o" onclick="sendEmail(document.getElementById('test-email-input').value,`Test ${currentClub.name} Stagely`,'Ceci est un test depuis Stagely').then(r=>toast(r.success?'✓ Email envoyé':'✕ Erreur'))" style="font-size:10px;flex-shrink:0">🚀 Tester</button></div></div>
           </div>
 
           <!-- Préférences -->
@@ -1953,7 +1953,7 @@ function hvExportCalendar() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `BCC_${hvUser.name.replace(' ','_')}_dates.ics`;
+  a.download = `${currentClub.name.replace(/\s+/g,'_')}_${hvUser.name.replace(' ','_')}_dates.ics`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -2066,7 +2066,7 @@ function hvLogin() {
     showManageDates(hvUser.id);
   } else {
     document.getElementById('hv-uname').textContent = `${prenom} ${nom}`;
-    const clubName = 'BCC';
+    const clubName = currentClub.name;
     const now2 = new Date();
     const nextM = (now2.getMonth()+1) % 12;
     const nextY = now2.getMonth()===11 ? now2.getFullYear()+1 : now2.getFullYear();
@@ -2902,7 +2902,7 @@ function exportPDF() {
 
 function exportLU(){
   const weekStart = getWeekStart();
-  let txt=`LINE-UP BCC — ${getWkLabel()}\n${'─'.repeat(40)}\n`;
+  let txt=`LINE-UP ${currentClub.name} — ${getWkLabel()}\n${'─'.repeat(40)}\n`;
   DAYS_CONFIG.forEach((day,di)=>{
     const d=new Date(weekStart);d.setDate(weekStart.getDate()+di+1);
     txt+=`\n${day.label.toUpperCase()} ${d.getDate()}\n`;
@@ -3088,7 +3088,7 @@ async function sendDispos(){
       .replace(/{NOM}/g, c.name.split(' ')[0]);
 
     if (c.email && EMAIL_CONFIG.configured) {
-      const r = await sendEmail(c.email, `🎤 BCC — Tes disponibilités ${MOIS_FULL[nextM]}`, msg);
+      const r = await sendEmail(c.email, `🎤 ${currentClub.name} — Tes disponibilités ${MOIS_FULL[nextM]}`, msg);
       if (r.success) sent++;
     } else {
       noEmail++;
@@ -3906,7 +3906,7 @@ async function sendPlanningToAll() {
         : new Date();
       const moisLabel = skDate.toLocaleDateString('fr-FR',{month:'long'});
       // Envoi par email
-      const r = await sendEmail(c.email, `🎤 Tes dates BCC — ${moisLabel}`, msg);
+      const r = await sendEmail(c.email, `🎤 Tes dates ${currentClub.name} — ${moisLabel}`, msg);
       if (r.success) {
         sent++;
         logAction('notification', {humId:id, name:c.name, type:'email_planning'});
@@ -4752,7 +4752,7 @@ async function testEmail() {
   if (!EMAIL_CONFIG.configured) { toast('⚠ Configure la clé Resend d\'abord'); return; }
   const btn = document.getElementById('email-test-btn');
   if (btn) { btn.textContent = '⏳ Envoi...'; btn.disabled = true; }
-  const r = await sendEmail(addr, '🎤 Test Stagely BCC', `Bonjour !\n\nCeci est un message de test depuis Stagely BCC.\n\nHeure : ${new Date().toLocaleTimeString('fr-FR')}\n\n✓ Email opérationnel.\n\nÀ bientôt !`);
+  const r = await sendEmail(addr, `🎤 Test Stagely ${currentClub.name}`, `Bonjour !\n\nCeci est un message de test depuis Stagely (${currentClub.name}).\n\nHeure : ${new Date().toLocaleTimeString('fr-FR')}\n\n✓ Email opérationnel.\n\nÀ bientôt !`);
   if (btn) { btn.textContent = '📧 Tester'; btn.disabled = false; }
   const res = document.getElementById('email-test-result');
   if (res) {
