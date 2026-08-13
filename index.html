@@ -118,6 +118,11 @@ html.light{
   .dtbl{font-size:10px!important}
   .dtbl th,.dtbl td{padding:6px 8px!important}
   .dtbl th:nth-child(5),.dtbl td:nth-child(5){display:none!important}
+  .fi,.fsl{font-size:16px!important}
+  /* !important : deux modales portent un max-height:85vh en style inline, qui
+     l'emporterait sinon sur la hauteur reellement visible (--vvh) et les
+     laisserait deborder sous le clavier. */
+  .modal{width:100%!important;max-height:calc(var(--vvh, 100vh) - 32px)!important}
 }
 @media(max-width:480px){
   .kpi-row{grid-template-columns:1fr 1fr!important}
@@ -423,9 +428,18 @@ html.light{
 .code-val{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:22px;letter-spacing:5px;color:var(--o)}
 
 /* ── MODAL ── */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);z-index:100;display:none;align-items:center;justify-content:center;padding:16px}
-.overlay.open{display:flex}
-.modal{background:var(--s1);border:1px solid var(--border2);border-radius:5px;padding:20px;width:380px;max-width:100%;max-height:90vh;overflow-y:auto;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);z-index:100;display:none;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
+/* --vvh / --vvtop = hauteur et decalage REELLEMENT visibles, poses par le
+   listener visualViewport (voir "CLAVIER MOBILE" dans le JS). Sur iOS/Android
+   l'ouverture du clavier retrecit le visual viewport mais laisse 100vh
+   inchange : la modale restait donc centree sur la hauteur totale et sa barre
+   de boutons tombait DERRIERE le clavier — "Enregistrer" devenait intouchable,
+   et taper a cote pour fermer le clavier fermait la modale (handler de clic
+   sur .overlay). D'ou le bug "impossible d'enregistrer le chapeau sur mobile".
+   Sur desktop les variables sont absentes : les valeurs de repli redonnent
+   exactement le comportement d'avant. */
+.overlay.open{display:flex;top:var(--vvtop,0px);height:var(--vvh,100%)}
+.modal{background:var(--s1);border:1px solid var(--border2);border-radius:5px;padding:20px;width:380px;max-width:100%;max-height:calc(var(--vvh, 100vh) - 32px);overflow-y:auto;}
 .modal-title{font-weight:700;font-size:13px;margin-bottom:14px;color:var(--text)}
 .fr{margin-bottom:10px}
 .fl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;display:block;font-weight:600}
@@ -433,7 +447,7 @@ html.light{
 .fi:focus,.fsl:focus{outline:none;border-color:var(--o);background:var(--s1)}
 .fta{width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:3px;padding:7px 10px;color:var(--text);font-size:11px;font-family:'Rajdhani',sans-serif;resize:vertical;min-height:70px;transition:.12s}
 .fta:focus{outline:none;border-color:var(--o)}
-.ma{display:flex;gap:6px;justify-content:flex-end;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.ma{display:flex;gap:6px;justify-content:flex-end;align-items:center;margin:14px -20px -20px;padding:12px 20px;border-top:1px solid var(--border);position:sticky;bottom:0;background:var(--s1);z-index:2}
 .gbtn{flex:1;padding:8px;border-radius:3px;border:1px solid var(--border2);background:var(--s2);color:var(--muted);cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:10px;display:flex;align-items:center;justify-content:center;gap:5px;transition:.12s;font-weight:500}
 .gbtn.gm{border-color:#6366f1;color:#6366f1;background:var(--b2)}
 .gbtn.gf{border-color:#ec4899;color:#ec4899;background:rgba(236,72,153,.08)}
@@ -4888,6 +4902,27 @@ async function testEmail() {
 
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+// ── CLAVIER MOBILE & MODALES ──────────────────────────────────────────────
+// Sur iOS/Android, ouvrir le clavier retrecit window.visualViewport mais PAS
+// 100vh : une modale centree sur 100vh gardait donc sa barre de boutons sous
+// le clavier, hors d'atteinte — et comme le contenu tenait dans max-height,
+// rien ne scrollait pour aller la chercher. Le seul geste possible (taper a
+// cote pour fermer le clavier) fermait la modale et perdait la saisie. On
+// reporte ici la hauteur/le decalage reellement visibles dans --vvh/--vvtop,
+// consommes par .overlay.open et .modal. Desktop : visualViewport == fenetre,
+// les valeurs suivent la fenetre et rien ne change visuellement.
+(function trackVisualViewport(){
+  const vv = window.visualViewport;
+  if (!vv) return; // navigateur sans visualViewport : replis CSS (100%/100vh)
+  const sync = () => {
+    document.documentElement.style.setProperty('--vvh', vv.height + 'px');
+    document.documentElement.style.setProperty('--vvtop', (vv.offsetTop || 0) + 'px');
+  };
+  vv.addEventListener('resize', sync);
+  vv.addEventListener('scroll', sync);
+  sync();
+})();
 document.querySelectorAll('.overlay').forEach(o=>{
   o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');});
 });
@@ -5145,28 +5180,85 @@ function updateChapeauTotal() {
   document.getElementById('ch-total').textContent = (especes + cb) + '€';
 }
 
+// slot_key de l'entree en cours de correction, null en creation. Jusqu'ici
+// openChapeauForSlot() vidait TOUJOURS les champs et l'historique n'offrait
+// que "Supprimer" : rouvrir une soiree deja renseignee affichait 0€, sans
+// aucun moyen de corriger une somme autrement que supprimer + resaisir. Le
+// serveur, lui, sait deja remplacer (upsert on_conflict=club_id,slot_key dans
+// api/admin-write.js) — il ne manquait que le chemin cote interface.
+let chapeauEditingKey = null;
+
+// Bascule la modale entre "nouvelle soiree" (entry null) et "correction d'une
+// soiree deja saisie" : titre, rappel de remplacement, bouton Supprimer et
+// pre-remplissage des montants. Un seul endroit qui connait ces deux etats,
+// pour qu'aucun appelant ne puisse ouvrir la modale a moitie reinitialisee.
+function chapeauModalMode(entry) {
+  chapeauEditingKey = entry ? entry.slot_key : null;
+  const title = document.getElementById('ch-modal-title');
+  const hint = document.getElementById('ch-edit-hint');
+  const del = document.getElementById('ch-delete-btn');
+  const save = document.getElementById('ch-save-btn');
+  if (title) title.textContent = entry ? '🎩 Modifier le chapeau' : '🎩 Saisir le chapeau';
+  if (hint) hint.style.display = entry ? 'block' : 'none';
+  if (del) del.style.display = entry ? 'inline-block' : 'none';
+  if (save) save.textContent = entry ? 'Mettre à jour' : 'Enregistrer';
+  document.getElementById('ch-especes').value = entry && entry.especes ? entry.especes : '';
+  document.getElementById('ch-cb').value = entry && entry.cb ? entry.cb : '';
+  document.getElementById('ch-par-personne').value = '';
+  updateChapeauTotal();
+}
+
+// Positionne le <select> creneau sur `slot`, en ajoutant l'option si elle
+// n'est pas dans la liste figee du HTML (creneaux d'un club non-BCC, dates
+// ponctuelles du mode tournee) — sinon rouvrir une entree existante la
+// reaffectait silencieusement au premier creneau de la liste.
+function setChapeauSlot(slot) {
+  const slotSel = document.getElementById('ch-slot');
+  if (!slotSel || !slot) return;
+  let found = false;
+  for (let i=0; i<slotSel.options.length; i++) {
+    if (slotSel.options[i].value === slot || slotSel.options[i].text === slot) { slotSel.selectedIndex = i; found = true; break; }
+  }
+  if (!found) {
+    const opt = document.createElement('option');
+    opt.value = slot; opt.textContent = slot;
+    slotSel.appendChild(opt);
+    slotSel.value = slot;
+  }
+}
+
+function findChapeauEntry(date, slot) {
+  return chapeauData.find(e => e.date === date && e.slot === slot) || null;
+}
+
 function nav_chapeau_open() {
   if (!hasProAccess()) { toast('🔒 Le chapeau est une fonctionnalité Pro'); return; }
   document.getElementById('ch-date').value = new Date().toISOString().split('T')[0];
-  document.getElementById('ch-especes').value = '';
-  document.getElementById('ch-cb').value = '';
-  document.getElementById('ch-par-personne').value = '';
-  document.getElementById('ch-total').textContent = '0€';
+  chapeauModalMode(null);
   openModal('modal-chapeau');
 }
 
 function openChapeauForSlot(date, slot) {
   if (!hasProAccess()) { toast('🔒 Le chapeau est une fonctionnalité Pro'); return; }
   document.getElementById('ch-date').value = date;
-  document.getElementById('ch-especes').value = '';
-  document.getElementById('ch-cb').value = '';
-  document.getElementById('ch-par-personne').value = '';
-  document.getElementById('ch-total').textContent = '0€';
-  const slotSel = document.getElementById('ch-slot');
-  for (let i=0; i<slotSel.options.length; i++) {
-    if (slotSel.options[i].value === slot) { slotSel.selectedIndex = i; break; }
-  }
+  setChapeauSlot(slot);
+  chapeauModalMode(findChapeauEntry(date, slot));
   openModal('modal-chapeau');
+}
+
+// Bouton "Modifier" de l'historique — meme modale que le clic sur la ligne de
+// creneau, pour ne pas avoir deux chemins d'edition divergents.
+function editChapeau(id) {
+  const entry = chapeauData.find(e => String(e.id) === String(id));
+  if (!entry) return;
+  openChapeauForSlot(entry.date, entry.slot);
+}
+
+async function deleteChapeauFromModal() {
+  const entry = chapeauData.find(e => e.slot_key === chapeauEditingKey);
+  if (!entry) { closeModal('modal-chapeau'); return; }
+  closeModal('modal-chapeau');
+  await deleteChapeau(entry.id);
 }
 
 
@@ -5184,12 +5276,21 @@ async function saveChapeau() {
   // slot_key — même format que partout ailleurs dans l'app (assignments/
   // dispos) : date + suffixe "HH'H'MM" (ex. "20:15" -> "20H15").
   const slotKey = `${date}-${slot.replace(':', 'H')}`;
+  const editingKey = chapeauEditingKey;
   const result = await adminWrite('saveChapeauEntry', { slot_key: slotKey, amount_especes: especes, amount_cb: cb, amount_total: montant });
   if (!result || !result.success) { toast('✕ Erreur de sauvegarde'); return; }
+  // Correction qui a change de date/creneau : l'upsert serveur est scope sur
+  // slot_key, il a donc cree une NOUVELLE ligne au lieu de deplacer l'ancienne
+  // — on supprime l'originale pour ne pas compter la soiree deux fois dans le
+  // total du mois et l'export comptable.
+  if (editingKey && editingKey !== slotKey) {
+    await adminWrite('deleteChapeauEntry', { slot_key: editingKey });
+  }
+  chapeauEditingKey = null;
   closeModal('modal-chapeau');
   await loadChapeauEntries();
   renderChapeau();
-  toast(`✓ Chapeau enregistré — ${montant}€`);
+  toast(`${editingKey ? '✓ Chapeau mis à jour' : '✓ Chapeau enregistré'} — ${montant}€`);
 }
 
 function chgWkChapeau(d) { weekOffset += d; renderChapeau(); }
@@ -5285,7 +5386,7 @@ function renderChapeau(periode = 'semaine') {
         <div style="text-align:right;min-width:80px">
           ${existingEntry
             ? `<div style="font-size:18px;font-weight:800;color:var(--gold)">${existingEntry.montant}€</div>
-               <div style="font-size:9px;color:var(--g)">✓ Saisi</div>`
+               <div style="font-size:9px;color:var(--o)">✏ Modifier</div>`
             : `<div style="font-size:11px;color:var(--o);font-weight:600">+ Saisir</div>`}
         </div>
       </div>`;
@@ -5318,7 +5419,10 @@ function renderChapeau(periode = 'semaine') {
             ${e.parPersonne?`<div style="font-size:10px;color:var(--text);margin-top:2px">👤 ${e.parPersonne}€/pers.</div>`:''}
           </div>
         </div>
-        <button onclick="deleteChapeau('${e.id}')" style="margin-top:6px;background:none;border:none;color:var(--muted2);cursor:pointer;font-size:10px" onmouseover="this.style.color='var(--r)'" onmouseout="this.style.color='var(--muted2)'">✕ Supprimer</button>
+        <div style="display:flex;gap:14px;margin-top:6px">
+          <button onclick="editChapeau('${e.id}')" style="background:none;border:none;color:var(--o);cursor:pointer;font-size:10px;padding:0">✏ Modifier</button>
+          <button onclick="deleteChapeau('${e.id}')" style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:10px;padding:0" onmouseover="this.style.color='var(--r)'" onmouseout="this.style.color='var(--muted2)'">✕ Supprimer</button>
+        </div>
       </div>`;
     });
     html += `</div>`;
@@ -5553,7 +5657,8 @@ async function downloadAccountingCSV() {
 </div>
 <div class="overlay" id="modal-chapeau">
   <div class="modal" style="width:360px">
-    <div class="modal-title">🎩 Saisir le chapeau</div>
+    <div class="modal-title" id="ch-modal-title">🎩 Saisir le chapeau</div>
+    <div id="ch-edit-hint" style="display:none;font-size:10px;color:var(--gold);background:var(--gold2);border:1px solid rgba(217,119,6,.3);border-radius:4px;padding:8px 10px;margin-bottom:12px;line-height:1.5">Cette soirée a déjà un montant enregistré — les valeurs ci-dessous le remplacent.</div>
     <div class="fr"><label class="fl">Date</label><input class="fi" id="ch-date" type="date"></div>
     <div class="fr"><label class="fl">Créneau</label>
       <select class="fsl" id="ch-slot">
@@ -5565,8 +5670,9 @@ async function downloadAccountingCSV() {
     <div class="fr"><label class="fl">Total collecté</label><div id="ch-total" style="font-size:20px;font-weight:800;color:var(--gold)">0€</div></div>
     <div class="fr"><label class="fl">👤 Montant par personne (€)</label><input class="fi" id="ch-par-personne" type="number" placeholder="0" min="0"></div>
     <div class="ma">
+      <button class="btn btn-ghost" id="ch-delete-btn" style="display:none;margin-right:auto;color:var(--r)" onclick="deleteChapeauFromModal()">✕ Supprimer</button>
       <button class="btn btn-ghost" onclick="closeModal('modal-chapeau')">Annuler</button>
-      <button class="btn btn-o" onclick="saveChapeau()">Enregistrer</button>
+      <button class="btn btn-o" id="ch-save-btn" onclick="saveChapeau()">Enregistrer</button>
     </div>
   </div>
 </div>
