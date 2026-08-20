@@ -256,6 +256,40 @@ export function resolvePaymentMode(club) {
 // ── Validateurs communs ──
 export const SLOT_KEY_RE = /^\d{4}-\d{2}-\d{2}-\d{2}h\d{2}$/i;
 
+// ── Chapeau — validation partagee ─────────────────────────────────────────
+// Une ligne de chapeau_entries peut desormais arriver de DEUX routes : l'admin
+// (api/admin-write.js) et le MC depuis son telephone apres le show
+// (api/portal-write.js). La regle de calcul du total doit rester identique des
+// deux cotes, sinon la meme soiree vaut 200 EUR saisie par l'un et 0 par
+// l'autre — d'ou la factorisation ici plutot qu'une copie par route.
+// amount_total est calcule ici plutot que par la DB (pas de colonne GENERATED) :
+// especes+cb, avec repli sur un montant "par personne" saisi seul.
+export function sanitizeChapeauEntry(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  if (!SLOT_KEY_RE.test(payload.slot_key || '')) return null;
+  const especes = Number.isFinite(payload.amount_especes) && payload.amount_especes >= 0 ? payload.amount_especes : 0;
+  const cb = Number.isFinite(payload.amount_cb) && payload.amount_cb >= 0 ? payload.amount_cb : 0;
+  const fallbackTotal = Number.isFinite(payload.amount_total) && payload.amount_total >= 0 ? payload.amount_total : 0;
+  const total = (especes + cb) || fallbackTotal;
+  if (!total) return null; // un montant est requis
+  return {
+    slot_key: String(payload.slot_key),
+    amount_especes: especes,
+    amount_cb: cb,
+    amount_total: total,
+  };
+}
+
+// Le chapeau est une fonctionnalite Pro, cote admin comme cote MC : meme
+// verrou pour les deux routes.
+export async function requireProAccess(clubId) {
+  const rows = await sbAdmin('clubs', {
+    params: `?id=eq.${encodeURIComponent(clubId)}&select=id,status,plan&limit=1`,
+  });
+  const club = Array.isArray(rows) && rows.length ? rows[0] : null;
+  return computePlanAccess(club).proFeatures;
+}
+
 export function isNonEmptyString(v, max = 300) {
   return typeof v === 'string' && v.trim().length > 0 && v.length <= max;
 }

@@ -832,7 +832,6 @@ window.addEventListener('DOMContentLoaded', () => {
             <input type="number" id="hv-ch-cb" placeholder="0" min="0" style="width:100%;background:#1a1a1a;border:1px solid #252525;border-radius:8px;padding:8px 10px;color:#f0f0f0;font-size:13px;box-sizing:border-box">
           </div>
         </div>
-        <input type="text" id="hv-ch-notes" placeholder="Notes (facultatif)" style="width:100%;background:#1a1a1a;border:1px solid #252525;border-radius:8px;padding:8px 10px;color:#f0f0f0;font-size:12px;margin-bottom:8px;box-sizing:border-box">
         <button onclick="hvSaveChapeau()" style="width:100%;padding:11px;background:#f59e0b;color:#000;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">Enregistrer le chapeau</button>
         <div id="hv-chapeau-ok" style="display:none;text-align:center;font-size:11px;color:#22c55e;margin-top:8px">✓ Chapeau enregistré !</div>
       </div>
@@ -1947,27 +1946,74 @@ function checkHvLineup() {
   if (chapeauDiv) chapeauDiv.style.display = showChapeau ? 'block' : 'none';
 }
 
+// Saisie du chapeau par le MC depuis son téléphone, juste après le show.
+// Passe par api/portal-write (action saveChapeauEntry) : le MC n'a pas de
+// token admin, mais le serveur l'autorise sur code club + assignation à ce
+// créneau + palier Pro. AVANT ce correctif, cette fonction n'écrivait que
+// dans localStorage['stagely_chapeau'] — un stockage devenu mort depuis le
+// passage du chapeau en persistance serveur : le MC voyait bien
+// "✓ Chapeau enregistré !", mais le montant n'atteignait jamais le serveur
+// (invisible pour l'admin, absent du total du mois et de l'export, perdu au
+// rechargement).
 async function hvSaveChapeau() {
   const chapeauDiv = document.getElementById('hv-chapeau-now');
   if (!chapeauDiv || !hvUser) return;
-  const date = chapeauDiv.getAttribute('data-date');
-  const slot = chapeauDiv.getAttribute('data-slot');
   const key = chapeauDiv.getAttribute('data-key');
   const especes = parseFloat(document.getElementById('hv-ch-especes').value) || 0;
   const cb = parseFloat(document.getElementById('hv-ch-cb').value) || 0;
-  const notes = document.getElementById('hv-ch-notes').value.trim();
   const montant = especes + cb;
-  if (!montant) { return; }
-  const ids = assignments[key] || [];
-  const share = ids.length ? Math.round(montant/ids.length*100)/100 : 0;
-  const repartition = {};
-  ids.forEach(id => repartition[id] = share);
-  chapeauData.unshift({id:Date.now(), date, slot, mc:hvUser.name, mcId:hvUser.id, montant, especes, cb, spectateurs:0, notes, repartition});
-  localStorage.setItem('stagely_chapeau', JSON.stringify(chapeauData));
-  document.getElementById('hv-chapeau-ok').style.display = 'block';
+  // Retour explicite : l'ancienne version sortait en silence sur un montant
+  // vide, le MC ne savait pas si son geste avait été pris en compte.
+  if (!montant) { hvChapeauFeedback('⚠ Saisis un montant (espèces et/ou CB)', '#f59e0b'); return; }
+  if (!key) { hvChapeauFeedback('⚠ Créneau introuvable — recharge la page', '#f59e0b'); return; }
+
+  const btn = chapeauDiv.querySelector('button');
+  if (btn) { btn.disabled = true; btn.textContent = 'Envoi…'; }
+  let result = null;
+  try {
+    const res = await fetch('/api/portal-write', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        action: 'saveChapeauEntry',
+        payload: {
+          code: currentCode,
+          comedianId: hvUser.id,
+          slot_key: key,
+          amount_especes: especes,
+          amount_cb: cb,
+          amount_total: montant,
+        },
+      }),
+    });
+    result = await res.json().catch(() => null);
+  } catch (e) {
+    result = null;
+  }
+  if (btn) { btn.disabled = false; btn.textContent = 'Enregistrer le chapeau'; }
+
+  if (!result || !result.success) {
+    hvChapeauFeedback(`✕ ${result?.error || 'Échec de l\'envoi — réessaie'}`, '#dc2626');
+    return;
+  }
+  hvChapeauFeedback(`✓ Chapeau enregistré — ${montant}€`, '#22c55e');
   document.getElementById('hv-ch-especes').value = '';
   document.getElementById('hv-ch-cb').value = '';
-  document.getElementById('hv-ch-notes').value = '';
+  // L'admin peut avoir la vue Chapeau ouverte dans le même onglet (le MC et
+  // l'admin partagent index.html) : on resynchronise pour qu'il voie le
+  // montant sans recharger. Conditionné à une VRAIE session admin — sans ça
+  // le téléphone du MC déclenchait un appel admin-write voué au 401.
+  if (typeof getAdminSession === 'function' && getAdminSession()?.token && hasProAccess()) {
+    loadChapeauEntries();
+  }
+}
+
+function hvChapeauFeedback(msg, color) {
+  const okEl = document.getElementById('hv-chapeau-ok');
+  if (!okEl) return;
+  okEl.textContent = msg;
+  okEl.style.color = color;
+  okEl.style.display = 'block';
 }
 
 function loadHvDates() {

@@ -14,6 +14,16 @@
 //                      (comedianId doit correspondre à un comédien existant).
 //  - cancelDates    : supprime une ou plusieurs assignations du comédien
 //                      concerné et notifie l'admin via chat_messages.
+//  - saveChapeauEntry : le MC enregistre la recette de la soirée depuis son
+//                      téléphone, juste après le show. Écrit dans la MÊME
+//                      table que l'admin (chapeau_entries, upsert sur
+//                      club_id+slot_key) — jusqu'ici cette saisie n'allait
+//                      que dans le localStorage du téléphone du MC et
+//                      n'atteignait jamais le serveur : l'admin ne voyait
+//                      rien, et le montant disparaissait au rechargement.
+//                      Écriture autorisée seulement si le comédien est bien
+//                      assigné à ce créneau dans ce club, et si le club a le
+//                      palier Pro (même verrou que côté admin).
 //
 // Compromis assumé : ces actions touchent bien "comedians" (ensureComedian) et
 // "assignments" (cancelDates), ce qui dépasse la restriction initialement
@@ -31,7 +41,7 @@
 // lectures/écritures — un id de comédien deviné/fuité d'un club A ne permet
 // plus d'agir sur les données d'un club B.
 
-import { applyCors, sbAdmin, isNonEmptyString, SLOT_KEY_RE, idFromEmail, clubOrFilter, resolveClubIdByPortalCode, sendTransactionalEmail } from './_lib.js';
+import { applyCors, sbAdmin, isNonEmptyString, SLOT_KEY_RE, idFromEmail, clubOrFilter, resolveClubIdByPortalCode, sendTransactionalEmail, sanitizeChapeauEntry, requireProAccess } from './_lib.js';
 
 const MAX_ROWS = 500;
 
@@ -206,6 +216,48 @@ export default async function handler(req, res) {
         }
 
         return res.status(200).json({ success: true, removed: slotKeys.length });
+      }
+
+      // ── Chapeau saisi par le MC (index.html, bloc "Saisir le chapeau"
+      // visible pour le MC de 0 à 60 min après son show) ──────────────────
+      // Le portail n'a pas de compte authentifié (voir l'avertissement en
+      // tête de fichier) : l'autorisation repose ici sur trois conditions
+      // cumulées — code d'accès du club valide, comédien existant DANS ce
+      // club, et effectivement assigné à ce créneau. Un comédien de la
+      // soirée peut donc corriger le montant d'un autre du même plateau ;
+      // c'est le compromis assumé, cohérent avec cancelDates juste au-dessus
+      // et avec l'usage réel (le MC saisit, l'admin relit et corrige depuis
+      // la vue Chapeau).
+      case 'saveChapeauEntry': {
+        const p = payload || {};
+        const comedianId = isNonEmptyString(p.comedianId, 100) ? String(p.comedianId) : null;
+        if (!comedianId) return res.status(400).json({ error: 'comedianId requis' });
+        const row = sanitizeChapeauEntry(p);
+        if (!row) return res.status(400).json({ error: 'slot_key valide et montant requis' });
+
+        const comedian = await findComedianById(comedianId, clubId);
+        if (!comedian) return res.status(404).json({ error: 'Comédien introuvable — reconnecte-toi' });
+
+        if (!(await requireProAccess(clubId))) {
+          return res.status(403).json({ error: 'Le chapeau est une fonctionnalité Pro' });
+        }
+
+        // Assigné à CE créneau, dans CE club — sinon n'importe quel comédien
+        // du club pourrait inventer la recette d'une soirée où il ne jouait
+        // pas.
+        const assigned = await sbAdmin('assignments', {
+          params: `?slot_key=eq.${encodeURIComponent(row.slot_key)}&comedian_id=eq.${encodeURIComponent(comedianId)}&${clubOrFilter(clubId)}&select=comedian_id&limit=1`,
+        });
+        if (!Array.isArray(assigned) || !assigned.length) {
+          return res.status(403).json({ error: 'Tu n\'es pas assigné à ce créneau' });
+        }
+
+        await sbAdmin('chapeau_entries', {
+          method: 'POST',
+          params: '?on_conflict=club_id,slot_key',
+          body: [{ ...row, club_id: clubId, updated_at: new Date().toISOString() }],
+        });
+        return res.status(200).json({ success: true, entry: { ...row, club_id: clubId } });
       }
 
       default:

@@ -67,7 +67,7 @@
 // (403) si le club n'a pas accès — jamais une confiance au client, exactement
 // le même réflexe que clubId/scope pour l'isolation multitenant.
 
-import { applyCors, sbAdmin, verifyAdminToken, isNonEmptyString, SLOT_KEY_RE, clubOrFilter, newId, computePlanAccess } from './_lib.js';
+import { applyCors, sbAdmin, verifyAdminToken, isNonEmptyString, SLOT_KEY_RE, clubOrFilter, newId, sanitizeChapeauEntry, requireProAccess } from './_lib.js';
 
 const MAX_BULK = 5000; // garde-fou anti-abus sur les upserts en masse
 
@@ -116,14 +116,6 @@ async function resolveDefaultRoomId(clubId) {
 // ne les porte de toute façon pas, cf. _lib.js) ni à quoi que ce soit fourni
 // par le client. Même philosophie que le reste du fichier : `clubId` vient
 // TOUJOURS de auth.active_club_id (token vérifié), jamais du payload.
-async function requireProAccess(clubId) {
-  const rows = await sbAdmin('clubs', {
-    params: `?id=eq.${encodeURIComponent(clubId)}&select=id,status,plan&limit=1`,
-  });
-  const club = Array.isArray(rows) && rows.length ? rows[0] : null;
-  return computePlanAccess(club).proFeatures;
-}
-
 function sanitizeComedian(row) {
   if (!row || typeof row !== 'object') return null;
   if (!isNonEmptyString(row.id, 100) || !isNonEmptyString(row.name, 200)) return null;
@@ -156,26 +148,10 @@ function sanitizeComedian(row) {
   return out;
 }
 
-// chapeau_entries — une ligne par soirée (unique sur club_id+slot_key, voir
-// SQL). amount_total est calculé ici plutôt que côté DB (pas de colonne
-// GENERATED) : reproduit exactement la règle déjà en place côté client avant
-// ce chantier (especes+cb, avec repli sur un montant "par personne" saisi
-// seul si especes/cb sont à zéro tous les deux).
-function sanitizeChapeauEntry(payload) {
-  if (!payload || typeof payload !== 'object') return null;
-  if (!SLOT_KEY_RE.test(payload.slot_key || '')) return null;
-  const especes = Number.isFinite(payload.amount_especes) && payload.amount_especes >= 0 ? payload.amount_especes : 0;
-  const cb = Number.isFinite(payload.amount_cb) && payload.amount_cb >= 0 ? payload.amount_cb : 0;
-  const fallbackTotal = Number.isFinite(payload.amount_total) && payload.amount_total >= 0 ? payload.amount_total : 0;
-  const total = (especes + cb) || fallbackTotal;
-  if (!total) return null; // un montant est requis (même garde que saveChapeau() côté client avant ce chantier)
-  return {
-    slot_key: String(payload.slot_key),
-    amount_especes: especes,
-    amount_cb: cb,
-    amount_total: total,
-  };
-}
+// chapeau_entries (une ligne par soirée, unique sur club_id+slot_key) :
+// validation et verrou Pro vivent dans _lib.js depuis que le MC peut lui
+// aussi enregistrer un chapeau depuis son téléphone (api/portal-write.js) —
+// une seule règle de calcul du total pour les deux routes.
 
 function sanitizeAssignment(row) {
   if (!row || typeof row !== 'object') return null;
