@@ -5177,7 +5177,11 @@ async function sendUrgenceAlert() {
 function updateChapeauTotal() {
   const especes = parseFloat(document.getElementById('ch-especes').value) || 0;
   const cb = parseFloat(document.getElementById('ch-cb').value) || 0;
-  document.getElementById('ch-total').textContent = (especes + cb) + '€';
+  const parPersonne = parseFloat(document.getElementById('ch-par-personne').value) || 0;
+  // Meme regle que saveChapeau() : especes+cb, avec repli sur le montant par
+  // personne saisi seul. Sans ce repli, une soiree enregistree au forfait
+  // affichait "0€" dans la modale alors que le total de la vue disait 30€.
+  document.getElementById('ch-total').textContent = ((especes + cb) || parPersonne) + '€';
 }
 
 // slot_key de l'entree en cours de correction, null en creation. Jusqu'ici
@@ -5204,7 +5208,12 @@ function chapeauModalMode(entry) {
   if (save) save.textContent = entry ? 'Mettre à jour' : 'Enregistrer';
   document.getElementById('ch-especes').value = entry && entry.especes ? entry.especes : '';
   document.getElementById('ch-cb').value = entry && entry.cb ? entry.cb : '';
-  document.getElementById('ch-par-personne').value = '';
+  // Soiree enregistree au forfait par personne : le serveur ne stocke que le
+  // total (especes/cb a 0). On le restitue dans ce champ-la, sinon rouvrir
+  // l'entree affichait 0€ et "mettre a jour" butait sur la garde "Saisis un
+  // montant" — la somme restait invisible et incorrigeable.
+  const forfait = entry && !entry.especes && !entry.cb && entry.montant ? entry.montant : '';
+  document.getElementById('ch-par-personne').value = forfait;
   updateChapeauTotal();
 }
 
@@ -5668,7 +5677,7 @@ async function downloadAccountingCSV() {
     <div class="fr"><label class="fl">💵 Espèces (€)</label><input class="fi" id="ch-especes" type="number" placeholder="0" min="0" oninput="updateChapeauTotal()"></div>
     <div class="fr"><label class="fl">💳 CB (€)</label><input class="fi" id="ch-cb" type="number" placeholder="0" min="0" oninput="updateChapeauTotal()"></div>
     <div class="fr"><label class="fl">Total collecté</label><div id="ch-total" style="font-size:20px;font-weight:800;color:var(--gold)">0€</div></div>
-    <div class="fr"><label class="fl">👤 Montant par personne (€)</label><input class="fi" id="ch-par-personne" type="number" placeholder="0" min="0"></div>
+    <div class="fr"><label class="fl">👤 Montant par personne (€)</label><input class="fi" id="ch-par-personne" type="number" placeholder="0" min="0" oninput="updateChapeauTotal()"></div>
     <div class="ma">
       <button class="btn btn-ghost" id="ch-delete-btn" style="display:none;margin-right:auto;color:var(--r)" onclick="deleteChapeauFromModal()">✕ Supprimer</button>
       <button class="btn btn-ghost" onclick="closeModal('modal-chapeau')">Annuler</button>
