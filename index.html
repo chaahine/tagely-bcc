@@ -339,6 +339,15 @@ html.light{
   font-size:7px;font-weight:700;padding:1px 5px;border-radius:20px;
   background:var(--gold2);color:var(--gold);border:1px solid rgba(245,158,11,.3);flex-shrink:0;
 }
+/* MC désigné par l'admin alors que l'humoriste ne s'est pas déclaré MC sur ce
+   créneau : même place, look "pas encore confirmé" (pointillés) pour qu'un
+   coup d'œil au planning distingue un line-up ferme d'un line-up de travail. */
+.mc-b.prov{background:var(--o2);color:var(--o);border-style:dashed;border-color:var(--ob)}
+.mc-pick{background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:2px 4px;border-radius:2px;transition:.1s}
+.mc-pick:hover{color:var(--gold)}
+.mc-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:4px;background:var(--s2);border:1px solid var(--border2);cursor:pointer;transition:.12s}
+.mc-row:hover{background:var(--s3);border-color:var(--ob)}
+.mc-row.actuel{border-color:rgba(245,158,11,.5);background:var(--gold2)}
 .cd{
   border-radius:3px;padding:5px 9px;
   background:var(--s2);border:1px solid var(--border2);
@@ -2722,6 +2731,7 @@ function renderPlanning() {
       html += `<div class="sc"><div class="sc-hd"><div><div class="sc-time">${slot.replace('H',':')}</div><div class="sc-meta">${totalD} dispo${totalD>1?'s':''}</div></div>
         <div style="display:flex;align-items:center;gap:4px">
           ${asgnIds.length?`<span class="sc-badge">${asgnIds.length}/${MAX}</span>`:''}
+          <button class="mc-pick" title="Désigner le MC (même s'il ne s'est pas encore déclaré)" onclick="openMcPicker('${jsAttr(key)}','${jsAttr(`${day.label} ${date.getDate()} ${MOIS[date.getMonth()]} · ${slot.replace('H',':')}`)}')">🎤</button>
           <button title="Annuler cette séance" onclick="cancelSlot('${key}','${slot}','${day.label} ${date.getDate()} ${MOIS[date.getMonth()]}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:2px 4px;border-radius:2px;transition:.1s" onmouseover="this.style.color='var(--r)'" onmouseout="this.style.color='var(--muted)'">⊘</button>
         </div>
       </div>
@@ -2735,7 +2745,7 @@ function renderPlanning() {
           <button class="ca-rm" onclick="unassign('${key}','${id}')">✕</button>
           <span class="gdot g${c.gender}"></span>
           <div class="ca-name">${c.name}</div>
-          ${idx===0?`<span class="mc-b">MC</span>`:''}
+          ${idx===0?mcBadge(id, key):''}
           <span style="font-size:8px;color:rgba(34,197,94,.5);margin-left:auto">${c.duration||10}m</span>
         </div>`;
       });
@@ -2809,12 +2819,13 @@ function renderTourneeSection() {
     const dateLabel = `${s.dayLabel} ${s.day} ${MOIS[s.date.getMonth()]} ${s.date.getFullYear()}`;
 
     let body = '';
-    asgnIds.forEach(id => {
+    asgnIds.forEach((id, idx) => {
       const c = COMEDIANS.find(c=>c.id===id); if (!c) return;
       body += `<div class="ca">
         <button class="ca-rm" onclick="unassign('${key}','${id}')">✕</button>
         <span class="gdot g${c.gender}"></span>
         <div class="ca-name">${c.name}</div>
+        ${idx===0?mcBadge(id, key):''}
         <span style="font-size:8px;color:rgba(34,197,94,.5);margin-left:auto">${c.duration||10}m</span>
       </div>`;
     });
@@ -2839,6 +2850,7 @@ function renderTourneeSection() {
         </div>
         <div style="display:flex;align-items:center;gap:4px">
           ${asgnIds.length?`<span class="sc-badge">${asgnIds.length}/${MAX}</span>`:''}
+          <button class="mc-pick" title="Désigner le MC (même s'il ne s'est pas encore déclaré)" onclick="openMcPicker('${jsAttr(key)}','${jsAttr(`${dateLabel} · ${s.slot.replace('H',':')}`)}')">🎤</button>
           <button title="Retirer cette date ponctuelle" onclick="removeManualEvent('${s.eventId}','${dateLabel} ${s.slot.replace('H',':')}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:2px 4px;border-radius:2px" onmouseover="this.style.color='var(--r)'" onmouseout="this.style.color='var(--muted)'">✕</button>
         </div>
       </div>
@@ -2938,6 +2950,143 @@ function renderPlanningCounters() {
         color:${c.gender==='f'?'#f472b6':'#93c5fd'};white-space:nowrap"
       >${c.name.split(' ')[0]} <strong style="color:var(--o)">${n}</strong></span>`
     ).join('');
+}
+
+// ══════════════════════════════════════════════════
+// MC DU CRÉNEAU (dont MC provisoire)
+// ══════════════════════════════════════════════════
+// La position 0 d'un créneau EST le MC (asgnIds[0], partout dans l'app :
+// planning, envoi du line-up, export ICS, bloc chapeau du MC). Jusqu'ici on
+// ne pouvait la fixer qu'en assignant les gens dans le bon ordre, et
+// uniquement parmi ceux qui avaient déclaré être dispo — un créneau sans
+// réponse ne proposait personne ("aucun dispo") et bloquait la construction
+// du line-up. Le sélecteur ci-dessous permet de désigner n'importe qui,
+// déclaré ou non ; s'il ne s'est pas déclaré MC sur ce créneau, le line-up
+// l'affiche comme PROVISOIRE (badge en pointillés) au lieu de faire croire
+// à un MC confirmé.
+
+let mcPickerKey = null;   // créneau en cours de sélection
+let mcPickerLabel = '';   // libellé lisible, pour le titre de la modale
+
+// L'humoriste s'est-il déclaré MC sur ce créneau précis ? (case "MC" du
+// portail, colonne dispos.mc). Sert à distinguer ferme / provisoire.
+function isMcDeclare(id, key) {
+  return !!DISPOS_DATA[id]?.[key]?.mc;
+}
+
+// Badge MC d'une carte de line-up — un seul endroit pour les deux états,
+// utilisé par la grille hebdo ET par les dates de tournée.
+function mcBadge(id, key) {
+  if (isMcDeclare(id, key)) return `<span class="mc-b">MC</span>`;
+  const nom = COMEDIANS.find(c => c.id === id)?.name || 'Cet humoriste';
+  return `<span class="mc-b prov" title="MC provisoire — ${escapeAttr(nom)} ne s'est pas déclaré MC sur ce créneau">MC ?</span>`;
+}
+
+// Les libellés injectés dans des attributs HTML (title=, onclick='...')
+// viennent de noms saisis par l'admin : une apostrophe suffirait à casser le
+// balisage généré. escapeAttr = valeur d'attribut simple (title=...).
+function escapeAttr(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// jsAttr = valeur destinée à un littéral JS lui-même placé dans un attribut
+// HTML : onclick="setSlotMC('…')". escapeAttr seul ne suffit PAS ici — le
+// navigateur décode &#39; en apostrophe AVANT d'évaluer le JS, ce qui
+// refermerait la chaîne ("MAEVA O'CONNOR" cassait le handler). On échappe
+// donc d'abord pour JS, puis pour le HTML.
+function jsAttr(str) {
+  return escapeAttr(String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+}
+
+function openMcPicker(key, label) {
+  mcPickerKey = key;
+  mcPickerLabel = label || '';
+  const titre = document.getElementById('mc-modal-title');
+  if (titre) titre.textContent = mcPickerLabel ? `🎤 MC — ${mcPickerLabel}` : '🎤 Choisir le MC';
+  const search = document.getElementById('mc-search');
+  if (search) search.value = '';
+  renderMcPicker();
+  openModal('modal-mc');
+}
+
+function renderMcPicker() {
+  const list = document.getElementById('mc-list');
+  if (!list || !mcPickerKey) return;
+  const key = mcPickerKey;
+  const q = (document.getElementById('mc-search')?.value || '').trim().toLowerCase();
+  const actuel = (assignments[key] || [])[0] || null;
+
+  // Ordre d'affichage = ordre d'utilité : MC déclaré sur ce créneau, puis
+  // simplement dispo, puis tout le reste (qu'on ne cache PAS — c'est tout
+  // l'intérêt : pouvoir avancer avant que les dispos ne rentrent).
+  const rang = (c) => {
+    if (isMcDeclare(c.id, key)) return 0;
+    if (DISPOS_DATA[c.id]?.[key]?.dispo) return 1;
+    return 2;
+  };
+  const items = COMEDIANS
+    .filter(c => c.active !== false)
+    .filter(c => !q || c.name.toLowerCase().includes(q))
+    .sort((a, b) => rang(a) - rang(b) || a.name.localeCompare(b.name));
+
+  if (!items.length) {
+    list.innerHTML = `<div style="font-size:11px;color:var(--muted);padding:12px;text-align:center">Aucun humoriste ne correspond.</div>`;
+  } else {
+    list.innerHTML = items.map(c => {
+      const estActuel = c.id === actuel;
+      const badge = isMcDeclare(c.id, key)
+        ? `<span class="mc-b">MC déclaré</span>`
+        : (DISPOS_DATA[c.id]?.[key]?.dispo
+            ? `<span style="font-size:8px;color:var(--g)">✓ dispo</span>`
+            : `<span style="font-size:8px;color:var(--muted2)">pas de réponse</span>`);
+      return `<div class="mc-row ${estActuel?'actuel':''}" onclick="setSlotMC('${jsAttr(c.id)}')">
+        <span class="gdot g${c.gender}"></span>
+        <div style="flex:1;font-size:12px;font-weight:600">${c.name}</div>
+        ${badge}
+        ${estActuel?`<span style="font-size:8px;color:var(--gold);font-weight:700">MC actuel</span>`:''}
+      </div>`;
+    }).join('');
+  }
+
+  const clearBtn = document.getElementById('mc-clear-btn');
+  if (clearBtn) {
+    clearBtn.style.display = actuel ? 'inline-block' : 'none';
+    const nom = COMEDIANS.find(c => c.id === actuel)?.name || '';
+    clearBtn.textContent = `✕ Retirer ${nom.split(' ')[0]} du créneau`;
+  }
+}
+
+// Place l'humoriste en tête du créneau — donc MC. S'il y est déjà, on le
+// remonte sans le dupliquer ni perdre le reste du line-up.
+function setSlotMC(id) {
+  const key = mcPickerKey;
+  if (!key) return;
+  const MAX = parseInt(document.getElementById('s-max')?.value) || 4;
+  const actuels = assignments[key] || [];
+  const dejaLa = actuels.includes(id);
+  if (!dejaLa && actuels.length >= MAX) {
+    toast(`Créneau plein (${MAX}) — retire quelqu'un avant de désigner un autre MC`);
+    return;
+  }
+  assignments[key] = [id, ...actuels.filter(i => i !== id)];
+  saveToSupabase();
+  closeModal('modal-mc');
+  renderPlanning();
+  if (document.getElementById('view-humoristes')?.classList.contains('on')) renderHumoristes();
+  const nom = COMEDIANS.find(c => c.id === id)?.name || 'MC';
+  toast(isMcDeclare(id, key) ? `🎤 ${nom} est MC` : `🎤 ${nom} est MC (provisoire)`);
+}
+
+// Retire du créneau l'humoriste actuellement en tête. Le suivant devient MC
+// mécaniquement (position 0) — cohérent avec le reste de l'app, plutôt qu'un
+// créneau sans MC qui n'existe pas dans le modèle.
+function clearSlotMC() {
+  const key = mcPickerKey;
+  if (!key) return;
+  const actuel = (assignments[key] || [])[0];
+  if (!actuel) return;
+  closeModal('modal-mc');
+  unassign(key, actuel);
 }
 
 function planAsgn(id,key){
@@ -4542,7 +4691,14 @@ async function loadFromSupabase() {
     console.log(`[Stagely] Chargement dispos Supabase : ${dateFrom} → ${dateTo}`);
     const [comedians, asgn, dispos, statuses, msgs, templates, events, rooms] = await Promise.all([
       sbFetch('comedians', {params:'?order=name'}),
-      sbFetch('assignments'),
+      // ?order=id : sans ORDER BY explicite, PostgREST renvoie les lignes dans
+      // un ordre non garanti — or la POSITION 0 d'un créneau désigne le MC
+      // (voir asgnIds[0] dans renderPlanning() et checkHvLineup()). Le MC
+      // tenait donc au hasard de l'ordre de lecture. La sauvegarde vide la
+      // table puis réinsère dans l'ordre du tableau client (saveToSupabase()
+      // + action 'sync'), donc l'id sérial suit exactement cet ordre : le
+      // trier le restitue à l'identique, MC en tête.
+      sbFetch('assignments', {params:'?order=id'}),
       loadDisposPaginated(dateFrom, dateTo),
       sbFetch('dispo_status'),
       sbFetch('chat_messages', {params:'?order=created_at&limit=100'}),
@@ -5728,6 +5884,28 @@ async function downloadAccountingCSV() {
       <button class="btn btn-ghost" id="ch-delete-btn" style="display:none;margin-right:auto;color:var(--r)" onclick="deleteChapeauFromModal()">✕ Supprimer</button>
       <button class="btn btn-ghost" onclick="closeModal('modal-chapeau')">Annuler</button>
       <button class="btn btn-o" id="ch-save-btn" onclick="saveChapeau()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sélecteur de MC — ouvert par le bouton 🎤 de chaque créneau (grille
+     hebdo ET dates de tournée). Liste TOUT le groupe, pas seulement ceux qui
+     ont répondu : le but est justement de pouvoir monter un line-up avant
+     que les dispos ne soient rentrées. -->
+<div class="overlay" id="modal-mc">
+  <div class="modal" style="width:420px">
+    <div class="modal-title" id="mc-modal-title">🎤 Choisir le MC</div>
+    <div style="font-size:10px;color:var(--muted);line-height:1.6;margin-bottom:12px">
+      Désigne qui tu veux, même sans réponse de sa part — le line-up n'attend pas.
+      Tant qu'il ne s'est pas déclaré MC sur ce créneau, il apparaît
+      <span class="mc-b prov">MC ?</span> dans le planning ; le badge passe en
+      <span class="mc-b">MC</span> dès qu'il confirme depuis le portail.
+    </div>
+    <div class="fr"><input class="fi" id="mc-search" type="text" placeholder="Chercher un humoriste…" oninput="renderMcPicker()"></div>
+    <div id="mc-list" style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;margin-top:4px"></div>
+    <div class="ma">
+      <button class="btn btn-ghost" id="mc-clear-btn" style="display:none;margin-right:auto;color:var(--r)" onclick="clearSlotMC()">✕ Retirer le MC</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-mc')">Fermer</button>
     </div>
   </div>
 </div>
