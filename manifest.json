@@ -1,7 +1,7 @@
 {
-  "name": "Stagely BCC",
+  "name": "Stagely",
   "short_name": "Stagely",
-  "description": "Gestion de salle de comédie — BCC",
+  "description": "Gestion de programmation pour comedy clubs : planning, disponibilités et cachets.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#080808",

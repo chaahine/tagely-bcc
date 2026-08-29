@@ -4,7 +4,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>STAGELY</title>
+<title>Stagely — Gestion de programmation pour comedy clubs</title>
+<meta name="description" content="Stagely : planning des soirées, disponibilités des humoristes, rappels automatiques et suivi des cachets pour les comedy clubs.">
 <script>
 // Fonction nav disponible globalement dès le chargement
 function nav(id) {
@@ -721,7 +722,7 @@ window.addEventListener('DOMContentLoaded', () => {
       <div style="text-align:center;margin-bottom:32px">
         <div style="font-size:44px;margin-bottom:12px">🎤</div>
         <div style="font-size:24px;font-weight:800;color:#f0f0f0;margin-bottom:4px;letter-spacing:-.5px">Portail Humoriste</div>
-        <div style="font-size:12px;color:#555;letter-spacing:.3px" id="hv-club-name-static">BCC</div>
+        <div style="font-size:12px;color:#555;letter-spacing:.3px" id="hv-club-name-static">—</div>
       </div>
 
       <!-- Choix action -->
@@ -796,7 +797,7 @@ window.addEventListener('DOMContentLoaded', () => {
     <div id="hv-tab-dispos" style="flex:1;overflow-y:auto;padding:16px;width:100%;box-sizing:border-box">
       <div style="margin-bottom:20px">
         <div style="font-size:20px;font-weight:800;color:#f0f0f0;margin-bottom:3px;letter-spacing:-.5px" id="hv-uname">—</div>
-        <div style="font-size:11px;color:#555" id="hv-club">BCC · Disponibilités</div>
+        <div style="font-size:11px;color:#555" id="hv-club">Disponibilités</div>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:8px">
         <div class="deadline-p">⏰ Deadline : <span id="hv-deadline">—</span></div>
@@ -858,7 +859,7 @@ window.addEventListener('DOMContentLoaded', () => {
           <div id="hv-avatar" style="width:60px;height:60px;border-radius:50%;background:rgba(249,115,22,.1);border:2px solid #f97316;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#f97316;flex-shrink:0;letter-spacing:-.5px">?</div>
           <div>
             <div id="hv-profil-name" style="font-size:18px;font-weight:800;color:#f0f0f0;letter-spacing:-.5px">—</div>
-            <div style="font-size:11px;color:#555;margin-top:3px">Humoriste · BCC</div>
+            <div style="font-size:11px;color:#555;margin-top:3px">Humoriste · <span id="hv-profil-club">—</span></div>
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -883,7 +884,7 @@ window.addEventListener('DOMContentLoaded', () => {
         </div>
         <div style="padding:14px 0;display:flex;justify-content:space-between;align-items:center">
           <span style="font-size:12px;color:#555">Club</span>
-          <span style="font-size:12px;color:#f97316;font-weight:700">BCC</span>
+          <span style="font-size:12px;color:#f97316;font-weight:700" id="hv-profil-club-row">—</span>
         </div>
       </div>
       <button onclick="hvLogout()" style="width:100%;padding:14px;background:rgba(239,68,68,.06);color:#ef4444;border:1px solid rgba(239,68,68,.2);border-radius:12px;font-family:'Inter','Rajdhani',sans-serif;font-weight:700;font-size:12px;cursor:pointer;letter-spacing:.3px">Se déconnecter</button>
@@ -894,7 +895,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <div id="hv-manage" style="display:none;flex:1;overflow-y:auto;padding:16px;width:100%;box-sizing:border-box">
     <div style="margin-bottom:24px">
       <div style="font-size:20px;font-weight:800;color:#f0f0f0;letter-spacing:-.5px" id="manage-uname">—</div>
-      <div style="font-size:11px;color:#555;margin-top:4px">BCC · Mes dates de passage</div>
+      <div style="font-size:11px;color:#555;margin-top:4px"><span id="manage-club">—</span> · Mes dates de passage</div>
       <div style="font-size:11px;color:#444;margin-top:6px">Décoche les dates qui ne te conviennent plus.</div>
     </div>
     <table class="dispo-table" style="border-radius:12px;overflow:hidden;margin-bottom:20px">
@@ -929,7 +930,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <div class="ni" onclick="openUrgenceModal()" style="color:var(--r);border:1px solid rgba(239,68,68,.2);border-radius:4px;margin:4px 8px"><span class="ni-lbl">🚨 Remplacement urgent</span></div>
 
   <div class="ctag" id="club-tag" onclick="toggleClubMenu(event)" style="cursor:pointer;position:relative">
-    <strong id="club-badge">BCC</strong><span class="ni-lbl">Directeur artistique</span>
+    <strong id="club-badge">—</strong><span class="ni-lbl">Directeur artistique</span>
     <div id="club-menu" style="display:none;position:absolute;bottom:100%;left:8px;right:8px;margin-bottom:6px;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:5px;box-shadow:0 8px 24px rgba(0,0,0,.35);z-index:60">
       <div id="club-menu-list"></div>
       <div class="club-menu-item" onclick="event.stopPropagation();goAddClub()" style="color:var(--o)">+ Ajouter un club</div>
@@ -1049,7 +1050,7 @@ window.addEventListener('DOMContentLoaded', () => {
           <!-- Infos club -->
           <div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px">
             <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);margin-bottom:16px;font-weight:700">📋 Infos du club</div>
-            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Nom du club</label><input class="fi" id="s-club" value="BCC" style="width:100%" oninput="document.getElementById('club-badge').textContent=this.value"></div>
+            <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Nom du club</label><input class="fi" id="s-club" value="" style="width:100%" oninput="document.getElementById('club-badge').textContent=this.value"></div>
             <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Ville</label><input class="fi" id="s-city" value="Lille" style="width:100%"></div>
             <div style="margin-bottom:12px"><label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Deadline dispos (jour du mois)</label><input class="fi" id="s-deadline" type="number" value="12" min="1" max="28" style="width:100%"></div>
             <!-- Mode de paiement des artistes (chapeau OU cachet, jamais les deux —
@@ -1073,7 +1074,7 @@ window.addEventListener('DOMContentLoaded', () => {
             <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);margin-bottom:16px;font-weight:700">🔗 Lien portail humoristes</div>
             <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Envoie ce lien à tes humoristes pour qu'ils accèdent au portail</div>
             <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
-              <div id="s-portal-link" style="flex:1;background:var(--s3);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--b);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">tagely-bcc.vercel.app/portal.html?code=BCCD25</div>
+              <div id="s-portal-link" style="flex:1;background:var(--s3);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--b);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">…</div>
               <button class="btn btn-ghost" onclick="copyPortalLinkSettings()" style="font-size:10px;flex-shrink:0">📋 Copier</button>
             </div>
           </div>
@@ -1130,7 +1131,7 @@ window.addEventListener('DOMContentLoaded', () => {
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-shrink:0">
         <div style="width:32px;height:32px;border-radius:50%;background:var(--o2);border:1px solid var(--ob);display:flex;align-items:center;justify-content:center;font-size:14px">💬</div>
         <div>
-          <div style="font-size:12px;font-weight:600" id="chat-group-name">BCC — Groupe général</div>
+          <div style="font-size:12px;font-weight:600" id="chat-group-name">Groupe général</div>
           <div style="font-size:10px;color:var(--muted)" id="chat-members-count">15 membres</div>
         </div>
         <div style="margin-left:auto;display:flex;gap:6px">
@@ -1279,7 +1280,7 @@ let currentCode = CLUB_CODE;
 // payment_mode (chantier "cachet + export comptable", 2026-08) : 'chapeau' |
 // 'cachet', reçu du serveur comme plan/status — défaut 'chapeau' = le
 // comportement du BCC, qui n'y touche jamais.
-let currentClub = { id: null, name: 'BCC', city: 'Lille', portal_code: CLUB_CODE, dispo_deadline_day: 12, plan: 'pro', status: 'active', payment_mode: 'chapeau' };
+let currentClub = { id: null, name: 'Stagely', city: '', portal_code: CLUB_CODE, dispo_deadline_day: 12, plan: 'pro', status: 'active', payment_mode: 'chapeau' };
 
 // Accès aux fonctionnalités Pro (chapeau + tableau de bord financier) — voir
 // computePlanAccess() côté serveur (api/_lib.js), même règle reproduite ici :
@@ -1339,6 +1340,12 @@ function applyClubInfo(club) {
   const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
   setText('club-badge', currentClub.name);
   setText('hv-club-name-static', currentClub.name);
+  // Libellés de la vue humoriste intégrée : affichaient "BCC" en dur avant le
+  // chantier de dé-branding — un club autre que le pilote y lisait le nom
+  // d'un club qui n'est pas le sien.
+  setText('hv-profil-club', currentClub.name);
+  setText('hv-profil-club-row', currentClub.name);
+  setText('manage-club', currentClub.name);
   setVal('s-club', currentClub.name);
   setVal('s-city', currentClub.city || '');
   setVal('s-deadline', currentClub.dispo_deadline_day);
@@ -3124,7 +3131,7 @@ function chgWk(d){weekOffset+=d;renderPlanning();}
 // ── EXPORT PDF ──
 function exportPDF() {
   const weekStart = getWeekStart();
-  const clubName = document.getElementById('s-club')?.value || 'BCC';
+  const clubName = document.getElementById('s-club')?.value || currentClub.name;
 
   let rows = '';
   DAYS_CONFIG.forEach((day, di) => {
@@ -3669,7 +3676,7 @@ function resetH(){
 // ══════════════════════════════════════════════════
 
 let chatMessages = [
-  {sender:'BCC Admin', senderId:'admin', text:'Bienvenue dans le chat du groupe BCC 👋 Utilisez cet espace pour vous coordonner.', time:'10:00', date:'Aujourd\'hui'},
+  {sender:'Admin', senderId:'admin', text:'Bienvenue dans le chat du groupe 👋 Utilisez cet espace pour vous coordonner.', time:'10:00', date:'Aujourd\'hui'},
   {sender:'PATRICK DOUGLAS', senderId:'patrick', text:'Salut tout le monde ! Rappel : je suis dispo tous les samedis de mai.', time:'10:14', date:'Aujourd\'hui'},
   {sender:'ALICIA THE QUEEN', senderId:'alicia', text:'Top ! Moi pareil pour les vendredis 💪', time:'10:22', date:'Aujourd\'hui'},
   {sender:'MH', senderId:'mh', text:'Question : est-ce que le créneau 23h00 le samedi sera maintenu en juin ?', time:'11:05', date:'Aujourd\'hui'},
@@ -3679,13 +3686,13 @@ function renderChat() {
   // Sender select
   const sel = document.getElementById('chat-sender');
   if (sel) {
-    sel.innerHTML = `<option value="admin">BCC Admin (moi)</option>` +
+    sel.innerHTML = `<option value="admin">${escapeHtmlLite(currentClub.name)} Admin (moi)</option>` +
       COMEDIANS.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
   }
 
   // Members count
   document.getElementById('chat-members-count').textContent = `${COMEDIANS.length + 1} membres`;
-  document.getElementById('chat-group-name').textContent = `${document.getElementById('s-club')?.value || 'BCC'} — Groupe général`;
+  document.getElementById('chat-group-name').textContent = `${document.getElementById('s-club')?.value || currentClub.name} — Groupe général`;
 
   // Messages
   const container = document.getElementById('chat-messages');
@@ -3720,7 +3727,7 @@ function renderChat() {
   if (ml) {
     ml.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
       <span style="width:7px;height:7px;border-radius:50%;background:var(--o);flex-shrink:0"></span>
-      <span style="font-size:11px;font-weight:500;flex:1">BCC Admin</span>
+      <span style="font-size:11px;font-weight:500;flex:1">${escapeHtmlLite(currentClub.name)} Admin</span>
       <span style="font-size:9px;color:var(--o);background:var(--o2);padding:1px 6px;border-radius:2px">Admin</span>
     </div>` +
     COMEDIANS.map(c => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
@@ -3738,7 +3745,7 @@ function sendChatMsg() {
 
   const senderId = document.getElementById('chat-sender')?.value || 'admin';
   const c = COMEDIANS.find(c => c.id === senderId);
-  const senderName = senderId === 'admin' ? 'BCC Admin' : c?.name || 'Inconnu';
+  const senderName = senderId === 'admin' ? `${currentClub.name} Admin` : c?.name || 'Inconnu';
 
   const now = new Date();
   const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -3906,7 +3913,7 @@ async function send1hReminders(key, humIds, showTime, slot) {
   const names = humIds.map(id => COMEDIANS.find(c => c.id === id)?.name.split(' ')[0]).filter(Boolean);
   const msg = `🔔 Show dans 1h — ${timeStr} · ${names.join(', ')}`;
   showAppNotif(msg, 'var(--o)');
-  sendNotif('🔔 Show dans 1h — BCC', `${timeStr} · ${names.join(', ')}`);
+  sendNotif(`🔔 Show dans 1h — ${currentClub.name}`, `${timeStr} · ${names.join(', ')}`);
   logAction('notification', { type: '1h_admin', slot: timeStr });
 }
 
@@ -3915,7 +3922,7 @@ async function send3hReminders(key, humIds, showTime, slot) {
   const names = humIds.map(id => COMEDIANS.find(c => c.id === id)?.name.split(' ')[0]).filter(Boolean);
   const msg = `⏰ Show dans 3h — ${timeStr} · ${names.join(', ')}`;
   showAppNotif(msg, 'var(--b)');
-  sendNotif('⏰ Show dans 3h — BCC', `${timeStr} · ${names.join(', ')}`);
+  sendNotif(`⏰ Show dans 3h — ${currentClub.name}`, `${timeStr} · ${names.join(', ')}`);
   logAction('notification', { type: '3h_reminder', slot: timeStr });
 }
 
@@ -3945,13 +3952,13 @@ function showAppNotif(msg, color = 'var(--o)') {
   
   // Vraie notification système si permission accordée
   if (Notification.permission === 'granted') {
-    sendNotif('🎤 Stagely BCC', msg.replace(/<[^>]*>/g,''));
+    sendNotif(`🎤 ${currentClub.name}`, msg.replace(/<[^>]*>/g,''));
   }
 }
 
 // Tester les rappels manuellement (pour démo)
 function testReminders() {
-  sendNotif('🎤 Stagely BCC', 'Test notification — Les rappels de soirée fonctionnent !');
+  sendNotif(`🎤 ${currentClub.name}`, 'Test notification — Les rappels de soirée fonctionnent !');
   toast('🔔 Notification test envoyée !');
 }
 

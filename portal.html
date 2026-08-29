@@ -852,7 +852,7 @@ function exportCal() {
   if (!user) return;
   const myKeys = Object.entries(assignments).filter(([,ids])=>ids.includes(user.id)).map(([k])=>k);
   if (!myKeys.length) { alert('Aucune date à exporter'); return; }
-  let ics='BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Stagely BCC//FR\n';
+  let ics='BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Stagely//FR\n';
   myKeys.sort().forEach(key => {
     const parts=key.split('-');
     const y=parts[0],mo=parts[1],d=parts[2];
@@ -862,13 +862,15 @@ function exportCal() {
     const endH=parseInt(h)+1;
     const dt=`${y}${mo}${d}T${h.padStart(2,'0')}${(m||'00').padStart(2,'0')}00`;
     const dtend=`${y}${mo}${d}T${String(endH).padStart(2,'0')}${(m||'00').padStart(2,'0')}00`;
-    ics+=`BEGIN:VEVENT\nUID:stagely-${key}@bcc\nDTSTART:${dt}\nDTEND:${dtend}\nSUMMARY:${isFirst?'🎤 MC — ':''}${PORTAL_CLUB_NAME}\nLOCATION:${PORTAL_CLUB_NAME}\nEND:VEVENT\n`;
+    ics+=`BEGIN:VEVENT\nUID:stagely-${key}@stagely.app\nDTSTART:${dt}\nDTEND:${dtend}\nSUMMARY:${isFirst?'🎤 MC — ':''}${PORTAL_CLUB_NAME}\nLOCATION:${PORTAL_CLUB_NAME}\nEND:VEVENT\n`;
   });
   ics+='END:VCALENDAR';
   const blob=new Blob([ics],{type:'text/calendar'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href=url;a.download=`BCC_${user.name}.ics`;a.click();
+  // Nom de fichier derive du club reel : "BCC_..." etait code en dur.
+  const safeClub = String(PORTAL_CLUB_NAME || 'Stagely').replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_+|_+$/g, '') || 'Stagely';
+  a.href=url;a.download=`${safeClub}_${user.name}.ics`;a.click();
   URL.revokeObjectURL(url);
 }
 
