@@ -1,5 +1,14 @@
 # Stagely — mise en app native (iOS / Android) via Capacitor
 
+> **⚠️ Document partiellement périmé (29 août 2026).**
+> Il décrit fidèlement comment la coquille Capacitor a été construite, ce qui
+> reste exact et utile. En revanche sa section « ce qu'il reste à faire » est
+> dépassée : la branche `mobile/capacitor-setup` a été fusionnée, et le
+> chantier de conformité v225–v229 a depuis livré les pages légales, la
+> suppression de compte, les fonctionnalités natives et la facturation
+> Stripe. **Pour l'état réel et la marche à suivre, voir `LANCEMENT.md`.**
+
+
 Ce document explique ce qui a été préparé pour publier Stagely sur l'App
 Store et Google Play, et surtout **ce qu'il reste à faire**, étape par
 étape, une fois que les comptes développeur et les outils manquants seront
