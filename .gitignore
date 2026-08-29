@@ -35,3 +35,7 @@ android/.cxx/
 
 # macOS
 .DS_Store
+
+# Worktrees d agents Claude Code + lien local Vercel — jamais versionnes
+.claude/
+.vercel/
