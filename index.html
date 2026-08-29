@@ -6,6 +6,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Stagely — Gestion de programmation pour comedy clubs</title>
 <meta name="description" content="Stagely : planning des soirées, disponibilités des humoristes, rappels automatiques et suivi des cachets pour les comedy clubs.">
+<!-- Couche native Capacitor (rappels locaux, partage, barre d'état, bouton
+     retour Android). Sans effet sur le web : voir native.js. -->
+<script src="/native.js" defer></script>
 <script>
 // Fonction nav disponible globalement dès le chargement
 function nav(id) {
@@ -1076,6 +1079,7 @@ window.addEventListener('DOMContentLoaded', () => {
             <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
               <div id="s-portal-link" style="flex:1;background:var(--s3);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--b);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">…</div>
               <button class="btn btn-ghost" onclick="copyPortalLinkSettings()" style="font-size:10px;flex-shrink:0">📋 Copier</button>
+              <button class="btn btn-ghost" id="btn-share-portal" onclick="sharePortalLink()" style="font-size:10px;flex-shrink:0;display:none">📤 Partager</button>
             </div>
           </div>
 
@@ -1104,6 +1108,16 @@ window.addEventListener('DOMContentLoaded', () => {
             <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);margin-bottom:16px;font-weight:700">⚙️ Préférences</div>
             <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)"><span style="font-size:12px">Max humoristes / créneau</span><select class="fi" style="width:60px;padding:4px" id="s-max"><option>2</option><option>3</option><option selected>4</option><option>5</option></select></div>
             <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0"><span style="font-size:12px">1er = MC automatique</span><button class="tgl on" onclick="this.classList.toggle('on')"></button></div>
+          </div>
+
+          <!-- Application mobile (affichée uniquement dans l'app native) -->
+          <div id="native-card" style="display:none;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);margin-bottom:16px;font-weight:700">📱 Application mobile</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.6">Recevez un rappel sur cet appareil trois jours avant la deadline de dispos, puis le jour même.</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+              <div style="font-size:12px" id="native-reminders-state">Rappels désactivés</div>
+              <button class="btn btn-o" id="native-reminders-btn" onclick="toggleNativeReminders()" style="flex-shrink:0">Activer</button>
+            </div>
           </div>
 
           <!-- Zone dangereuse -->
@@ -1281,6 +1295,13 @@ let currentCode = CLUB_CODE;
 // 'cachet', reçu du serveur comme plan/status — défaut 'chapeau' = le
 // comportement du BCC, qui n'y touche jamais.
 let currentClub = { id: null, name: 'Stagely', city: '', portal_code: CLUB_CODE, dispo_deadline_day: 12, plan: 'pro', status: 'active', payment_mode: 'chapeau' };
+// Exposé pour native.js (couche Capacitor) : un `let` au niveau d'un script
+// classique ne crée pas de propriété sur window. L'objet n'est jamais
+// réassigné, seulement muté par applyClubInfo() — la référence reste donc
+// valide pour la durée de la session. Garde `typeof window` : ce bloc est
+// aussi exécuté hors navigateur par les tests (sandbox vm, cf. les marqueurs
+// TEST-EXTRACT ci-dessus), où window n'existe pas.
+if (typeof window !== 'undefined') window.currentClub = currentClub;
 
 // Accès aux fonctionnalités Pro (chapeau + tableau de bord financier) — voir
 // computePlanAccess() côté serveur (api/_lib.js), même règle reproduite ici :
@@ -1353,6 +1374,13 @@ function applyClubInfo(club) {
   if (linkEl) linkEl.textContent = buildPortalLink().replace('https://', '');
   applyPlanGating();
   renderPlanCard();
+  // Couche native : la deadline vient peut-être de changer (sauvegarde des
+  // réglages ou switch de club) — les rappels déjà activés sont reprogrammés
+  // dessus, sans jamais redemander la permission.
+  if (typeof window !== 'undefined' && window.StagelyNative) {
+    renderNativeCard();
+    window.StagelyNative.refreshReminders(currentClub.dispo_deadline_day, currentClub.name);
+  }
   // Chapeau/cachet (chantier "cachet + export comptable", 2026-08) : données
   // financières désormais persistées serveur (plus de localStorage), donc
   // rechargées ici — le seul point où l'identité du club (donc son
@@ -1568,6 +1596,65 @@ function resetOnboarding() {
 function copyPortalLinkSettings() {
   const link = buildPortalLink();
   navigator.clipboard?.writeText(link).then(() => toast('✓ Lien copié'));
+}
+
+// ══════════════════════════════════════════════════
+// INTÉGRATION NATIVE (voir native.js)
+// ══════════════════════════════════════════════════
+// Tout ce bloc est inerte sur le web : window.StagelyNative n'existe que si
+// native.js a été chargé, et ses méthodes ne font quelque chose que dans la
+// WebView Capacitor. Aucune fonctionnalité existante n'en dépend.
+
+// Partage du lien portail via la feuille de partage système — la façon
+// naturelle d'envoyer le lien à ses humoristes depuis un téléphone. Retombe
+// sur le presse-papiers partout où le partage n'existe pas, et le dit.
+async function sharePortalLink() {
+  const link = buildPortalLink();
+  const N = window.StagelyNative;
+  const result = N
+    ? await N.share({ title: 'Portail humoristes', text: `Indique tes disponibilités pour ${currentClub.name} :`, url: link })
+    : 'failed';
+  if (result === 'clipboard') toast('✓ Lien copié');
+  else if (result === 'failed') toast('✕ Partage indisponible');
+  else if (result !== 'cancelled') N.tap('success');
+}
+
+// Bascule des rappels locaux. La permission n'est demandée qu'ici, sur un
+// geste explicite : une demande au premier lancement se fait refuser dans la
+// plupart des cas, et un refus iOS est définitif hors réglages système.
+async function toggleNativeReminders() {
+  const N = window.StagelyNative;
+  if (!N || !N.isNative) return;
+  if (N.remindersEnabled()) {
+    await N.cancelReminders();
+    renderNativeCard();
+    toast('Rappels désactivés');
+    return;
+  }
+  const state = await N.enableReminders(currentClub.dispo_deadline_day, currentClub.name);
+  renderNativeCard();
+  if (state === 'enabled') { N.tap('success'); toast('✓ Rappels activés sur cet appareil'); }
+  else if (state === 'denied') toast('Autorise les notifications dans les réglages de ton téléphone');
+  else toast('✕ Rappels indisponibles sur cet appareil');
+}
+
+function renderNativeCard() {
+  const N = window.StagelyNative;
+  const card = document.getElementById('native-card');
+  const shareBtn = document.getElementById('btn-share-portal');
+  if (!N || !N.isNative) return;
+  if (shareBtn) shareBtn.style.display = '';
+  if (!card) return;
+  card.style.display = '';
+  const on = N.remindersEnabled();
+  const day = currentClub.dispo_deadline_day;
+  const stateEl = document.getElementById('native-reminders-state');
+  const btn = document.getElementById('native-reminders-btn');
+  if (stateEl) stateEl.textContent = on ? `Rappels actifs — le ${Math.max(1, day - 3)} et le ${day} de chaque mois` : 'Rappels désactivés';
+  if (btn) {
+    btn.textContent = on ? 'Désactiver' : 'Activer';
+    btn.className = on ? 'btn btn-ghost' : 'btn btn-o';
+  }
 }
 
 // Bouton "Sauvegarder" de Réglages > Infos du club — jusqu'ici ne faisait
