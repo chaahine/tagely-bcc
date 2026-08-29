@@ -45,7 +45,8 @@ export async function sbAdmin(table, { method = 'GET', params = '', body } = {})
 
 export function applyCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  // GET ajouté pour api/billing-config.js (seule route de lecture publique).
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 

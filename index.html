@@ -674,6 +674,13 @@ async function checkAdminPwd() {
       document.getElementById('admin-login-screen').style.display = 'none';
       document.getElementById('home-screen').style.display = 'none';
       document.getElementById('admin-screen').style.removeProperty('display');
+    } else if (res.status === 403 && /suspendu/i.test(String(data.error || ''))) {
+      // Essai expiré : le serveur refuse d'ouvrir une session. Sans porte de
+      // sortie ici, le club serait dans un cul-de-sac parfait — plus de
+      // session, donc aucun moyen de souscrire, donc aucun moyen de revenir.
+      // /api/billing-checkout accepte pour ce cas précis une authentification
+      // par email + mot de passe, et n'accorde que le droit de payer.
+      await offerReactivation(email, val, errEl);
     } else {
       errEl.textContent = (res.status === 401 || res.status === 403) ? ('⚠ ' + (data.error || 'Email ou mot de passe incorrect')) : '⚠ Erreur de connexion, réessaie';
       errEl.style.display = 'block';
@@ -706,7 +713,49 @@ window.addEventListener('DOMContentLoaded', () => {
   } else {
     showHomeScreen();
   }
+  handleBillingReturn(params);
 });
+
+// Retour depuis Stripe Checkout (?billing=success|cancelled|back).
+//
+// Le palier n'est PAS lu ici : c'est le webhook qui l'écrit en base, et il
+// peut arriver une poignée de secondes après la redirection. On relit donc
+// l'identité du club auprès du serveur — /api/switch-club sur le club déjà
+// actif relit status/plan en base et réémet un token — plutôt que de
+// supposer que le paiement a déjà été enregistré.
+async function handleBillingReturn(params) {
+  const billing = params.get('billing');
+  if (!billing) return;
+  // L'URL est nettoyée tout de suite : un rechargement de page ne doit pas
+  // rejouer ce message.
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}
+
+  if (billing === 'cancelled') { toast('Paiement annulé'); return; }
+  if (billing !== 'success' && billing !== 'back') return;
+
+  const session = getAdminSession();
+  if (!session || !session.token) {
+    // Cas du club suspendu qui vient de payer : il n'avait pas de session.
+    if (billing === 'success') toast('✓ Paiement reçu — connectez-vous pour retrouver votre club');
+    return;
+  }
+  const payload = decodeSessionPayload();
+  const clubId = payload && payload.active_club_id;
+  if (!clubId) return;
+  try {
+    const res = await fetch('/api/switch-club', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.token}` },
+      body: JSON.stringify({ club_id: clubId })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success && data.token) {
+      localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({ token: data.token, expiresAt: data.expiresAt, club: data.club || null }));
+      if (data.club) applyClubInfo(data.club);
+    }
+  } catch (e) { /* non bloquant : le palier sera à jour au prochain chargement */ }
+  if (billing === 'success') toast('✓ Merci — votre abonnement est actif');
+}
 </script>
 
 <!-- ══════════ VUE HUMORISTE ══════════ -->
@@ -1497,8 +1546,93 @@ function renderPlanCard() {
     <div style="font-size:10px;color:var(--muted);margin-top:14px;padding-top:14px;border-top:1px solid var(--border2);line-height:1.6">
       ⚠️ Pas encore construit, même en palier Pro/Réseau : gestion multi-salle (l'admin peut choisir une salle existante pour une date ponctuelle, mais rien pour en créer/gérer plusieurs). À développer avant de vendre ces paliers à un vrai client sur ce critère précis.
     </div>
+    <div id="billing-actions" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border2);display:none"></div>
     <button class="btn btn-ghost" style="margin-top:14px;font-size:10px" onclick="resetOnboarding()">🔄 Revoir le tutoriel de bienvenue</button>
   `;
+  renderBillingActions();
+}
+
+// ══════════════════════════════════════════════════
+// ABONNEMENT (Stripe) — voir api/billing-*.js
+// ══════════════════════════════════════════════════
+// Rien n'est affiché tant que /api/billing-config ne confirme pas que le
+// paiement est réellement branché : un bouton "Passer au Pro" qui retombe en
+// 503 parce que les clés Stripe ne sont pas renseignées serait pire que pas
+// de bouton du tout. Cette configuration est lue une seule fois par session.
+let billingConfig = null;
+const PLAN_ORDER = ['essentiel', 'pro', 'reseau'];
+
+async function loadBillingConfig() {
+  if (billingConfig) return billingConfig;
+  try {
+    const res = await fetch('/api/billing-config');
+    billingConfig = await res.json();
+  } catch (e) {
+    billingConfig = { enabled: false, plans: [] };
+  }
+  return billingConfig;
+}
+
+async function renderBillingActions() {
+  const el = document.getElementById('billing-actions');
+  if (!el) return;
+  const cfg = await loadBillingConfig();
+  if (!cfg.enabled || !cfg.plans.length) { el.style.display = 'none'; return; }
+  el.style.display = '';
+
+  const current = currentClub.plan || 'essentiel';
+  const isSubscribed = currentClub.status === 'active';
+  // Ne proposer que les paliers réellement supérieurs à celui du club : une
+  // descente de palier ou un changement de moyen de paiement passe par le
+  // portail Stripe, qui gère le prorata et la fin de période.
+  const upgrades = cfg.plans.filter(p => PLAN_ORDER.indexOf(p) > PLAN_ORDER.indexOf(current));
+
+  el.innerHTML = `
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;font-weight:600">Abonnement</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${upgrades.map(p => `<button class="btn btn-o" onclick="startCheckout('${p}')">Passer au palier ${PLAN_LABELS[p] || p}</button>`).join('')}
+      ${isSubscribed ? `<button class="btn btn-ghost" onclick="openBillingPortal()">Gérer mon abonnement</button>` : ''}
+    </div>
+    <div style="font-size:9px;color:var(--muted);margin-top:10px;line-height:1.6">
+      Paiement sécurisé par Stripe. Résiliable à tout moment depuis « Gérer mon abonnement ».
+    </div>`;
+}
+
+// Ouvre Stripe Checkout. La bascule effective du palier est écrite par le
+// webhook, jamais au retour de la redirection (voir api/stripe-webhook.js).
+async function startCheckout(plan) {
+  const session = getAdminSession();
+  if (!session || !session.token) { toast('✕ Session expirée — reconnecte-toi'); return; }
+  toast('Ouverture du paiement…');
+  try {
+    const res = await fetch('/api/billing-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.token}` },
+      body: JSON.stringify({ plan })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.url) { toast('✕ ' + (data.error || 'Paiement indisponible')); return; }
+    window.location.href = data.url;
+  } catch (e) {
+    toast('✕ Erreur réseau, réessaie');
+  }
+}
+
+async function openBillingPortal() {
+  const session = getAdminSession();
+  if (!session || !session.token) { toast('✕ Session expirée — reconnecte-toi'); return; }
+  try {
+    const res = await fetch('/api/billing-portal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.token}` }
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 404 && data.needsCheckout) { toast('Aucun abonnement en cours'); return; }
+    if (!res.ok || !data.url) { toast('✕ ' + (data.error || 'Indisponible')); return; }
+    window.location.href = data.url;
+  } catch (e) {
+    toast('✕ Erreur réseau, réessaie');
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -4606,6 +4740,47 @@ function decodeSessionPayload() {
     if (token && token.includes('.')) return JSON.parse(b64urlDecode(token.split('.')[0]));
   } catch (e) { /* payload illisible */ }
   return null;
+}
+
+// Écran de réactivation affiché à la place du message d'erreur quand la
+// connexion échoue pour cause de club suspendu. Les identifiants ne sont pas
+// stockés : ils sont repassés tels quels à /api/billing-checkout, qui les
+// revérifie avant d'ouvrir la session de paiement.
+async function offerReactivation(email, password, errEl) {
+  const cfg = await loadBillingConfig();
+  const plans = (cfg && cfg.enabled && cfg.plans) || [];
+  if (!plans.length) {
+    // Paiement pas encore branché : on reste honnête plutôt que d'afficher un
+    // bouton qui ne mènera nulle part.
+    errEl.innerHTML = '⚠ Votre période d\'essai est terminée.<br>Écrivez-nous à <a href="mailto:chahinedjadel@gmail.com" style="color:#f97316">chahinedjadel@gmail.com</a> pour réactiver votre club.';
+    errEl.style.display = 'block';
+    return;
+  }
+  const best = plans.includes('pro') ? 'pro' : plans[0];
+  errEl.innerHTML = `⚠ Votre période d'essai est terminée.<br>
+    <span style="color:#888">Vos données sont conservées — réactivez votre club pour y accéder à nouveau.</span><br>
+    <button id="btn-reactivate" style="margin-top:10px;padding:9px 16px;background:#f97316;color:#fff;border:none;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;cursor:pointer">Réactiver mon club</button>`;
+  errEl.style.display = 'block';
+  const btn = document.getElementById('btn-reactivate');
+  if (!btn) return;
+  btn.onclick = async () => {
+    btn.disabled = true;
+    btn.textContent = 'Ouverture du paiement…';
+    try {
+      const res = await fetch('/api/billing-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: best, email, password })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.url) { window.location.href = data.url; return; }
+      btn.disabled = false;
+      btn.textContent = 'Réessayer';
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = 'Réessayer';
+    }
+  };
 }
 
 function logoutAdmin() {
