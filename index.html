@@ -1109,7 +1109,16 @@ window.addEventListener('DOMContentLoaded', () => {
           <div style="background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.15);border-radius:10px;padding:20px">
             <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--r);margin-bottom:16px;font-weight:700">⚠️ Zone dangereuse</div>
             <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(239,68,68,.1)"><div><div style="font-size:12px">Vider le planning</div><div style="font-size:9px;color:var(--muted)">Efface toutes les assignations</div></div><button class="btn btn-r" onclick="clearAll()">Vider</button></div>
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0"><div style="font-size:12px">Réinitialiser humoristes</div><button class="btn btn-r" onclick="resetH()">Reset</button></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(239,68,68,.1)"><div style="font-size:12px">Réinitialiser humoristes</div><button class="btn btn-r" onclick="resetH()">Reset</button></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(239,68,68,.1)"><div><div style="font-size:12px">Supprimer ce club</div><div style="font-size:9px;color:var(--muted)">Efface ce club et toutes ses données. Votre compte et vos autres clubs sont conservés.</div></div><button class="btn btn-r" style="flex-shrink:0" onclick="openDeleteModal('club')">Supprimer</button></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0"><div><div style="font-size:12px">Supprimer mon compte</div><div style="font-size:9px;color:var(--muted)">Efface définitivement le compte, tous vos clubs et toutes leurs données.</div></div><button class="btn btn-r" style="flex-shrink:0" onclick="openDeleteModal('account')">Supprimer</button></div>
+          </div>
+
+          <!-- Informations légales -->
+          <div style="grid-column:1/-1;text-align:center;font-size:10px;color:var(--muted);padding:6px 0 2px">
+            <a href="/privacy.html" target="_blank" rel="noopener" style="color:var(--muted);text-decoration:none;border-bottom:1px solid var(--border2)">Politique de confidentialité</a>
+            &nbsp;·&nbsp;
+            <a href="/terms.html" target="_blank" rel="noopener" style="color:var(--muted);text-decoration:none;border-bottom:1px solid var(--border2)">Conditions générales</a>
           </div>
         </div>
 
@@ -4518,6 +4527,111 @@ function goAddClub() {
   window.location.href = '/register.html';
 }
 
+// ══════════════════════════════════════════════════
+// SUPPRESSION DE CLUB / DE COMPTE (Réglages > Zone dangereuse)
+// ══════════════════════════════════════════════════
+// Exigence App Store Review Guideline 5.1.1(v) : une app qui permet de créer
+// un compte doit permettre de le supprimer DEPUIS l'app — un lien "écris-nous"
+// vaut rejet. Côté RGPD c'est aussi le droit à l'effacement rendu effectif
+// sans intervention humaine. Le serveur (api/account-delete.js) reverifie
+// systématiquement le mot de passe et le mot tapé : cette UI ne fait jamais
+// foi à elle seule.
+let deleteScope = null;
+
+function openDeleteModal(scope) {
+  deleteScope = scope === 'account' ? 'account' : 'club';
+  const payload = decodeSessionPayload();
+  const clubs = (payload && Array.isArray(payload.accessible_clubs)) ? payload.accessible_clubs : [];
+  const clubName = escapeHtmlLite(currentClub.name || 'ce club');
+  // Supprimer son dernier club supprime aussi le compte (un compte sans club
+  // ne peut plus se connecter — voir api/account-delete.js). L'utilisateur
+  // doit le savoir AVANT de confirmer, pas le découvrir après.
+  const lastClub = deleteScope === 'club' && clubs.length <= 1;
+
+  document.getElementById('del-title').textContent =
+    deleteScope === 'account' ? 'Supprimer mon compte' : `Supprimer « ${currentClub.name || 'ce club'} »`;
+
+  let warn;
+  if (deleteScope === 'account') {
+    warn = `<strong>Cette action est définitive et immédiate.</strong><br><br>
+      Seront effacés : votre compte, <strong>${clubs.length} club${clubs.length > 1 ? 's' : ''}</strong>,
+      et pour chacun l'intégralité des humoristes, disponibilités, plannings, messages et données financières.
+      <br><br>Rien ne pourra être restauré.`;
+  } else if (lastClub) {
+    warn = `<strong>C'est votre dernier club — votre compte sera donc supprimé lui aussi.</strong><br><br>
+      Un compte sans aucun club ne permet plus de se connecter. Seront effacés : « ${clubName} »,
+      toutes ses données, et votre compte.<br><br>Rien ne pourra être restauré.`;
+  } else {
+    warn = `<strong>Cette action est définitive et immédiate.</strong><br><br>
+      Seront effacés : « ${clubName} » et l'intégralité de ses humoristes, disponibilités, plannings,
+      messages et données financières.<br><br>
+      Votre compte et vos ${clubs.length - 1} autre${clubs.length - 1 > 1 ? 's' : ''} club${clubs.length - 1 > 1 ? 's' : ''} sont conservés.`;
+  }
+  document.getElementById('del-warning').innerHTML = warn;
+
+  document.getElementById('del-password').value = '';
+  document.getElementById('del-confirm').value = '';
+  const err = document.getElementById('del-err');
+  err.style.display = 'none';
+  err.textContent = '';
+  const btn = document.getElementById('del-submit');
+  btn.disabled = false;
+  btn.textContent = 'Supprimer définitivement';
+  openModal('modal-delete-account');
+  setTimeout(() => document.getElementById('del-password')?.focus(), 100);
+}
+
+async function confirmDeleteAccount() {
+  const session = getAdminSession();
+  const err = document.getElementById('del-err');
+  const btn = document.getElementById('del-submit');
+  const showErr = (msg) => { err.textContent = msg; err.style.display = 'block'; };
+
+  if (!session || !session.token) { showErr('Session expirée — reconnecte-toi.'); return; }
+  const password = document.getElementById('del-password').value;
+  const confirm = document.getElementById('del-confirm').value.trim().toUpperCase();
+  if (!password) { showErr('Saisis ton mot de passe.'); return; }
+  if (confirm !== 'SUPPRIMER') { showErr('Tape SUPPRIMER en toutes lettres pour confirmer.'); return; }
+
+  err.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Suppression…';
+
+  try {
+    const res = await fetch('/api/account-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.token}` },
+      body: JSON.stringify({ scope: deleteScope, password, confirm })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      btn.disabled = false;
+      btn.textContent = 'Supprimer définitivement';
+      showErr(data.error || 'La suppression a échoué.');
+      return;
+    }
+    if (data.deleted === 'account') {
+      // Plus de compte : on nettoie la session locale et on repart de zéro.
+      clearAdminSession();
+      window.location.href = '/';
+      return;
+    }
+    // Un club supprimé parmi d'autres : le serveur renvoie un token déjà
+    // repositionné sur un club restant. Rechargement complet plutôt qu'un
+    // simple re-render — même raisonnement que logoutAdmin() : l'état JS
+    // global (COMEDIANS, assignments, DISPOS_DATA…) appartient au club qui
+    // vient d'être détruit.
+    localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({
+      token: data.token, expiresAt: data.expiresAt, club: null
+    }));
+    window.location.href = '/';
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Supprimer définitivement';
+    showErr('Erreur réseau — réessaie.');
+  }
+}
+
 function toggleClubMenu(ev) {
   if (ev) ev.stopPropagation();
   const menu = document.getElementById('club-menu');
@@ -5845,6 +5959,30 @@ async function downloadAccountingCSV() {
   toast('✓ Export CSV téléchargé');
 }
 </script>
+
+<!-- MODAL SUPPRESSION DE COMPTE / DE CLUB -->
+<!-- Exigence App Store 5.1.1(v) : la suppression doit etre faisable depuis
+     l'app. Triple garde cote serveur (session + mot de passe + mot tape a la
+     main) — voir api/account-delete.js. -->
+<div class="overlay" id="modal-delete-account">
+  <div class="modal" style="width:420px">
+    <div class="modal-title" style="color:var(--r)" id="del-title">Supprimer</div>
+    <div id="del-warning" style="font-size:11px;line-height:1.7;color:var(--text);background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:5px;padding:12px 14px;margin-bottom:16px"></div>
+    <div class="fr">
+      <label class="fl">Votre mot de passe</label>
+      <input class="fi" id="del-password" type="password" autocomplete="current-password" placeholder="••••••••">
+    </div>
+    <div class="fr">
+      <label class="fl">Tapez SUPPRIMER pour confirmer</label>
+      <input class="fi" id="del-confirm" type="text" autocapitalize="characters" autocomplete="off" placeholder="SUPPRIMER">
+    </div>
+    <div id="del-err" style="display:none;font-size:11px;color:var(--r);margin-bottom:12px"></div>
+    <div class="ma">
+      <button class="btn btn-ghost" onclick="closeModal('modal-delete-account')">Annuler</button>
+      <button class="btn" style="background:var(--r);color:#fff" id="del-submit" onclick="confirmDeleteAccount()">Supprimer définitivement</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL URGENCE REMPLACEMENT -->
 <div class="overlay" id="modal-urgence">
