@@ -67,9 +67,15 @@
 // (403) si le club n'a pas accès — jamais une confiance au client, exactement
 // le même réflexe que clubId/scope pour l'isolation multitenant.
 
-import { applyCors, sbAdmin, verifyAdminToken, isNonEmptyString, SLOT_KEY_RE, clubOrFilter, newId, sanitizeChapeauEntry, requireProAccess } from './_lib.js';
+import { applyCors, sbAdmin, verifyAdminToken, isNonEmptyString, SLOT_KEY_RE, clubOrFilter, newId, sanitizeChapeauEntry, requireProAccess, resolveClubCaps, countComedians, PLAN_CAPS } from './_lib.js';
 
 const MAX_BULK = 5000; // garde-fou anti-abus sur les upserts en masse
+
+// Plus petit plafond d'humoristes de toute la grille (PLAN_CAPS). En dessous,
+// aucun palier ne peut refuser : inutile d'aller lire le club en base.
+const MIN_COMEDIAN_CAP = Math.min(
+  ...Object.values(PLAN_CAPS).map(c => (c.maxComedians === null ? Infinity : c.maxComedians)),
+);
 
 // aligné sur Date.getDay() (0=dimanche ... 6=samedi), même convention que
 // schedule_templates.weekday (cf. stagely-multitenant-schema.sql) et que
@@ -206,6 +212,30 @@ export default async function handler(req, res) {
         if (Array.isArray(p.comedians)) {
           let rows = p.comedians.map(sanitizeComedian).filter(Boolean).slice(0, MAX_BULK)
             .map(r => ({ ...r, club_id: clubId }));
+          // Plafond d'humoristes du palier — voir PLAN_CAPS dans _lib.js
+          // (30 en Essentiel, 150 en Pro, illimité en Réseau et pendant
+          // l'essai). Refus AVANT toute écriture : un sync partiellement
+          // appliqué laisserait le club dans un état incohérent.
+          // L'aller-retour DB n'a lieu que si le payload dépasse le plus petit
+          // plafond existant — un petit club ne le paie jamais.
+          if (rows.length > MIN_COMEDIAN_CAP) {
+            const caps = await resolveClubCaps(clubId);
+            if (caps.maxComedians !== null && rows.length > caps.maxComedians) {
+              // Le plafond ne freine que la croissance : un club déjà au-dessus
+              // (descendu de palier) continue d'enregistrer son effectif tel
+              // quel, sinon plus aucune sauvegarde ne passerait.
+              const existing = await countComedians(clubId);
+              if (rows.length > Math.max(caps.maxComedians, existing)) {
+                return res.status(403).json({
+                  error: `Ton palier est limité à ${caps.maxComedians} humoristes. Passe au palier supérieur pour en ajouter davantage.`,
+                  code: 'plan_limit_comedians',
+                  limit: caps.maxComedians,
+                  current: existing,
+                });
+              }
+            }
+          }
+
           // Gate Pro sur cachet_amount — voir requireProAccess() plus haut. Ne
           // se déclenche (coût d'un aller-retour DB) que si au moins une ligne
           // propose réellement une VALEUR (nombre) à enregistrer ; remettre le

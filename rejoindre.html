@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stagely — Rejoindre un club</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#f97316">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;color:inherit}
+body{
+  font-family:'Inter',sans-serif;background:#080810;color:#f0f0f0;min-height:100vh;
+  display:flex;align-items:center;justify-content:center;padding:24px
+}
+.card{width:100%;max-width:400px;padding:32px 24px}
+.logo{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:22px;color:#f97316;letter-spacing:4px;text-align:center;margin-bottom:8px}
+.sub{font-size:12px;color:#555;text-align:center;margin-bottom:28px}
+.club{
+  text-align:center;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:18px;
+  color:#f0f0f0;margin-bottom:4px
+}
+.city{text-align:center;font-size:11px;color:#555;margin-bottom:24px}
+.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#666;display:block;margin-bottom:6px;font-weight:600}
+.inp{
+  width:100%;background:#111;border:1px solid #222;border-radius:10px;padding:13px 16px;
+  color:#f0f0f0;font-size:14px;margin-bottom:14px;font-family:'Inter',sans-serif
+}
+.inp:focus{outline:none;border-color:#f97316}
+.inp:disabled{color:#777}
+.btn{
+  width:100%;padding:13px;background:#f97316;color:#fff;border:none;border-radius:10px;
+  font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;cursor:pointer;margin-top:6px
+}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.err{
+  display:none;font-size:11px;color:#ef4444;margin-bottom:12px;padding:10px 12px;
+  background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;text-align:center
+}
+.ok{
+  display:none;font-size:12px;color:#22c55e;padding:14px;text-align:center;
+  background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:10px;margin-bottom:12px
+}
+.foot{text-align:center;font-size:11px;color:#555;margin-top:20px}
+.foot a{color:#f97316;text-decoration:none}
+.loading{text-align:center;font-size:12px;color:#555;padding:20px 0}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">STAGELY</div>
+  <div class="sub" id="page-sub">Invitation à administrer un club</div>
+
+  <div class="loading" id="loading">Vérification de l'invitation…</div>
+
+  <div class="err" id="err"></div>
+  <div class="ok" id="ok"></div>
+
+  <div id="content" style="display:none">
+    <div class="club" id="club-name"></div>
+    <div class="city" id="club-city"></div>
+
+    <form id="join-form" onsubmit="event.preventDefault(); accept()">
+      <label class="lbl">Ton adresse email</label>
+      <input class="inp" id="email" type="email" disabled>
+
+      <div id="pwd-fields">
+        <label class="lbl">Choisis un mot de passe</label>
+        <input class="inp" id="pwd" type="password" placeholder="6 caractères minimum" autocomplete="new-password">
+
+        <label class="lbl">Confirme</label>
+        <input class="inp" id="pwd2" type="password" placeholder="Retape ton mot de passe" autocomplete="new-password">
+      </div>
+
+      <button class="btn" id="btn-join" type="submit">Activer mon accès →</button>
+    </form>
+  </div>
+
+  <div class="foot">Un problème ? Demande une nouvelle invitation à l'administrateur du club.</div>
+</div>
+
+<script>
+// Page d'acceptation d'une invitation à co-administrer un club (chantier
+// "plusieurs personnes par club", 2026-09). Le token arrive dans l'URL, émis
+// par /api/club-access (action 'invite') et vérifié par /api/accept-invite.
+//
+// Deux cas, distingués par la réponse de 'preview' :
+//   - adresse sans compte Stagely : on demande un mot de passe, le compte est
+//     créé et la session ouverte directement (atterrissage dans le club).
+//   - adresse ayant déjà un compte : aucun mot de passe demandé — l'accès est
+//     simplement ajouté et la personne se connecte comme d'habitude. Ne
+//     JAMAIS proposer de définir un mot de passe dans ce cas : le serveur le
+//     refuserait de toute façon (une invitation ne doit pas pouvoir
+//     réinitialiser le mot de passe d'un compte existant), et le proposer
+//     laisserait croire le contraire.
+const SESSION_KEY = 'stagely_admin_session';
+const TOKEN = new URLSearchParams(location.search).get('token') || '';
+
+const $ = (id) => document.getElementById(id);
+let EXISTING_ACCOUNT = false;
+
+function showErr(msg) {
+  $('err').textContent = '⚠ ' + msg;
+  $('err').style.display = 'block';
+}
+
+async function init() {
+  if (!TOKEN) {
+    $('loading').style.display = 'none';
+    showErr("Ce lien est incomplet. Demande une nouvelle invitation.");
+    return;
+  }
+  try {
+    const res = await fetch('/api/accept-invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'preview', token: TOKEN })
+    });
+    const data = await res.json().catch(() => ({}));
+    $('loading').style.display = 'none';
+    if (!res.ok || !data.success) {
+      showErr(data.error || "Ce lien est invalide ou a expiré.");
+      return;
+    }
+    EXISTING_ACCOUNT = !!data.existingAccount;
+    $('club-name').textContent = data.club.name;
+    $('club-city').textContent = data.club.city || '';
+    $('email').value = data.email;
+    if (EXISTING_ACCOUNT) {
+      $('page-sub').textContent = 'Ton compte existe déjà';
+      $('pwd-fields').style.display = 'none';
+      $('btn-join').textContent = 'Ajouter ce club à mon compte →';
+    }
+    $('content').style.display = 'block';
+  } catch (e) {
+    $('loading').style.display = 'none';
+    showErr('Erreur réseau, recharge la page.');
+  }
+}
+
+async function accept() {
+  $('err').style.display = 'none';
+  const btn = $('btn-join');
+  const pwd = EXISTING_ACCOUNT ? undefined : $('pwd').value;
+
+  if (!EXISTING_ACCOUNT) {
+    if (!pwd || pwd.length < 6) return showErr('Le mot de passe doit faire au moins 6 caractères.');
+    if (pwd !== $('pwd2').value) return showErr('Les deux mots de passe ne correspondent pas.');
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Activation…';
+  try {
+    const res = await fetch('/api/accept-invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'accept', token: TOKEN, password: pwd })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      showErr(data.error || 'Impossible d\'activer cet accès.');
+      btn.disabled = false;
+      btn.textContent = EXISTING_ACCOUNT ? 'Ajouter ce club à mon compte →' : 'Activer mon accès →';
+      return;
+    }
+    $('join-form').style.display = 'none';
+    $('ok').textContent = '✓ ' + (data.message || 'Accès activé ! Redirection en cours…');
+    $('ok').style.display = 'block';
+    // Session ouverte seulement pour un compte créé à l'instant — même clé que
+    // index.html, pour atterrir directement dans le club.
+    if (data.token) {
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ token: data.token, expiresAt: data.expiresAt, club: data.club || null }));
+    }
+    setTimeout(() => { window.location.href = '/'; }, 1600);
+  } catch (e) {
+    showErr('Erreur réseau, réessaie.');
+    btn.disabled = false;
+    btn.textContent = EXISTING_ACCOUNT ? 'Ajouter ce club à mon compte →' : 'Activer mon accès →';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

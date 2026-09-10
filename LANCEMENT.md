@@ -1,9 +1,37 @@
 # Stagely — checklist de mise en ligne
 
-État au 29 août 2026, après le chantier de conformité v225–v229.
+État au 11 septembre 2026. Remplace la version du 29 août, dont plusieurs
+constats étaient devenus faux (voir « Corrections » en bas).
 
-Ce document remplace la section « ce qu'il reste à faire » de
-`MOBILE_SETUP.md`, qui décrivait l'état du dépôt avant ce chantier.
+---
+
+## La grille tarifaire
+
+| | Essentiel | Pro | Réseau |
+|---|---|---|---|
+| | **39,90 €/mois** | **69,90 €/mois** | **99,90 €/mois** |
+| Planning, dispos, portail humoriste, MC | ✅ | ✅ | ✅ |
+| Humoristes | 30 | 150 | illimité |
+| Personnes par club | 3 | 6 | illimité |
+| Mode tournée | ✗ | ✅ | ✅ |
+| Chapeau ou cachet + tableau de bord financier | ✗ | ✅ | ✅ |
+| Export comptable (CSV) | ✗ | ✗ | ✅ |
+
+**Source unique de vérité : `PLAN_CAPS` dans `api/_lib.js`.** Changer un
+plafond ou déplacer une fonctionnalité d'un palier à l'autre = éditer une
+ligne. Aucune route ne teste le nom d'un palier, toutes lisent les capacités.
+`null` signifie illimité.
+
+Pendant l'essai (`clubs.status = 'trial'`), un club a toujours les capacités du
+palier le plus haut — on ne bride jamais une démonstration de valeur.
+
+Tous les plafonds ne freinent que **l'ajout** : un club qui descend de palier
+garde ses fiches et ses accès, il ne peut simplement plus en créer. Sans cette
+nuance, un changement de palier bloquerait toute sauvegarde du club.
+
+**La facturation est par club** (`clubs.stripe_customer_id`). Trois salles en
+Pro = 209,70 €/mois. Ne jamais vendre un forfait « clubs illimités » : il
+rapporterait moins que la somme des clubs.
 
 ---
 
@@ -11,158 +39,162 @@ Ce document remplace la section « ce qu'il reste à faire » de
 
 | Sujet | État |
 |---|---|
-| Politique de confidentialité publique | ✅ `/privacy.html` |
-| Conditions générales | ✅ `/terms.html` |
+| Politique de confidentialité, CGU | ✅ `/privacy.html`, `/terms.html` |
 | Suppression de compte depuis l'app (Apple 5.1.1(v)) | ✅ Réglages → Zone dangereuse |
 | Fonctionnalités natives (Apple 4.2) | ✅ rappels locaux, partage, retour Android, barre d'état |
-| Facturation et résiliation | ✅ Stripe Checkout + portail client |
+| Code de facturation Stripe | ✅ complet, 26 tests |
 | Sortie de l'essai expiré | ✅ écran de réactivation au login |
-| Dé-branding du club pilote | ✅ plus aucun « BCC » en dur |
 | Projets natifs iOS / Android | ✅ générés, 5 plugins synchronisés |
-| Tests | ✅ 252/252 |
+| Chapeau, cachet, finances, export comptable, mode tournée | ✅ construits et gatés |
+| Plafonds par palier | ✅ serveur, 11 tests |
+| Plusieurs personnes par club | ✅ invitation, retrait, `/rejoindre.html`, 27 tests |
+| Tests | ✅ 295/295 |
 
 ---
 
-## Ce qu'il reste — par ordre de blocage
+## Ce qu'il reste — Stripe (le seul vrai bloquant)
 
-### 1. Comptes et outils (aucun contournement possible)
+Le code est en place et **inactif** tant que les variables ne sont pas posées :
+`/api/billing-config` répond `enabled: false`, aucun bouton d'abonnement ne
+s'affiche, rien ne casse en attendant.
 
-- [ ] **Compte Apple Developer** — 99 $/an, comptez 24–48 h de validation.
-- [ ] **Compte Google Play Console** — 25 $ une fois.
-- [ ] **Xcode complet** depuis le Mac App Store. Seuls les Command Line
-      Tools sont installés : `xcodebuild` est indisponible, donc aucune
-      compilation ni archive iOS n'est possible aujourd'hui.
-- [ ] **Java + Android Studio** — aucun runtime Java n'est installé sur
-      cette machine (`java -version` échoue) : Gradle ne peut pas démarrer.
-      Android Studio installe les deux.
+### 1. Créer les trois produits dans Stripe
 
-### 2. Stripe — avant de pouvoir encaisser
+Un produit par palier, en prix **récurrent mensuel**, devise EUR :
 
-Le code est en place et inactif tant que les variables ne sont pas posées :
-`/api/billing-config` répond `enabled: false` et aucun bouton d'abonnement
-ne s'affiche. Rien ne casse en attendant.
-
-1. Créer les produits et les prix mensuels dans le tableau de bord Stripe
-   (le palier Pro est annoncé à 99 €/mois dans l'app — à confirmer, et les
-   tarifs Essentiel et Réseau restent à décider).
-2. Appliquer la migration **`stagely-stripe-schema.sql`** dans l'éditeur SQL
-   de Supabase. Sans elle, le lien club ↔ client Stripe est perdu : le
-   portail de facturation ne peut plus s'ouvrir et un second paiement
-   créerait un client en double.
-3. Poser les variables d'environnement sur Vercel (production) :
-
-   | Variable | Rôle |
-   |---|---|
-   | `STRIPE_SECRET_KEY` | clé secrète (`sk_live_…`) |
-   | `STRIPE_WEBHOOK_SECRET` | secret du webhook (`whsec_…`) |
-   | `STRIPE_PRICE_PRO` | price id du palier Pro |
-   | `STRIPE_PRICE_RESEAU` | price id du palier Réseau |
-   | `STRIPE_PRICE_ESSENTIEL` | *(optionnel)* — non renseigné = palier non vendu en ligne |
-   | `STAGELY_PUBLIC_URL` | *(optionnel)* — force le domaine des URLs de retour |
-
-4. Déclarer le webhook dans Stripe : URL `https://<domaine>/api/stripe-webhook`,
-   événements `checkout.session.completed`, `customer.subscription.created`,
-   `customer.subscription.updated`, `customer.subscription.deleted`.
-5. Tester en mode test avec la carte `4242 4242 4242 4242`, puis vérifier
-   dans Supabase que `clubs.status` passe bien à `active`.
-
-### 3. Domaine — à faire AVANT la première soumission
-
-L'app native pointe en dur sur `https://tagely-bcc.vercel.app`
-(`capacitor.config.json`, `server.url`). Changer cette URL après publication
-oblige à soumettre un nouveau binaire et à repasser en review.
-
-- [ ] Acheter le domaine et le brancher sur Vercel.
-- [ ] Mettre à jour `server.url` dans `capacitor.config.json`, puis
-      `npx cap sync`.
-- [ ] Renseigner `STAGELY_PUBLIC_URL` sur Vercel.
-
-Même remarque pour le **bundle ID** `com.stagely.app` : modifiable jusqu'à
-la première soumission, définitif ensuite.
-
-### 4. Icône et captures
-
-- [ ] **Icône source en 1024 × 1024**, sans transparence. La source actuelle
-      (`assets/icon.png`) ne fait que 512 × 512 : l'icône App Store est un
-      upscale, fonctionnel mais peu net. Remplacer le fichier puis :
-      `npx capacitor-assets generate && npx cap sync`.
-- [ ] Captures d'écran : iPhone 6.9″ et 6.5″, Android téléphone et tablette.
-- [ ] Textes de fiche : description courte et longue, mots-clés, catégorie
-      (Productivité ou Affaires), URL de support.
-
-### 5. Android — publication
-
-1. Générer la clé de signature — **à sauvegarder précieusement, la perdre
-   interdit toute mise à jour future** :
-   ```bash
-   keytool -genkey -v -keystore stagely-release.keystore \
-     -alias stagely -keyalg RSA -keysize 2048 -validity 10000
-   ```
-   Activer **Play App Signing** en parallèle : Google conserve alors la clé
-   finale et le risque de perte disparaît.
-2. Ajouter `signingConfigs` + `buildTypes.release` dans
-   `android/app/build.gradle`. Ni le keystore ni son mot de passe ne doivent
-   être commités — `local.properties` est déjà exclu par `.gitignore`.
-3. Créer l'app dans Play Console avec l'`applicationId` `com.stagely.app`.
-4. Remplir la fiche, le questionnaire de classification et la section
-   **Sécurité des données** — s'appuyer sur `/privacy.html`, qui liste
-   exactement ce qui est collecté et transmis.
-5. Compiler et publier :
-   ```bash
-   npx cap sync android
-   cd android && ./gradlew bundleRelease
-   ```
-   Le `.aab` sort dans `android/app/build/outputs/bundle/release/`. Passer
-   par un canal interne, puis fermé, avant la production.
-
-### 6. iOS — publication
-
-1. Ouvrir `ios/App/App.xcodeproj` dans Xcode, onglet **Signing &
-   Capabilities**, sélectionner l'équipe et laisser la signature
-   automatique.
-2. Créer l'app dans App Store Connect avec le même bundle ID.
-3. Remplir **App Privacy** — même source que pour Google : `/privacy.html`.
-4. `npx cap sync ios`, puis *Product → Archive → Distribute App*.
-5. Dans les notes pour la review, joindre **un compte de démonstration**
-   (email + mot de passe d'un club de test avec des données) : sans ça, un
-   reviewer bloqué sur l'écran de connexion rejette l'app.
-
----
-
-## Points de vigilance pour la review
-
-**Apple 4.2 — Minimum Functionality.** L'app charge le site en ligne dans
-une WebView. C'est le motif de rejet le plus probable. Ce qui a été mis en
-place pour y répondre : rappels programmés sur l'appareil, partage système,
-bouton retour Android, barre d'état native (voir `native.js`). Dans les
-notes de review, présenter Stagely comme un **outil professionnel de gestion
-destiné à des structures**, pas comme une app grand public — c'est la
-catégorie pour laquelle Apple accepte ce pattern. Si un rejet survient
-malgré tout, la réponse la plus efficace est d'ajouter de vraies
-notifications push serveur (Firebase pour Android, APNs pour iOS).
-
-**Apple 3.1.1 — achats intégrés.** Aucun paiement n'a lieu dans l'app : les
-abonnements passent par Stripe hors application, ce qui est autorisé pour un
-outil de gestion vendu à des entreprises. Ne pas ajouter de bouton d'achat
-ni de lien de paiement dans la version iOS sans revoir ce point.
-
-**Mentions légales.** `/terms.html` et `/privacy.html` mentionnent
-« Chahine Djadel, entrepreneur individuel ». Si une société est créée,
-compléter avec la forme juridique, le SIRET et l'adresse du siège — ces
-mentions sont obligatoires pour un service payant en France.
-
----
-
-## Variables d'environnement — récapitulatif
-
-| Variable | Statut | Rôle |
+| Produit | Montant | Variable où coller le price id |
 |---|---|---|
-| `SUPABASE_SERVICE_KEY` | déjà posée | accès base de données |
-| `ADMIN_TOKEN_SECRET` | déjà posée | signature des sessions admin |
-| `BREVO_API_KEY` | déjà posée | emails transactionnels |
-| `STRIPE_SECRET_KEY` | **à poser** | facturation |
-| `STRIPE_WEBHOOK_SECRET` | **à poser** | vérification des webhooks |
-| `STRIPE_PRICE_PRO` | **à poser** | prix du palier Pro |
-| `STRIPE_PRICE_RESEAU` | **à poser** | prix du palier Réseau |
-| `STRIPE_PRICE_ESSENTIEL` | optionnel | prix du palier Essentiel |
-| `STAGELY_PUBLIC_URL` | optionnel | domaine définitif |
+| Stagely Essentiel | 3990 centimes | `STRIPE_PRICE_ESSENTIEL` |
+| Stagely Pro | 6990 centimes | `STRIPE_PRICE_PRO` |
+| Stagely Réseau | 9990 centimes | `STRIPE_PRICE_RESEAU` |
+
+Le price id ressemble à `price_1A2b3C...`. C'est **lui** qu'il faut copier, pas
+l'id du produit (`prod_...`).
+
+Un palier dont la variable reste vide n'est simplement pas proposé à l'achat —
+pas d'erreur, pas de prix inventé.
+
+### 2. Appliquer la migration Stripe dans Supabase
+
+Coller **`stagely-stripe-schema.sql`** dans l'éditeur SQL de Supabase. Toutes
+les instructions sont idempotentes, les relancer ne casse rien.
+
+Sans elle, le lien club ↔ client Stripe est perdu : le portail de facturation
+ne peut plus s'ouvrir, et un second paiement créerait un client en double.
+
+*(Le chantier « plusieurs personnes par club » ne demande, lui, aucune
+migration — l'invitation est un token signé, pas une table.)*
+
+### 3. Poser les variables sur Vercel (production)
+
+| Variable | Rôle |
+|---|---|
+| `STRIPE_SECRET_KEY` | clé secrète (`sk_live_…`) |
+| `STRIPE_WEBHOOK_SECRET` | secret du webhook (`whsec_…`) |
+| `STRIPE_PRICE_ESSENTIEL` | price id du palier Essentiel |
+| `STRIPE_PRICE_PRO` | price id du palier Pro |
+| `STRIPE_PRICE_RESEAU` | price id du palier Réseau |
+| `STAGELY_PUBLIC_URL` | *(optionnel)* force le domaine des URLs de retour |
+
+### 4. Déclarer le webhook dans Stripe
+
+URL : `https://<domaine>/api/stripe-webhook`
+Événements : `checkout.session.completed`, `customer.subscription.created`,
+`customer.subscription.updated`, `customer.subscription.deleted`.
+
+### 5. Tester en mode test
+
+Carte `4242 4242 4242 4242`, puis vérifier dans Supabase que `clubs.status`
+passe à `active` et que `clubs.plan` correspond au palier acheté.
+
+---
+
+## Ce qu'il reste — le domaine
+
+Aucun domaine Stagely n'est acheté (`vercel domains ls` ne liste que
+`fairytails.fr`). L'app pointe en dur sur `https://tagely-bcc.vercel.app`
+(`capacitor.config.json`, et `buildPortalLink()` dans `index.html`).
+
+Ce n'est **pas** bloquant pour Stripe : `publicOrigin()` (`api/_stripe.js`)
+retombe sur `VERCEL_URL`, et l'URL du webhook se change en dix secondes.
+
+Ça l'est en revanche pour l'app mobile : `server.url` est gelée dans le
+binaire, la changer après publication impose une nouvelle review.
+
+Candidats vérifiés libres au 10/09/2026 : `stagely.club` (6,99 $ la 1re année
+puis 18,46 $), `stagely.fr` (Vercel ne vend pas de `.fr` — passer par OVH),
+`stagely.io` (30 $ puis 46 $). `stagely.com` est parké chez GoDaddy depuis
+2011. **Vercel refuse l'achat de domaine par un agent** : l'achat doit être
+fait à la main sur vercel.com/dashboard/domains.
+
+---
+
+## Ce qu'il reste — les stores (si un jour)
+
+Rien n'a bougé depuis le 29 août :
+
+- [ ] Compte Apple Developer (99 $/an) et Google Play Console (25 $)
+- [ ] **Xcode complet** — seuls les Command Line Tools sont installés,
+      `xcodebuild` est indisponible, aucune archive iOS possible
+- [ ] **Java + Android Studio** — aucun runtime Java sur cette machine,
+      Gradle ne peut pas démarrer
+- [ ] Icône source en 1024 × 1024 (`assets/icon.png` fait 512)
+- [ ] Captures d'écran, textes de fiche, `signingConfigs` Android, keystore
+- [ ] Compte de démonstration pour les reviewers
+
+**Rappel utile** : les stores ne sont pas obligatoires. `manifest.json` et
+`sw.js` existent déjà — un club peut installer Stagely depuis son navigateur
+(« Ajouter à l'écran d'accueil ») et obtenir l'icône et le plein écran, sans
+compte développeur ni review.
+
+---
+
+## Décisions prises et closes
+
+- **Le nom reste Stagely.** Un rebrand a été exploré puis écarté : le nom est
+  dans l'app, les CGU, les emails et le code. ~70 domaines testés au whois,
+  tous les mots métier français et le jargon stand-up sont pris.
+- **Le multi-salles (deux salles dans un même lieu) n'est pas construit et ne
+  sera pas vendu.** `room_id` n'existe que sur les créneaux ; `assignments`,
+  `dispos` et `chapeau_entries` s'indexent sur `slot_key`, qui n'encode aucune
+  salle. Deux shows en parallèle partageraient dispos et recette. Le rendre
+  réel = 4 tables + contraintes d'unicité + migration + les deux UI (2-3 jours).
+  Le multi-**lieux**, lui, marche déjà : un club par lieu, facturé séparément.
+- **Le portail humoriste ne sera jamais gaté.** C'est le seul canal viral : un
+  humoriste qui passe dans trois clubs et n'a le portail que dans un seul le
+  réclamera aux deux autres.
+
+---
+
+## Corrections apportées à la version du 29 août
+
+- « Le cachet, l'export comptable et le mode tournée n'existent pas encore » :
+  **faux**, les quatre fonctionnalités Pro sont construites (voir le
+  commentaire de `PRO_PLANS` dans `api/_lib.js`).
+- « Changer le domaine après publication oblige à repasser en review » : vrai
+  pour l'app mobile uniquement, pas pour Stripe ni pour le web.
+- Le palier Pro n'est plus à 99 € mais à 69,90 €, et la grille compte
+  désormais trois formules réellement distinctes.
+
+---
+
+## Points de vigilance pour une review App Store
+
+**Apple 4.2 — Minimum Functionality.** L'app charge le site en ligne dans une
+WebView : motif de rejet le plus probable. Réponses en place : rappels
+programmés sur l'appareil, partage système, bouton retour Android, barre d'état
+native (`native.js`). Présenter Stagely comme un outil professionnel de gestion
+destiné à des structures, pas comme une app grand public.
+
+À prévoir : avec `server.url` distant, une coupure réseau affiche l'erreur du
+navigateur, pas `www/index.html`. Apple teste souvent en conditions dégradées.
+
+**Apple 3.1.1 — achats intégrés.** Aucun paiement n'a lieu dans l'app, les
+abonnements passent par Stripe hors application — autorisé pour un outil de
+gestion vendu à des entreprises. Ne pas ajouter de bouton d'achat côté iOS sans
+revoir ce point.
+
+**Mentions légales.** `/terms.html` et `/privacy.html` mentionnent « Chahine
+Djadel, entrepreneur individuel ». Si une société est créée, compléter avec la
+forme juridique, le SIRET et l'adresse du siège — obligatoire pour un service
+payant en France.

@@ -90,7 +90,7 @@ body{color:var(--text);font-family:'Rajdhani',sans-serif;font-size:13px;letter-s
 html.light{
   --bg:#f8f8fa;--s1:#ffffff;--s2:#f3f3f6;--s3:#eaeaef;--s4:#dddde6;
   --border:#e4e4eb;--border2:#d8d8e2;--border3:#bbbbc8;
-  --text:#0d0d10;--muted:#7070808;--muted2:#c0c0cc;
+  --text:#0d0d10;--muted:#707080;--muted2:#c0c0cc;
   --g:#16a34a;--g2:rgba(22,163,74,.08);--gb:rgba(22,163,74,.3);
   --o:#ea6c00;--o2:rgba(234,108,0,.08);--ob:rgba(234,108,0,.3);
   --r:#dc2626;--r2:rgba(220,38,38,.08);--rb:rgba(220,38,38,.3);
@@ -1169,6 +1169,18 @@ async function handleBillingReturn(params) {
             </div>
           </div>
 
+          <!-- Accès au club (chantier "plusieurs personnes par club", 2026-09) -->
+          <div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);margin-bottom:16px;font-weight:700">👥 Accès au club</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.6">Les personnes qui peuvent administrer ce club. Chacune se connecte avec son propre compte et ne voit que les clubs auxquels elle a accès.</div>
+            <div id="club-access-list" style="font-size:12px"></div>
+            <div style="display:flex;gap:8px;margin-top:14px">
+              <input class="fi" id="invite-email" type="email" placeholder="email@exemple.fr" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter'){event.preventDefault();inviteClubAdmin()}">
+              <button class="btn btn-o" id="invite-btn" style="flex-shrink:0" onclick="inviteClubAdmin()">Inviter</button>
+            </div>
+            <div id="invite-feedback" style="display:none;font-size:11px;margin-top:10px;line-height:1.6"></div>
+          </div>
+
           <!-- Zone dangereuse -->
           <div style="background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.15);border-radius:10px;padding:20px">
             <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--r);margin-bottom:16px;font-weight:700">⚠️ Zone dangereuse</div>
@@ -1360,10 +1372,50 @@ if (typeof window !== 'undefined') window.currentClub = currentClub;
 // traité comme 'trial' — accès complet — pour ne jamais faire régresser une
 // session déjà ouverte (ex. BCC) tant qu'elle n'a pas rechargé une identité
 // fraîche via un prochain login/switch de club.
+// Échelle des trois formules affichée dans Réglages (chantier "3 formules",
+// 2026-09). Doit rester cohérente avec PLAN_CAPS côté serveur (api/_lib.js) —
+// un test le vérifie : une grille de prix qui promet autre chose que ce que le
+// serveur applique est le pire des bugs, il se découvre après le paiement.
+const PLAN_LADDER = [
+  { key: 'essentiel', label: 'Essentiel', price: '39,90 €', perks: '30 humoristes · 3 personnes · planning, dispos et portail' },
+  { key: 'pro',       label: 'Pro',       price: '69,90 €', perks: '150 humoristes · 6 personnes · mode tournée · chapeau ou cachet · tableau de bord financier' },
+  { key: 'reseau',    label: 'Réseau',    price: '99,90 €', perks: 'humoristes et personnes sans limite · export comptable (CSV)' },
+];
+
+function renderPlanLadder() {
+  const current = currentClub.plan || 'essentiel';
+  return PLAN_LADDER.map(p => {
+    const isCurrent = p.key === current;
+    return `<div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);${isCurrent ? '' : 'opacity:.55'}">
+      <div style="flex-shrink:0;width:96px">
+        <div style="font-size:11px;font-weight:700;color:${isCurrent ? 'var(--o)' : 'var(--text)'}">${p.label}</div>
+        <div style="font-size:10px;color:var(--muted)">${p.price}</div>
+      </div>
+      <div style="font-size:11px;line-height:1.6;color:${isCurrent ? 'var(--text)' : 'var(--muted)'}">${p.perks}${isCurrent ? ' <span style="color:var(--o)">— ton palier</span>' : ''}</div>
+    </div>`;
+  }).join('');
+}
+
 function hasProAccess() {
   const status = currentClub.status || 'trial';
   const plan = currentClub.plan || 'essentiel';
   return status === 'trial' || plan === 'pro' || plan === 'reseau';
+}
+
+// L'export comptable est réservé au palier Réseau (chantier "3 formules",
+// 2026-09) — les autres fonctionnalités d'argent (chapeau, cachet, tableau de
+// bord) restent Pro. Doit rester cohérent avec PLAN_CAPS côté serveur
+// (api/_lib.js) : un test le vérifie.
+//
+// À la différence des plafonds d'humoristes et de personnes, ce gate n'existe
+// QUE côté client : l'export est un CSV généré ici, à partir de données que le
+// palier Pro a déjà le droit de lire. C'est donc une limite commerciale, pas
+// une barrière technique — assumé, personne ne va bidouiller le JavaScript
+// pour économiser 30 €.
+function hasAccountingExport() {
+  const status = currentClub.status || 'trial';
+  const plan = currentClub.plan || 'essentiel';
+  return status === 'trial' || plan === 'reseau';
 }
 
 // Lien portail humoriste — SOURCE UNIQUE utilisée à la fois par l'affichage
@@ -1507,7 +1559,7 @@ function renderProLockedBlock(featureLabel) {
   return `<div style="text-align:center;padding:48px 20px;background:var(--s1);border:1px solid var(--border);border-radius:10px">
     <div style="font-size:28px;margin-bottom:10px">🔒</div>
     <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px">${featureLabel} — fonctionnalité Pro</div>
-    <div style="font-size:12px;color:var(--muted);max-width:420px;margin:0 auto 18px;line-height:1.6">Cette fonctionnalité fait partie du palier Pro (99€/mois) — chapeau ou cachet, tableau de bord financier, export comptable, et plus. Contacte Stagely pour passer au palier Pro.</div>
+    <div style="font-size:12px;color:var(--muted);max-width:420px;margin:0 auto 18px;line-height:1.6">Cette fonctionnalité fait partie du palier Pro (69,90 €/mois) — mode tournée, chapeau ou cachet et tableau de bord financier. Le palier Essentiel (39,90 €/mois) couvre le planning, les dispos et le portail, jusqu'à 30 humoristes et 3 personnes.</div>
     <button class="btn btn-o" onclick="nav('reglages')">Voir mon palier →</button>
   </div>`;
 }
@@ -1541,10 +1593,10 @@ function renderPlanCard() {
     </div>
     <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;font-weight:600">Toujours inclus</div>
     <div style="font-size:11px;color:var(--text);line-height:1.8">✓ Planning &amp; dispos · ✓ Portail humoriste · ✓ Rappels automatiques · ✓ Notifications d'annulation · ✓ Export calendrier</div>
-    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;font-weight:600">Palier Pro / Réseau</div>
-    <div style="font-size:11px;color:${pro ? 'var(--text)' : 'var(--muted)'};line-height:1.8">${pro ? '✓' : '🔒'} Chapeau ou cachet (au choix) · ${pro ? '✓' : '🔒'} Tableau de bord financier (revenu, remplissage, top artistes) · ${pro ? '✓' : '🔒'} Export comptable (CSV) · ${pro ? '✓' : '🔒'} Mode tournée (dates ponctuelles hors grille)</div>
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;font-weight:600">Les trois formules</div>
+    ${renderPlanLadder()}
     <div style="font-size:10px;color:var(--muted);margin-top:14px;padding-top:14px;border-top:1px solid var(--border2);line-height:1.6">
-      ⚠️ Pas encore construit, même en palier Pro/Réseau : gestion multi-salle (l'admin peut choisir une salle existante pour une date ponctuelle, mais rien pour en créer/gérer plusieurs). À développer avant de vendre ces paliers à un vrai client sur ce critère précis.
+      Plusieurs lieux ? Créez un club par lieu — chacun a son planning, ses humoristes et son abonnement. La gestion de deux salles au sein d'un même lieu (deux shows en parallèle) n'existe pas encore.
     </div>
     <div id="billing-actions" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border2);display:none"></div>
     <button class="btn btn-ghost" style="margin-top:14px;font-size:10px" onclick="resetOnboarding()">🔄 Revoir le tutoriel de bienvenue</button>
@@ -2668,6 +2720,14 @@ function nav(id) {
       return;
     }
     document.getElementById('tactions').innerHTML = PACTIONS[id];
+    // Export comptable : palier Réseau uniquement (voir hasAccountingExport()).
+    // Le bouton est retiré ici plutôt que dupliqué en deux variantes de
+    // PACTIONS, qui est une table statique.
+    if (!hasAccountingExport()) {
+      document.querySelectorAll('#tactions button').forEach(b => {
+        if ((b.getAttribute('onclick') || '').includes('openExportComptableModal')) b.remove();
+      });
+    }
     if (id === 'chapeau') renderChapeau(); else renderCachet();
     // Filet de sécurité : si le chargement initial déclenché par
     // applyClubInfo() (au login/switch) n'a pas encore abouti quand l'admin
@@ -2712,6 +2772,11 @@ function nav(id) {
     if(vr) vr.style.display = 'block';
     renderSlotsCfg();
     renderPlanCard();
+    // Liste des personnes ayant accès — chargée à l'ouverture des Réglages
+    // plutôt qu'au démarrage : c'est le seul écran qui l'affiche, et elle
+    // peut avoir changé depuis (une autre personne a pu être invitée ou
+    // retirée entre-temps).
+    loadClubAccess();
   }
 
   // Tutoriel de 1ère visite — appelé APRÈS le render de la vue (sinon le
@@ -5020,6 +5085,118 @@ async function sbFetch(table, options = {}) {
 // par une policy RLS "lecture publique" côté Supabase. Toute écriture admin (upsert
 // comédiens, sync planning/dispos, suppression, chat) passe par ici avec le token
 // signé obtenu via checkAdminPwd()/adminWrite. Voir api/admin-write.js.
+// ── Accès au club : plusieurs personnes par comedy club (2026-09) ─────────
+// Chaque personne a son PROPRE compte (table `admins`) et le club lui est
+// rattaché via `admin_club_links`. Personne ne partage un mot de passe, et
+// retirer quelqu'un n'oblige pas à en changer. Côté serveur : api/club-access.js.
+let CLUB_ACCESS = [];
+
+async function clubAccessCall(action, payload) {
+  const session = getAdminSession();
+  if (!session || !session.token) return null;
+  try {
+    const res = await fetch('/api/club-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.token}` },
+      body: JSON.stringify({ action, payload })
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, data };
+  } catch (e) {
+    return { ok: false, data: { error: 'Erreur réseau, réessaie' } };
+  }
+}
+
+async function loadClubAccess() {
+  const listEl = document.getElementById('club-access-list');
+  if (!listEl) return;
+  listEl.innerHTML = '<div style="color:var(--muted);font-size:11px">Chargement…</div>';
+  const r = await clubAccessCall('list');
+  if (!r || !r.ok || !r.data.success) {
+    listEl.innerHTML = '<div style="color:var(--muted);font-size:11px">Liste indisponible pour le moment.</div>';
+    return;
+  }
+  CLUB_ACCESS = r.data.admins || [];
+  renderClubAccess();
+}
+
+function renderClubAccess() {
+  const listEl = document.getElementById('club-access-list');
+  if (!listEl) return;
+  if (!CLUB_ACCESS.length) {
+    listEl.innerHTML = '<div style="color:var(--muted);font-size:11px">Personne pour le moment.</div>';
+    return;
+  }
+  listEl.innerHTML = CLUB_ACCESS.map(a => {
+    const email = escapeHtmlLite(a.email || 'compte sans email');
+    // Pas de bouton "retirer" sur sa propre ligne : le serveur le refuse de
+    // toute façon (c'est ce qui garantit qu'un club garde toujours au moins
+    // un administrateur), autant ne pas le proposer.
+    const action = a.is_self
+      ? '<span style="font-size:10px;color:var(--muted)">toi</span>'
+      : `<button class="btn btn-r" style="font-size:9px;padding:4px 8px" onclick="revokeClubAdmin('${escapeAttr(a.admin_id)}')">Retirer</button>`;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${email}</span>${action}
+    </div>`;
+  }).join('');
+}
+
+function showInviteFeedback(msg, kind) {
+  const el = document.getElementById('invite-feedback');
+  if (!el) return;
+  el.style.display = 'block';
+  el.style.color = kind === 'err' ? 'var(--r)' : (kind === 'warn' ? 'var(--gold)' : 'var(--g)');
+  el.innerHTML = msg;
+}
+
+async function inviteClubAdmin() {
+  const input = document.getElementById('invite-email');
+  const btn = document.getElementById('invite-btn');
+  if (!input) return;
+  const email = input.value.trim();
+  if (!email) return showInviteFeedback('⚠ Renseigne une adresse email.', 'err');
+
+  btn.disabled = true;
+  const r = await clubAccessCall('invite', { email });
+  btn.disabled = false;
+
+  if (!r || !r.ok || !r.data.success) {
+    return showInviteFeedback('⚠ ' + escapeHtmlLite((r && r.data && r.data.error) || "L'invitation n'a pas pu être envoyée."), 'err');
+  }
+  input.value = '';
+  CLUB_ACCESS = r.data.admins || CLUB_ACCESS;
+  renderClubAccess();
+
+  if (r.data.linked && r.data.emailed) {
+    showInviteFeedback('✓ Accès ouvert. Cette personne le verra à sa prochaine connexion.', 'ok');
+  } else if (r.data.linked) {
+    showInviteFeedback("✓ Accès ouvert — mais l'email de notification n'est pas parti. Préviens la personne toi-même.", 'warn');
+  } else if (r.data.emailed) {
+    showInviteFeedback('✓ Invitation envoyée. Le lien est valable 7 jours.', 'ok');
+  } else {
+    // L'email n'est pas parti et le compte n'existe pas encore : sans le lien,
+    // l'invitation serait perdue. On l'affiche pour qu'il soit transmis à la main.
+    showInviteFeedback(
+      "⚠ L'email n'a pas pu être envoyé. Transmets ce lien toi-même (valable 7 jours) :<br>"
+      + `<span style="color:var(--o);word-break:break-all">${escapeHtmlLite(r.data.url || '')}</span>`,
+      'warn'
+    );
+  }
+}
+
+async function revokeClubAdmin(adminId) {
+  const person = CLUB_ACCESS.find(a => a.admin_id === adminId);
+  const label = (person && person.email) || 'cette personne';
+  if (!confirm(`Retirer l'accès de ${label} à ce club ?\n\nSon compte et ses autres clubs ne sont pas touchés.`)) return;
+  const r = await clubAccessCall('revoke', { admin_id: adminId });
+  if (!r || !r.ok || !r.data.success) {
+    return showInviteFeedback('⚠ ' + escapeHtmlLite((r && r.data && r.data.error) || "L'accès n'a pas pu être retiré."), 'err');
+  }
+  CLUB_ACCESS = r.data.admins || [];
+  renderClubAccess();
+  showInviteFeedback('✓ Accès retiré.', 'ok');
+}
+
 async function adminWrite(action, payload) {
   const session = getAdminSession();
   if (!session || !session.token) {
@@ -5036,6 +5213,18 @@ async function adminWrite(action, payload) {
       clearAdminSession();
       showSaveIndicator('✕ Session expirée — reconnecte-toi');
       return false;
+    }
+    if (res.status === 403) {
+      // Refus de palier (plafond d'humoristes du palier Essentiel, gate Pro
+      // sur le chapeau/cachet/tournée) : le serveur renvoie un message écrit
+      // pour l'admin, on le montre tel quel. Sans ce branchement, le 403
+      // tombait dans le catch ci-dessous — un console.warn que personne ne
+      // lit — et la saisie disparaissait sans la moindre explication.
+      const info = await res.json().catch(() => null);
+      if (info && info.error) {
+        showSaveIndicator(`✕ ${info.error}`);
+        return false;
+      }
     }
     if (!res.ok) { const e = await res.text(); throw new Error(e); }
     return await res.json();
@@ -5251,10 +5440,22 @@ function showSaveIndicator(msg = '✓ Sauvegardé') {
     ind.style.cssText = 'position:fixed;bottom:50px;right:16px;background:var(--s3);border:1px solid var(--border2);border-radius:3px;padding:4px 10px;font-size:9px;color:var(--muted);z-index:998;transition:opacity .3s';
     document.body.appendChild(ind);
   }
-  ind.textContent = '✓ Sauvegardé';
+  // Le message reçu est affiché tel quel. Il était ignoré jusqu'ici (toujours
+  // '✓ Sauvegardé' en dur) : une session expirée ou un refus de palier
+  // affichait donc "Sauvegardé" alors que RIEN n'était enregistré — l'admin
+  // repartait convaincu que son planning était en base.
+  ind.textContent = msg;
+  // Un refus se lit et se laisse le temps d'être lu : couleur d'alerte, texte
+  // plus grand, et 6 s au lieu de 2 — le message porte une consigne
+  // (se reconnecter, changer de palier), pas un simple accusé de réception.
+  const isError = typeof msg === 'string' && msg.startsWith('✕');
+  ind.style.color = isError ? 'var(--r)' : 'var(--muted)';
+  ind.style.fontSize = isError ? '11px' : '9px';
+  ind.style.maxWidth = '260px';
+  ind.style.lineHeight = '1.4';
   ind.style.opacity = '1';
   clearTimeout(ind._t);
-  ind._t = setTimeout(() => ind.style.opacity = '0', 2000);
+  ind._t = setTimeout(() => ind.style.opacity = '0', isError ? 6000 : 2000);
 }
 
 // ══════════════════════════════════════════════════
@@ -6116,7 +6317,9 @@ function renderCachet() {
 let exportComptableMonth = null;
 
 function openExportComptableModal() {
-  if (!hasProAccess()) { toast('🔒 L\'export comptable est une fonctionnalité Pro'); return; }
+  // Palier Réseau uniquement depuis le chantier "3 formules" (2026-09) — les
+  // autres fonctionnalités d'argent restent Pro. Voir hasAccountingExport().
+  if (!hasAccountingExport()) { toast('🔒 L\'export comptable fait partie du palier Réseau'); return; }
   const mode = currentClub.payment_mode === 'cachet' ? 'cachet' : 'chapeau';
   const lblEl = document.getElementById('exp-compta-mode-label');
   if (lblEl) lblEl.textContent = mode === 'cachet' ? 'des cachets' : 'du chapeau';
@@ -6137,6 +6340,7 @@ function openExportComptableModal() {
   }
   openModal('modal-export-comptable');
 }
+
 
 function setExportComptableMonth(prefix) {
   exportComptableMonth = prefix;
@@ -6209,7 +6413,9 @@ function buildAccountingCSV(monthPrefix) {
 }
 
 async function downloadAccountingCSV() {
-  if (!hasProAccess()) { toast('🔒 L\'export comptable est une fonctionnalité Pro'); return; }
+  // Palier Réseau uniquement depuis le chantier "3 formules" (2026-09) — les
+  // autres fonctionnalités d'argent restent Pro. Voir hasAccountingExport().
+  if (!hasAccountingExport()) { toast('🔒 L\'export comptable fait partie du palier Réseau'); return; }
   const mode = currentClub.payment_mode === 'cachet' ? 'cachet' : 'chapeau';
   // Le chapeau vit désormais côté serveur — s'assurer qu'il est chargé avant
   // d'exporter (ex. mois précédent jamais consulté dans cette session).

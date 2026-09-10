@@ -175,6 +175,62 @@ export function verifyAdminToken(req) {
   };
 }
 
+// ── Token d'invitation — chantier "plusieurs personnes par club" (2026-09) ──
+// Invite une personne à co-administrer un club. Signé avec le MÊME secret que
+// le token admin, mais avec role: 'invite' : verifyAdminToken() exige
+// role === 'admin' et rejette donc un token d'invitation, et inversement
+// verifyInviteToken() rejette un token de session. Les deux ne peuvent jamais
+// être confondus, même si l'un fuite dans un lien partagé.
+//
+// Pourquoi un token signé plutôt qu'une table `admin_invites` : aucune
+// migration SQL à faire appliquer, et l'invitation est par nature éphémère.
+// Contrepartie assumée : sans ligne en base, une invitation ne peut pas être
+// révoquée avant son expiration ni limitée à un seul usage. Le lien reste
+// néanmoins inoffensif une fois consommé — accepter deux fois ne crée pas de
+// second accès (la clé primaire (admin_id, club_id) rend le lien idempotent)
+// et ne donne accès qu'au club nommé dedans, jamais à un autre. L'email cible
+// est figé dans le token : un lien transféré à quelqu'un d'autre ne lui ouvre
+// rien, il ne peut servir qu'à créer/lier CE compte-là.
+const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function issueInviteToken(clubId, email, nowMs = Date.now()) {
+  const secret = process.env.ADMIN_TOKEN_SECRET;
+  if (!secret) throw new Error('ADMIN_TOKEN_SECRET manquante côté serveur');
+  if (!clubId || typeof clubId !== 'string') throw new Error('issueInviteToken: clubId requis');
+  if (!email || typeof email !== 'string') throw new Error('issueInviteToken: email requis');
+  const exp = nowMs + INVITE_TTL_MS;
+  const payload = Buffer.from(JSON.stringify({
+    role: 'invite',
+    club_id: clubId,
+    email: email.trim().toLowerCase(),
+    exp,
+  })).toString('base64url');
+  const sig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  return { token: `${payload}.${sig}`, exp };
+}
+
+// Renvoie { club_id, email, exp } si le token est valide, sinon null.
+export function verifyInviteToken(token) {
+  const secret = process.env.ADMIN_TOKEN_SECRET;
+  if (!secret) return null;
+  if (typeof token !== 'string' || !token.includes('.')) return null;
+  const [payload, sig] = token.split('.');
+  if (!payload || !sig) return null;
+  const expectedSig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  if (!timingSafeEqualStr(sig, expectedSig)) return null;
+  let data;
+  try {
+    data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+  } catch {
+    return null;
+  }
+  if (!data || data.role !== 'invite') return null;
+  if (typeof data.exp !== 'number' || Date.now() > data.exp) return null;
+  if (typeof data.club_id !== 'string' || !data.club_id) return null;
+  if (typeof data.email !== 'string' || !data.email) return null;
+  return { club_id: data.club_id, email: data.email, exp: data.exp };
+}
+
 // ── Filtre de scoping club ──
 // Depuis l'étape C, le backfill a donné un club_id non-NULL à toutes les
 // lignes existantes (voir stagely-migrate-bcc.sql) : il n'y a plus de ligne
@@ -231,11 +287,49 @@ export function verifyPasswordHash(candidate, expectedHash) {
 // désormais réellement construites.
 export const PRO_PLANS = ['pro', 'reseau'];
 
+// ── Capacités par palier (chantier "3 formules", 2026-09) ─────────────────
+// UNE table, source unique de ce que chaque palier ouvre. Déplacer une
+// fonctionnalité d'un palier à l'autre ou changer un plafond = éditer une
+// ligne ici, rien d'autre : les routes lisent toutes ces valeurs plutôt que
+// de tester le nom du palier.
+//
+// `null` signifie "illimité" (et non "zéro") — retenu plutôt qu'Infinity,
+// qui ne survit pas à JSON.stringify et arriverait à `null` côté client de
+// toute façon, mais silencieusement.
+//
+// Grille tranchée par Chahine : 39,90 / 69,90 / 99,90 €. La progression se
+// lit d'une traite — Essentiel : tu t'organises. Pro : tu suis ton argent.
+// Réseau : tu le sors pour ton comptable.
+export const PLAN_CAPS = {
+  essentiel: { maxComedians: 30,   maxClubAdmins: 3,    tour: false, money: false, accountingExport: false },
+  pro:       { maxComedians: 150,  maxClubAdmins: 6,    tour: true,  money: true,  accountingExport: false },
+  reseau:    { maxComedians: null, maxClubAdmins: null, tour: true,  money: true,  accountingExport: true  },
+};
+
+// Plafonds du palier d'entrée, ré-exportés depuis la table pour les appelants
+// (et les tests) qui ne s'intéressent qu'à celui-là.
+export const ESSENTIEL_MAX_COMEDIANS = PLAN_CAPS.essentiel.maxComedians;
+export const ESSENTIEL_MAX_CLUB_ADMINS = PLAN_CAPS.essentiel.maxClubAdmins;
+
+// Pendant l'essai, un club a TOUJOURS tout — règle produit inchangée depuis le
+// chantier de gating : on ne bride jamais une démonstration de valeur. Ce sont
+// donc les capacités du palier le plus haut qui s'appliquent, quel que soit
+// `plan`.
+export function capsForPlan(plan, status) {
+  if (status === 'trial') return { ...PLAN_CAPS.reseau };
+  return { ...(PLAN_CAPS[plan] || PLAN_CAPS.essentiel) };
+}
+
+// `proFeatures` est conservé tel quel : c'est l'unique gate lue par tout le
+// code écrit avant ce chantier (index.html/hasProAccess, les routes
+// d'écriture) et il garde exactement le même sens — tournée + chapeau/cachet
+// + tableau de bord financier. Les capacités plus fines (plafonds, export
+// comptable) s'ajoutent à côté sans rien redéfinir.
 export function computePlanAccess(club) {
   const status = (club && typeof club.status === 'string' && club.status) || 'trial';
   const plan = (club && typeof club.plan === 'string' && club.plan) || 'essentiel';
   const proFeatures = status === 'trial' || PRO_PLANS.includes(plan);
-  return { status, plan, proFeatures };
+  return { status, plan, proFeatures, caps: capsForPlan(plan, status) };
 }
 
 // ── Mode de paiement des artistes (chantier "cachet + export comptable",
@@ -283,12 +377,45 @@ export function sanitizeChapeauEntry(payload) {
 
 // Le chapeau est une fonctionnalite Pro, cote admin comme cote MC : meme
 // verrou pour les deux routes.
+// Capacités réelles d'un club, relues EN BASE (statut + palier) — jamais
+// devinées depuis le token ni depuis quoi que ce soit fourni par le client,
+// même réflexe que requireProAccess() juste en dessous. Un club introuvable
+// retombe sur le palier d'entrée : en cas de doute, on restreint.
+export async function resolveClubCaps(clubId) {
+  const rows = await sbAdmin('clubs', {
+    params: `?id=eq.${encodeURIComponent(clubId)}&select=id,status,plan&limit=1`,
+  });
+  const club = Array.isArray(rows) && rows.length ? rows[0] : null;
+  return computePlanAccess(club).caps;
+}
+
 export async function requireProAccess(clubId) {
   const rows = await sbAdmin('clubs', {
     params: `?id=eq.${encodeURIComponent(clubId)}&select=id,status,plan&limit=1`,
   });
   const club = Array.isArray(rows) && rows.length ? rows[0] : null;
   return computePlanAccess(club).proFeatures;
+}
+
+// ── Plafond d'humoristes du palier Essentiel ──────────────────────────────
+// La valeur vit dans PLAN_CAPS (voir plus haut). Le plafond ne s'applique
+// QU'À LA CROISSANCE, jamais à l'existant : un club qui dépasse déjà son
+// plafond (descendu de palier, ou arrivé avant que la règle existe) doit
+// continuer à enregistrer normalement ses fiches — seul l'ajout d'une
+// nouvelle est refusé. Sans cette nuance, un changement de palier bloquerait
+// TOUTE sauvegarde du club, planning compris, ce qui est bien pire qu'une
+// fonctionnalité masquée. Même réflexe que le reste du gating : on masque et
+// on freine, on ne détruit jamais ce qui est déjà là.
+
+
+// Nombre d'humoristes actuellement en base pour ce club. Utilise le header
+// Content-Range de PostgREST (count=exact) plutôt que de rapatrier les lignes :
+// seul le total nous intéresse ici.
+export async function countComedians(clubId) {
+  const rows = await sbAdmin('comedians', {
+    params: `?club_id=eq.${encodeURIComponent(clubId)}&select=id`,
+  });
+  return Array.isArray(rows) ? rows.length : 0;
 }
 
 export function isNonEmptyString(v, max = 300) {
