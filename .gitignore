@@ -39,3 +39,10 @@ android/.cxx/
 # Worktrees d agents Claude Code + lien local Vercel — jamais versionnes
 .claude/
 .vercel/
+
+# Signature Android — ne JAMAIS commiter la clé ni ses mots de passe :
+# les perdre interdit toute mise à jour de l'app, les publier permet à
+# n'importe qui de signer une fausse mise à jour de Stagely.
+android/keystore.properties
+*.keystore
+*.jks

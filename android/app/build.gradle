@@ -1,5 +1,20 @@
 apply plugin: 'com.android.application'
 
+// ── Signature de la build de production (chantier stores, 2026-09) ────────
+// Les identifiants du keystore vivent dans android/keystore.properties, qui
+// n'est JAMAIS commité (voir .gitignore) : un keystore ou son mot de passe
+// dans le dépôt, c'est la signature de l'app publiée qui fuite, et n'importe
+// qui peut alors distribuer une mise à jour qui se fait passer pour la tienne.
+//
+// Le fichier est facultatif : s'il est absent, la build release reste non
+// signée et compile quand même. C'est voulu — un dépôt fraîchement cloné (ou
+// une CI) doit pouvoir lancer `gradlew assembleDebug` sans posséder la clé.
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.stagely.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,8 +31,21 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
