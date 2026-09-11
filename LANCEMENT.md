@@ -129,6 +129,53 @@ fait à la main sur vercel.com/dashboard/domains.
 
 ---
 
+## Compiler Android — ce qui marche, et le piège
+
+**La chaîne Android fonctionne** (vérifié le 11/09/2026 : `BUILD SUCCESSFUL`,
+`app-debug.apk` de 4,6 Mo, `com.stagely.app`, targetSdk 36). Le blocage
+« aucun runtime Java » du 29 août est levé.
+
+```bash
+cd android
+JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home" \
+  ./gradlew assembleDebug        # ou bundleRelease une fois le keystore en place
+```
+
+**Le piège — ne pas utiliser le Java d'Android Studio.** Android Studio embarque
+**Java 25**, et Gradle 8.14.3 (la version du wrapper de ce projet) ne le
+supporte pas : le build échoue sur `Unsupported class file major version 69`,
+un message qui ne dit pas du tout qu'il s'agit d'un problème de version de
+Java. Il faut le **JDK 21** installé à part (`brew install openjdk@21`), et le
+passer explicitement en `JAVA_HOME` comme ci-dessus.
+
+Installé sur cette machine, en plus d'Android Studio :
+- JDK 21 (Homebrew)
+- SDK Android dans `~/Library/Android/sdk` (platform-tools, platforms;android-36,
+  build-tools;36.0.0), licences acceptées
+- `android/local.properties` avec `sdk.dir` — non commité, à recréer sur toute
+  autre machine
+
+Pour produire le fichier à publier (`.aab`), il manque uniquement le keystore :
+
+```bash
+keytool -genkey -v -keystore stagely-release.keystore \
+  -alias stagely -keyalg RSA -keysize 2048 -validity 10000
+```
+
+puis `android/keystore.properties` (déjà dans `.gitignore`) :
+
+```
+storeFile=/chemin/absolu/stagely-release.keystore
+storePassword=…
+keyAlias=stagely
+keyPassword=…
+```
+
+Activer **Play App Signing** en parallèle : Google conserve alors la clé finale,
+et perdre la sienne cesse d'interdire toute mise à jour.
+
+---
+
 ## Ce qu'il reste — les stores (si un jour)
 
 Rien n'a bougé depuis le 29 août :
@@ -136,8 +183,7 @@ Rien n'a bougé depuis le 29 août :
 - [ ] Compte Apple Developer (99 $/an) et Google Play Console (25 $)
 - [ ] **Xcode complet** — seuls les Command Line Tools sont installés,
       `xcodebuild` est indisponible, aucune archive iOS possible
-- [ ] **Java + Android Studio** — aucun runtime Java sur cette machine,
-      Gradle ne peut pas démarrer
+- [x] ~~Java + Android Studio~~ — installés le 11/09/2026, build vérifié
 - [ ] Icône source en 1024 × 1024 (`assets/icon.png` fait 512)
 - [ ] Captures d'écran, textes de fiche, `signingConfigs` Android, keystore
 - [ ] Compte de démonstration pour les reviewers
