@@ -63,7 +63,7 @@ body{
   <form id="register-form" onsubmit="event.preventDefault(); register()">
     <label class="lbl">Nom du club</label>
     <input class="inp" id="club-name" placeholder="Ex: Le Rire Jaune" oninput="updateSlugPreview()" required>
-    <div class="slug-preview">stagely.app/<span id="slug-preview">votre-club</span></div>
+    <div class="slug-preview"><span id="slug-host">stagely.app</span>/<span id="slug-preview">votre-club</span></div>
 
     <label class="lbl">Ville</label>
     <input class="inp" id="club-city" placeholder="Paris">
@@ -138,7 +138,17 @@ function slugifyPreview(name) {
 
 function updateSlugPreview() {
   document.getElementById('slug-preview').textContent = slugifyPreview(document.getElementById('club-name').value || '');
+  // Le domaine affiché est celui sur lequel la page tourne réellement. Il était
+  // écrit « stagely.app » en dur — un domaine qui appartient à quelqu'un
+  // d'autre, et que l'inscription promettait donc a tort au club qui s'inscrit.
+  const hostEl = document.getElementById('slug-host');
+  if (hostEl) hostEl.textContent = location.host;
 }
+
+// Appelé au chargement, et pas seulement à la saisie : sans ça le domaine
+// écrit en dur dans le HTML resterait affiché tant que le club n'a pas
+// commencé à taper son nom.
+updateSlugPreview();
 
 async function register() {
   const name = document.getElementById('club-name').value.trim();
