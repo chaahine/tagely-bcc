@@ -4019,7 +4019,7 @@ function renderChat() {
     COMEDIANS.map(c => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
       <span style="width:7px;height:7px;border-radius:50%;background:${c.gender==='f'?'#f472b6':'#3b82f6'};flex-shrink:0"></span>
       <span style="font-size:11px;flex:1">${c.name}</span>
-      <span style="font-size:9px;color:var(--muted)">${{headliner:'Headliner',regular:'Régulier',new:'Nouveau'}[c.prio]}</span>
+      <span style="font-size:9px;color:var(--muted)">${{headliner:'Headliner',regular:'Régulier',new:'Nouveau'}[c.prio] || 'Nouveau'}</span>
     </div>`).join('');
   }
 }

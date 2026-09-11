@@ -67,7 +67,7 @@
 // (403) si le club n'a pas accès — jamais une confiance au client, exactement
 // le même réflexe que clubId/scope pour l'isolation multitenant.
 
-import { applyCors, sbAdmin, verifyAdminToken, isNonEmptyString, SLOT_KEY_RE, clubOrFilter, newId, sanitizeChapeauEntry, requireProAccess, resolveClubCaps, countComedians, PLAN_CAPS } from './_lib.js';
+import { applyCors, sbAdmin, verifyAdminToken, isNonEmptyString, SLOT_KEY_RE, clubOrFilter, newId, sanitizeChapeauEntry, requireProAccess, resolveClubCaps, countComedians, PLAN_CAPS, COMEDIAN_PRIOS } from './_lib.js';
 
 const MAX_BULK = 5000; // garde-fou anti-abus sur les upserts en masse
 
@@ -128,7 +128,9 @@ function sanitizeComedian(row) {
   const out = {
     id: String(row.id),
     name: String(row.name),
-    prio: isNonEmptyString(row.prio, 20) ? row.prio : 'new',
+    // Hors de l'énumération connue -> 'new' : une valeur inattendue s'afficherait
+    // « undefined » sur la fiche du comédien (voir COMEDIAN_PRIOS dans _lib.js).
+    prio: COMEDIAN_PRIOS.includes(row.prio) ? row.prio : 'new',
     presence: Number.isFinite(row.presence) ? row.presence : 100,
     gender: row.gender === 'f' ? 'f' : 'm',
     duration: Number.isFinite(row.duration) ? row.duration : 10,

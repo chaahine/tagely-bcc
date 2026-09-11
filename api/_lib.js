@@ -300,6 +300,12 @@ export const PRO_PLANS = ['pro', 'reseau'];
 // Grille tranchée par Chahine : 39,90 / 69,90 / 99,90 €. La progression se
 // lit d'une traite — Essentiel : tu t'organises. Pro : tu suis ton argent.
 // Réseau : tu le sors pour ton comptable.
+// Priorités valides d'un humoriste (comedians.prio). L'UI ne sait afficher que
+// ces trois valeurs : toute autre chaîne arrivait en base telle quelle et
+// s'affichait « undefined » sur la fiche du comédien. On restreint donc ici,
+// à la source, plutôt que de rustiner chaque endroit qui lit le champ.
+export const COMEDIAN_PRIOS = ['new', 'regular', 'headliner'];
+
 export const PLAN_CAPS = {
   essentiel: { maxComedians: 30,   maxClubAdmins: 3,    tour: false, money: false, accountingExport: false },
   pro:       { maxComedians: 150,  maxClubAdmins: 6,    tour: true,  money: true,  accountingExport: false },

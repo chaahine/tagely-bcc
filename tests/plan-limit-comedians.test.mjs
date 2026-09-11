@@ -23,7 +23,7 @@ import assert from 'node:assert/strict';
 process.env.ADMIN_TOKEN_SECRET = 'test-secret-do-not-use-in-prod';
 process.env.SUPABASE_SERVICE_KEY = 'test-service-key';
 
-const { issueAdminToken, ESSENTIEL_MAX_COMEDIANS, PLAN_CAPS } = await import('../api/_lib.js');
+const { issueAdminToken, ESSENTIEL_MAX_COMEDIANS, PLAN_CAPS, COMEDIAN_PRIOS } = await import('../api/_lib.js');
 const adminWriteHandler = (await import('../api/admin-write.js')).default;
 
 const CLUB_ID = '22222222-2222-4222-a222-222222222222';
@@ -193,4 +193,38 @@ test("l'export comptable est annoncé au seul palier qui l'ouvre côté serveur"
   assert.match(fn[1], /plan === 'reseau'/);
   assert.match(fn[1], /status === 'trial'/, "l'essai doit toujours donner l'accès complet");
   assert.ok(!/plan === 'pro'/.test(fn[1]), "le palier Pro ne doit PAS ouvrir l'export comptable");
+});
+
+// ── Priorité d'un humoriste : énumération fermée ───────────────────────────
+// Découvert en peuplant le club de démonstration : une priorité hors de
+// l'énumération connue arrivait intacte en base et s'affichait « undefined »
+// sur la fiche du comédien, parce que l'UI fait un accès direct au
+// dictionnaire de libellés. Corrigé des deux côtés — ici on verrouille la
+// source.
+
+test('une priorité inconnue est ramenée à "new" plutôt que stockée telle quelle', async () => {
+  const mock = installFetchMock({ plan: 'pro' });
+  const res = fakeRes();
+  await adminWriteHandler(
+    fakeReq(tokenForClub(), { comedians: [
+      { id: 'c1', name: 'Test A', prio: 'fav' },        // invalide
+      { id: 'c2', name: 'Test B', prio: 'headliner' },  // valide
+      { id: 'c3', name: 'Test C' },                     // absente
+    ] }),
+    res,
+  );
+  mock.restore();
+  const post = mock.calls.find(c => c.method === 'POST' && c.url.includes('/comedians'));
+  assert.ok(post, 'les fiches doivent être enregistrées');
+  assert.deepEqual(post.body.map(r => r.prio), ['new', 'headliner', 'new']);
+});
+
+test('les trois priorités affichables sont celles que le serveur accepte', () => {
+  assert.deepEqual(COMEDIAN_PRIOS, ['new', 'regular', 'headliner']);
+  // Le dictionnaire de libellés de index.html doit couvrir exactement celles-là.
+  const dict = indexHtml.match(/\{headliner:'Headliner',regular:'Régulier',new:'Nouveau'\}/);
+  assert.ok(dict, 'le dictionnaire de libellés doit exister dans index.html');
+  for (const p of COMEDIAN_PRIOS) {
+    assert.ok(dict[0].includes(`${p}:`), `le libellé de « ${p} » manque côté client`);
+  }
 });
