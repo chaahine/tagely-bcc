@@ -96,16 +96,25 @@ compte de test, un examinateur bloqué sur l'écran de connexion rejette l'app.
 Stagely est un outil professionnel de gestion destiné à des structures (comedy clubs, cafés-théâtres), pas une application grand public.
 
 Compte de démonstration :
-  Email : demo@stagely.<domaine>
-  Mot de passe : <à créer avant la soumission>
+  Email : demo@stagely.club
+  Mot de passe : DemoStagely2026
 
-Ce compte contient un club de test avec des dates, des humoristes et des disponibilités déjà renseignées, afin que toutes les fonctionnalités soient visibles immédiatement.
+Ce compte donne accès au club « Le Rire Jaune » (Paris), créé en production le 11/09/2026 : 18 humoristes, une grille de 10 créneaux hebdomadaires, 162 passages programmés sur 4 semaines, 162 disponibilités et 14 soirées de chapeau renseignées. Toutes les fonctionnalités sont donc visibles immédiatement, sans avoir à saisir quoi que ce soit.
+
+Le club est en période d'essai, ce qui lui donne l'accès complet à toutes les fonctionnalités quel que soit son palier.
 
 Les abonnements ne sont pas vendus dans l'application : Stagely est un service de gestion vendu à des entreprises, la facturation se fait hors application (règle 3.1.3(b) — « Multiplatform Services » / logiciel d'entreprise).
 ```
 
-**À faire avant de soumettre** : créer réellement ce compte de démonstration,
-avec des données. Un club vide ne montre rien.
+**Fait le 11/09/2026** — le compte existe et contient de vraies données.
+
+⚠️ Deux points à vérifier avant la soumission :
+- l'adresse `demo@stagely.club` ne reçoit rien tant que le domaine n'est pas
+  acheté. Sans conséquence pour un examinateur (aucun email n'est nécessaire
+  pour se connecter), mais à changer si le domaine retenu est différent ;
+- l'essai de 30 jours expire le 11/10/2026. Au-delà, le club bascule en
+  `suspended` et l'examinateur tombera sur l'écran de réactivation. Repasser
+  `clubs.status` à `trial` (ou `active`) avant toute soumission ultérieure.
 
 ---
 
