@@ -1053,7 +1053,10 @@ async function handleBillingReturn(params) {
           <button class="btn btn-o" onclick="exportLU()">↓ Exporter</button>
         </div>
       </div>
-      <div id="planning-counters" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 12px 10px;border-bottom:1px solid var(--border2)"></div>
+      <!-- Compteur de passages du mois. Une SEULE ligne qui defile : en
+           flex-wrap, 25 humoristes occupaient trois lignes et repoussaient la
+           grille du planning vers le bas. -->
+      <div id="planning-counters" style="display:none;gap:5px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--border2);overflow-x:auto;overflow-y:hidden;white-space:nowrap;scrollbar-width:thin"></div>
       <div class="board-wrap"><div class="board" id="board"></div></div>
       <!-- Mode tournée (palier Pro) : dates ponctuelles hors grille hebdomadaire -->
       <div style="padding:14px 12px;border-top:1px solid var(--border2)">
@@ -3245,13 +3248,17 @@ function renderPlanningCounters() {
 
   const monthLabel = new Date(y, parseInt(m) - 1, 1).toLocaleDateString('fr-FR', {month:'long'});
   container.style.display = 'flex';
-  container.innerHTML = `<span style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;align-self:center;margin-right:2px;flex-shrink:0">${monthLabel}</span>`
+  // Pastilles uniformes : le genre n'est plus un aplat de couleur (un damier
+  // rose/bleu sur 25 noms) mais un simple point. L'information reste lisible
+  // d'un coup d'oeil pour equilibrer un plateau, sans saturer la barre.
+  const total = comedianCounts.reduce((sum, x) => sum + x.n, 0);
+  container.innerHTML = `<span style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-right:4px;flex-shrink:0">${monthLabel} · ${total} passages</span>`
     + comedianCounts.map(({c, n}) =>
-      `<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;
-        background:${c.gender==='f'?'rgba(244,114,182,.12)':'rgba(59,130,246,.12)'};
-        border:1px solid ${c.gender==='f'?'rgba(244,114,182,.3)':'rgba(59,130,246,.3)'};
-        color:${c.gender==='f'?'#f472b6':'#93c5fd'};white-space:nowrap"
-      >${c.name.split(' ')[0]} <strong style="color:var(--o)">${n}</strong></span>`
+      `<span title="${escapeAttr(c.name)} — ${n} passage${n > 1 ? 's' : ''} en ${monthLabel}"
+        style="display:inline-flex;align-items:center;gap:5px;font-size:10px;padding:3px 9px;border-radius:12px;
+        background:var(--s2);border:1px solid var(--border2);color:var(--text);white-space:nowrap;flex-shrink:0">
+        <span style="width:5px;height:5px;border-radius:50%;background:${c.gender==='f'?'#f472b6':'#60a5fa'};flex-shrink:0"></span>
+        ${escapeHtmlLite(c.name.split(' ')[0])}<strong style="color:var(--o);font-weight:700">${n}</strong></span>`
     ).join('');
 }
 
