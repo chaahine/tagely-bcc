@@ -293,4 +293,59 @@ test('applyClubInfo : persiste currentCode en localStorage (survit à un recharg
   assert.equal(sandbox.__stored, 'RIREJ9');
 });
 
+// ── Régression : les réglages revenaient à l'ancienne valeur au rechargement ──
+// Signalé par Chahine le 20/09/2026 : « les réglages ne s'enregistrent pas
+// pour le cachet et le chapeau, ça revient à chaque fois ». La valeur était
+// pourtant bien écrite en base ; c'est la COPIE du club portée par la session
+// qui n'était jamais mise à jour, et c'est elle que l'app relit à chaque
+// rechargement. Le désaccord durait jusqu'à la prochaine vraie connexion,
+// soit jusqu'à 30 jours avec « se souvenir de moi ».
+
+function sessionAfter(script, initialSession) {
+  const store = {};
+  if (initialSession) store['stagely_admin_session'] = JSON.stringify(initialSession);
+  const sandbox = vm.createContext({
+    localStorage: {
+      setItem: (k, v) => { store[k] = String(v); },
+      getItem: (k) => (k in store ? store[k] : null),
+    },
+  });
+  vm.runInContext(clubIdentityCode + '\n' + script, sandbox);
+  const raw = store['stagely_admin_session'];
+  return raw ? JSON.parse(raw) : null;
+}
+
+test('applyClubInfo : le mode de paiement modifié est réécrit dans la session, pas seulement en mémoire', () => {
+  const sess = sessionAfter(
+    `applyClubInfo({ id: 'club-b', name: 'Le Rire Jaune', portal_code: 'RIREJ9', payment_mode: 'cachet' });`,
+    { token: 'jeton-factice', expiresAt: 9e12, club: { id: 'club-b', name: 'Le Rire Jaune', portal_code: 'RIREJ9', payment_mode: 'chapeau' } },
+  );
+  assert.equal(sess.club.payment_mode, 'cachet', 'sans ça, le rechargement de page restaure « chapeau »');
+  assert.equal(sess.token, 'jeton-factice', 'le jeton de session ne doit jamais être perdu au passage');
+});
+
+test('applyClubInfo : nom, ville et deadline modifiés survivent aussi au rechargement', () => {
+  const sess = sessionAfter(
+    `applyClubInfo({ id: 'club-b', name: 'Nouveau Nom', city: 'Lyon', portal_code: 'RIREJ9', dispo_deadline_day: 20 });`,
+    { token: 't', expiresAt: 9e12, club: { id: 'club-b', name: 'Ancien Nom', city: 'Paris', portal_code: 'RIREJ9', dispo_deadline_day: 12 } },
+  );
+  assert.equal(sess.club.name, 'Nouveau Nom');
+  assert.equal(sess.club.city, 'Lyon');
+  assert.equal(sess.club.dispo_deadline_day, 20);
+});
+
+test('applyClubInfo : un appel partiel ne fait pas disparaître de la session ce qu\'il ne porte pas', () => {
+  const sess = sessionAfter(
+    `applyClubInfo({ id: 'club-b', name: 'Le Rire Jaune', portal_code: 'RIREJ9' });`,
+    { token: 't', expiresAt: 9e12, club: { id: 'club-b', name: 'Le Rire Jaune', portal_code: 'RIREJ9', payment_mode: 'cachet', plan: 'pro' } },
+  );
+  assert.equal(sess.club.payment_mode, 'cachet', 'un appel qui ne porte pas payment_mode ne doit pas le remettre à chapeau');
+  assert.equal(sess.club.plan, 'pro', 'ni faire retomber le palier');
+});
+
+test('applyClubInfo : sans session ouverte, aucune session fantôme n\'est créée', () => {
+  const sess = sessionAfter(`applyClubInfo({ id: 'club-b', name: 'X', portal_code: 'RIREJ9' });`, null);
+  assert.equal(sess, null, 'écrire une session sans jeton ouvrirait une session invalide');
+});
+
 console.log('\nTests correctif identité club terminés — voir le résumé du test runner ci-dessus (node --test).');

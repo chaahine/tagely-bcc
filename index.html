@@ -1460,6 +1460,36 @@ function applyClubInfo(club) {
   currentCode = currentClub.portal_code;
   try { localStorage.setItem('stagely_club_code', currentCode); } catch (e) {}
 
+  // La session porte une COPIE du club, figée au moment de la connexion, et
+  // c'est ELLE qui est relue à chaque rechargement de page (voir
+  // `applyClubInfo(session.club)` au démarrage). Sans cette réécriture, toute
+  // modification des réglages — nom, ville, deadline, mode de paiement —
+  // repartait à l'ancienne valeur dès que la page était rechargée, alors
+  // qu'elle était bel et bien enregistrée en base. Le désaccord durait
+  // jusqu'à la prochaine vraie connexion, soit jusqu'à 30 jours avec
+  // « se souvenir de moi ».
+  //
+  // On fusionne les champs que le serveur vient de CONFIRMER (l'argument
+  // `club`), pas l'état complet de `currentClub` : ce dernier porte des
+  // valeurs par défaut qu'on ne peut pas distinguer d'une valeur absente, si
+  // bien qu'un appel partiel — saveClubSettings() n'envoie que ce qui a
+  // changé — écraserait dans la session le palier ou le mode de paiement
+  // qu'il ne transporte pas.
+  try {
+    const rawSession = localStorage.getItem('stagely_admin_session');
+    if (rawSession) {
+      const sess = JSON.parse(rawSession);
+      if (sess && sess.token) {
+        const confirmed = {};
+        for (const k of Object.keys(club)) {
+          if (club[k] !== undefined) confirmed[k] = club[k];
+        }
+        sess.club = { ...(sess.club || {}), ...confirmed };
+        localStorage.setItem('stagely_admin_session', JSON.stringify(sess));
+      }
+    }
+  } catch (e) { /* session illisible ou stockage indisponible : sans effet */ }
+
   if (typeof document === 'undefined') return; // sandbox de test (pas de DOM)
   const setText = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
   const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
