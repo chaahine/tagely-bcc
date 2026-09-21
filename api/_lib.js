@@ -424,6 +424,27 @@ export async function countComedians(clubId) {
   return Array.isArray(rows) ? rows.length : 0;
 }
 
+// ── Assainissement des textes libres affichés dans l'interface ────────────
+// Le nom, le téléphone et les notes d'un humoriste finissent dans du HTML
+// construit par interpolation, à des dizaines d'endroits (planning, fiches,
+// line-up, portail). Or ces champs ne sont pas tous écrits par l'admin :
+// api/portal-write.js (action 'ensureComedian') laisse QUICONQUE possède le
+// code portail du club créer une fiche avec le nom de son choix — et ce code
+// circule par email et par QR auprès de tous les humoristes.
+//
+// Un nom contenant du balisage s'exécuterait donc dans le navigateur de
+// l'admin, dont la session vit dans localStorage. On neutralise à l'écriture,
+// à la source, plutôt que de compter sur un échappement correct aux dizaines
+// de points d'affichage — il suffirait d'en oublier un.
+//
+// Les chevrons sont retirés plutôt qu'encodés : un nom d'humoriste n'a aucune
+// raison d'en contenir, et les encoder ferait apparaître « &lt; » dans les
+// exports texte, les emails et les PDF, qui ne sont pas du HTML.
+export function stripMarkup(v, max = 200) {
+  if (typeof v !== 'string') return '';
+  return v.replace(/[<>]/g, '').slice(0, max);
+}
+
 export function isNonEmptyString(v, max = 300) {
   return typeof v === 'string' && v.trim().length > 0 && v.length <= max;
 }

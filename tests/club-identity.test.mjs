@@ -349,3 +349,53 @@ test('applyClubInfo : sans session ouverte, aucune session fantôme n\'est cré�
 });
 
 console.log('\nTests correctif identité club terminés — voir le résumé du test runner ci-dessus (node --test).');
+
+// ── Le domaine n'est plus ecrit en dur (audit du 22/09/2026) ───────────────
+// Il l'etait a cinq endroits : lien portail, export ICS et deux liens de
+// gestion des dates. Tous les clubs diffusaient donc l'URL du club pilote, et
+// le jour du changement de domaine il aurait fallu n'en oublier aucun.
+
+test('buildPortalLink : le domaine vient de portalOrigin(), plus d\'URL ecrite en dur', () => {
+  const sandbox = runClubIdentity(`
+    applyClubInfo({ id: 'club-b', name: 'Le Rire Jaune', portal_code: 'RIREJ9' });
+    this.__link = buildPortalLink();
+    this.__origin = portalOrigin();
+  `);
+  assert.match(sandbox.__link, /\/portal\.html\?code=RIREJ9$/);
+  assert.ok(sandbox.__link.startsWith(sandbox.__origin), 'le lien doit etre construit sur portalOrigin()');
+});
+
+test('portalOrigin : jamais de barre oblique finale en double', () => {
+  const sandbox = runClubIdentity('this.__o = portalOrigin();');
+  assert.ok(!sandbox.__o.endsWith('/'), 'sinon le lien contiendrait //portal.html');
+});
+
+test('le domaine du club pilote ne subsiste que comme repli sans DOM', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const enDur = html.split('\n')
+    .map((l, i) => [i + 1, l])
+    .filter(([, l]) => l.includes('tagely-bcc.vercel.app'))
+    .filter(([, l]) => !l.trimStart().startsWith('//'));
+  assert.equal(enDur.length, 1,
+    `le domaine ne doit plus apparaitre qu'une fois (le repli de portalOrigin) — trouve aux lignes ${enDur.map(([i]) => i).join(', ')}`);
+});
+
+// ── Le portail n'ouvre plus le club pilote quand le code manque ────────────
+// Audit du 22/09/2026 : `?code=` absent faisait retomber portal.html sur
+// 'BCCD25'. Tant qu'un seul club existait c'etait inoffensif ; depuis qu'il y
+// en a plusieurs, n'importe qui ouvrant le portail sans code atterrissait sur
+// le Broadway Comedy Club, voyait son planning et pouvait y saisir des dispos.
+
+test("portal.html : plus aucun repli sur le code du club pilote", () => {
+  const portal = readFileSync(new URL('../portal.html', import.meta.url), 'utf8');
+  const ligne = portal.split('\n').find(l => l.includes('const PORTAL_CODE ='));
+  assert.ok(ligne, 'la constante PORTAL_CODE doit exister');
+  assert.ok(!ligne.includes('BCCD25'),
+    "sans code, le portail ne doit ouvrir AUCUN club plutot que celui du pilote");
+});
+
+test("portal.html : sans code, un ecran d'explication est prevu", () => {
+  const portal = readFileSync(new URL('../portal.html', import.meta.url), 'utf8');
+  assert.match(portal, /if \(!PORTAL_CODE\)/, 'le cas « aucun code » doit etre traite explicitement');
+  assert.match(portal, /Ce lien est incomplet/, "l'humoriste doit comprendre quoi faire, pas rester sur une page vide");
+});

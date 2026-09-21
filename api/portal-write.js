@@ -41,7 +41,7 @@
 // lectures/écritures — un id de comédien deviné/fuité d'un club A ne permet
 // plus d'agir sur les données d'un club B.
 
-import { applyCors, sbAdmin, isNonEmptyString, SLOT_KEY_RE, idFromEmail, clubOrFilter, resolveClubIdByPortalCode, sendTransactionalEmail, sanitizeChapeauEntry, requireProAccess } from './_lib.js';
+import { applyCors, sbAdmin, isNonEmptyString, SLOT_KEY_RE, idFromEmail, clubOrFilter, resolveClubIdByPortalCode, sendTransactionalEmail, sanitizeChapeauEntry, requireProAccess, stripMarkup } from './_lib.js';
 
 const MAX_ROWS = 500;
 
@@ -109,12 +109,14 @@ export default async function handler(req, res) {
           const comedianId = idFromEmail(email);
           const row = {
             id: comedianId,
-            name: String(nc.name).slice(0, 200),
+            // stripMarkup : cette fiche est creee par quiconque possede le code
+            // portail, pas forcement par l'admin — voir _lib.js.
+            name: stripMarkup(nc.name, 200),
             prio: 'new',
             presence: 100,
             gender: nc.gender === 'f' ? 'f' : 'm',
             duration: Number.isFinite(nc.duration) ? nc.duration : 10,
-            phone: String(nc.phone).slice(0, 40),
+            phone: stripMarkup(nc.phone, 40),
             email,
             active: true,
             club_id: clubId,

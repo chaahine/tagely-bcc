@@ -299,7 +299,40 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 // généré côté admin (index.html) ; repli sur le code BCC actuel si absent,
 // pour ne rien casser tant qu'un seul club existe (aucun lien historique ne
 // deviendra invalide avec ce repli).
-const PORTAL_CODE = new URLSearchParams(location.search).get('code') || 'BCCD25';
+// Plus de repli sur le code du club pilote. Il datait de l'epoque ou un seul
+// club existait ; depuis qu'il y en a plusieurs, ouvrir le portail sans code
+// faisait atterrir n'importe qui sur le Broadway Comedy Club — avec son
+// planning, ses creneaux, et la possibilite d'y saisir des dispos. C'est
+// exactement la fuite entre clubs que le scoping par club_id vise a empecher
+// (voir le commentaire de getClubId() plus bas).
+//
+// Sans code, on n'ouvre donc aucun club : on explique. Les liens envoyes par
+// l'app portent toujours ?code=... (voir buildPortalLink() dans index.html) ;
+// seul un tres vieux favori pourrait ne pas l'avoir.
+const PORTAL_CODE = new URLSearchParams(location.search).get('code');
+
+function afficherLienIncomplet() {
+  document.body.innerHTML = `
+    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
+                font-family:'Inter',sans-serif;background:#080810;color:#f0f0f0;text-align:center">
+      <div style="max-width:380px">
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:22px;color:#f97316;letter-spacing:4px;margin-bottom:18px">STAGELY</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:10px">Ce lien est incomplet</div>
+        <div style="font-size:13px;color:#8a8a95;line-height:1.7">
+          Il manque le code de ton club. Ouvre le lien que ton club t'a envoye par email,
+          ou demande-lui de te le renvoyer.
+        </div>
+      </div>
+    </div>`;
+}
+
+if (!PORTAL_CODE) {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', afficherLienIncomplet);
+  } else {
+    afficherLienIncomplet();
+  }
+}
 const MOIS = ['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','nov','déc'];
 const MOIS_FULL = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const DAYS = ['DIM','LUN','MAR','MER','JEU','VEN','SAM'];

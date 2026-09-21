@@ -1287,13 +1287,13 @@ async function handleBillingReturn(params) {
 
 Merci de renseigner tes disponibilités pour le mois à venir via le lien ci-dessous :
 
-👉 https://tagely-bcc.vercel.app/portal.html?code={CODE}
+👉 {LIEN}
 
 Deadline : le {DEADLINE}.
 
 À très vite !
 {CLUB}</textarea></div>
-    <div style="font-size:9px;color:var(--muted);margin-bottom:8px">Variables automatiques : {CODE} {DEADLINE} {CLUB} · Envoi par email si renseigné, sinon copie manuelle</div>
+    <div style="font-size:9px;color:var(--muted);margin-bottom:8px">Variables automatiques : {LIEN} {CODE} {DEADLINE} {CLUB} {NOM} · Envoi par email si renseigné, sinon copie manuelle</div>
     <div class="ma"><button class="btn btn-ghost" onclick="closeModal('modal-dispo')">Annuler</button><button class="btn btn-o" onclick="sendDispos()">✉ Envoyer</button></div>
   </div>
 </div>
@@ -1425,8 +1425,22 @@ function hasAccountingExport() {
 // (Réglages) et par le bouton "Copier" : élimine la classe de bug où le
 // texte affiché et le lien réellement copié pouvaient diverger (c'était
 // exactement le bug initial — les deux étaient codés en dur séparément).
+// Domaine réel sur lequel tourne l'application. Il était écrit en dur à cinq
+// endroits : le lien portail, l'export ICS et deux liens de gestion des dates.
+// Deux conséquences — tous les clubs diffusaient l'URL du club pilote, et le
+// jour du changement de domaine il aurait fallu n'en oublier aucun.
+// `location.origin` couvre le web comme l'app native (la WebView charge le
+// site en ligne) ; le repli ne sert qu'aux contextes sans DOM, dont le bac à
+// sable des tests.
+function portalOrigin() {
+  const o = (typeof location !== 'undefined' && typeof location.origin === 'string' && location.origin.startsWith('http'))
+    ? location.origin
+    : 'https://tagely-bcc.vercel.app';
+  return o.replace(/\/+$/, '');
+}
+
 function buildPortalLink() {
-  return `https://tagely-bcc.vercel.app/portal.html?code=${currentClub.portal_code}`;
+  return `${portalOrigin()}/portal.html?code=${currentClub.portal_code}`;
 }
 
 // Applique l'identité réelle d'un club (reçue de /api/admin-login ou
@@ -2393,7 +2407,7 @@ function hvExportCalendar() {
     const uid = `stagely-${key}-${hvUser.id}@bcc`;
     const summary = isFirst ? `🎤 MC — ${currentClub.name}` : `🎤 ${currentClub.name}`;
 
-    ics += `BEGIN:VEVENT\nUID:${uid}\nDTSTART:${dtstart}\nDTEND:${dtend}\nSUMMARY:${summary}\nLOCATION:${currentClub.name}\nDESCRIPTION:Passage au ${currentClub.name}. Portail: https://tagely-bcc.vercel.app?code=${currentCode}&manage=${hvUser.id}\nEND:VEVENT\n`;
+    ics += `BEGIN:VEVENT\nUID:${uid}\nDTSTART:${dtstart}\nDTEND:${dtend}\nSUMMARY:${summary}\nLOCATION:${currentClub.name}\nDESCRIPTION:Passage au ${currentClub.name}. Portail: ${portalOrigin()}/?code=${currentCode}&manage=${hvUser.id}\nEND:VEVENT\n`;
   });
   
   ics += 'END:VCALENDAR';
@@ -3684,7 +3698,7 @@ function renderDispos(){
 }
 
 function copyPortalLink(comId) {
-  const link = `https://tagely-bcc.vercel.app/portal.html?code=${currentCode}&manage=${comId}`;
+  const link = `${portalOrigin()}/?code=${currentCode}&manage=${comId}`;
   navigator.clipboard?.writeText(link).then(() => toast('✓ Lien copié !'));
 }
 
@@ -3718,6 +3732,11 @@ async function sendDispos(){
   for (const c of t) {
     DISPO_STATUS[c.id] = 'pending';
     const msg = msgTemplate
+      // {LIEN} passe par buildPortalLink(), la source unique du lien portail.
+      // Le modele portait jusqu'ici l'URL du club pilote en dur : TOUS les
+      // clubs envoyaient donc leurs humoristes sur tagely-bcc.vercel.app, et
+      // le message serait devenu faux au premier changement de domaine.
+      .replace(/{LIEN}/g, buildPortalLink())
       .replace(/{CODE}/g, currentCode)
       .replace(/{DEADLINE}/g, deadline)
       .replace(/{NOM}/g, c.name.split(' ')[0])
@@ -4416,7 +4435,7 @@ function buildPlanningMessage(comedianId, keys) {
     return `📍 ${dateStr} à ${time}${isFirst?' 🎤 (MC)':''}`;
   }).join('\n');
 
-  const link = `https://tagely-bcc.vercel.app?code=${currentCode}&manage=${comedianId}`;
+  const link = `${portalOrigin()}/?code=${currentCode}&manage=${comedianId}`;
   // Dériver le mois depuis les clés réelles du planning (ex: "2026-07-07-20H15" → juillet 2026)
   // et non depuis new Date() qui renverrait le mois courant au lieu du mois planifié
   const firstKeyParts = sortedKeys[0]?.split('-') || [];
