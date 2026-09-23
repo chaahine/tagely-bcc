@@ -1088,7 +1088,12 @@ async function handleBillingReturn(params) {
 
     <!-- RÉGLAGES -->
     <div id="view-reglages" class="view">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:900px">
+      <!-- Grille fluide : le nombre de colonnes suit la largeur disponible au
+           lieu d'etre fige a deux. Sous ~740 px (telephone, tablette en
+           portrait) les cartes passent l'une sous l'autre ; au-dela, il y en a
+           autant que la place le permet. Le plafond passe de 900 a 1400 px
+           pour que les grands ecrans ne laissent plus une moitie vide. -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;max-width:1400px">
 
         <!-- COLONNE GAUCHE -->
         <div style="display:flex;flex-direction:column;gap:14px">
@@ -2784,22 +2789,6 @@ function nav(id) {
     return;
   }
 
-  // Historique — vue dynamique
-  if (id === 'historique') {
-    let hv = document.getElementById('view-historique');
-    if (!hv) {
-      hv = document.createElement('div');
-      hv.id = 'view-historique';
-      hv.className = 'view';
-      document.querySelector('.content').appendChild(hv);
-    }
-    hv.classList.add('on');
-    document.querySelectorAll('.ni').forEach(n=>{if(n.getAttribute('onclick')===`nav('historique')`) n.classList.add('on');});
-    document.getElementById('ptitle').textContent = 'Historique';
-    document.getElementById('tactions').innerHTML = `<button class="btn btn-ghost" onclick="historique=[];autoSave();renderHistorique()" style="font-size:9px">Vider</button>`;
-    renderHistorique();
-    return;
-  }
 
   const v = document.getElementById('view-'+id);
   if(v) v.classList.add('on');
@@ -4127,7 +4116,6 @@ async function cancelSlot(key, slot, dateLabel) {
   for (const humId of asgnIds) {
     const c = COMEDIANS.find(c=>c.id===humId);
     if (!c) continue;
-    logAction('notification', { humId, name: c.name, type: 'cancellation' });
   }
 
   // Supprimer les assignations
@@ -4136,8 +4124,6 @@ async function cancelSlot(key, slot, dateLabel) {
   // Marquer la séance comme annulée dans cancelledSlots
   if (!cancelledSlots) cancelledSlots = {};
   cancelledSlots[key] = { slot, dateLabel, cancelledAt: new Date().toISOString() };
-
-  logAction('slot_cancel', { key, slot, dateLabel, notified: asgnIds.length });
   saveToSupabase();
   autoSave();
   renderPlanning();
@@ -4173,7 +4159,6 @@ function dropOnSlot(e, toKey) {
   if (!assignments[toKey]) assignments[toKey] = [];
   if (!assignments[toKey].includes(humId)) assignments[toKey].push(humId);
   const c = COMEDIANS.find(c=>c.id===humId);
-  logAction('assignment', { humId, name: c?.name, key: toKey, from: fromKey });
   saveToSupabase();
   autoSave();
   renderPlanning();
@@ -4242,7 +4227,6 @@ function scheduleReminders() {
   });
 
   if (scheduled > 0) {
-    logAction('reminders_scheduled', { count: scheduled });
     toast(`⏰ ${scheduled} rappels programmés pour cette semaine`);
   }
   return scheduled;
@@ -4254,7 +4238,6 @@ async function send1hReminders(key, humIds, showTime, slot) {
   const msg = `🔔 Show dans 1h — ${timeStr} · ${names.join(', ')}`;
   showAppNotif(msg, 'var(--o)');
   sendNotif(`🔔 Show dans 1h — ${currentClub.name}`, `${timeStr} · ${names.join(', ')}`);
-  logAction('notification', { type: '1h_admin', slot: timeStr });
 }
 
 async function send3hReminders(key, humIds, showTime, slot) {
@@ -4263,7 +4246,6 @@ async function send3hReminders(key, humIds, showTime, slot) {
   const msg = `⏰ Show dans 3h — ${timeStr} · ${names.join(', ')}`;
   showAppNotif(msg, 'var(--b)');
   sendNotif(`⏰ Show dans 3h — ${currentClub.name}`, `${timeStr} · ${names.join(', ')}`);
-  logAction('notification', { type: '3h_reminder', slot: timeStr });
 }
 
 async function sendLineupReminder(key, humIds, showTime, slot) {
@@ -4275,7 +4257,6 @@ async function sendLineupReminder(key, humIds, showTime, slot) {
     lineupText += `${idx === 0 ? 'MC: ' : ''}${c.name.split(' ')[0]}${idx < humIds.length-1 ? ' · ' : ''}`;
   });
   showAppNotif(lineupText, 'var(--g)');
-  logAction('notification', { type: 'lineup_3min', slot: timeStr });
 }
 
 function showAppNotif(msg, color = 'var(--o)') {
@@ -4579,7 +4560,6 @@ async function sendPlanningToAll() {
       const r = await sendEmail(c.email, `🎤 Tes dates ${currentClub.name} — ${moisLabel}`, msg);
       if (r.success) {
         sent++;
-        logAction('notification', {humId:id, name:c.name, type:'email_planning'});
         markEmailSent(id, exportMonthOverride || getTargetMonthPrefix());
       } else skipped++;
     } else {
@@ -4734,7 +4714,6 @@ function submitManageDates() {
 
   if (removed.length) {
     const c = COMEDIANS.find(c=>c.id===manageUserId);
-    logAction('date_removed', {humId:manageUserId, name:c?.name, keys:removed});
     // Notif admin
     showAppNotif(`⚠ ${c?.name} s'est retiré de ${removed.length} créneau${removed.length>1?'x':''}`, 'var(--r)');
     autoSave();
@@ -5453,7 +5432,7 @@ function saveAll() {
     const data = {
       // COMEDIANS, assignments et DAYS_CONFIG viennent uniquement de Supabase
       // (DAYS_CONFIG depuis schedule_templates, chantier multitenant étape D)
-      cancelledSlots, chatMessages, currentCode, historique,
+      cancelledSlots, chatMessages, currentCode,
       lastSaved: new Date().toISOString()
     };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
@@ -5516,20 +5495,6 @@ function showSaveIndicator(msg = '✓ Sauvegardé') {
 // HISTORIQUE DES PASSAGES
 // ══════════════════════════════════════════════════
 
-let historique = [];
-
-function logAction(type, data) {
-  const now = new Date();
-  historique.unshift({
-    id: Date.now(),
-    type,
-    data,
-    date: now.toLocaleDateString('fr-FR'),
-    time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
-  });
-  if (historique.length > 200) historique.pop();
-  autoSave();
-}
 
 // ══════════════════════════════════════════════════
 // EMAIL (Brevo)
@@ -5612,70 +5577,6 @@ const _origSendChatMsg = sendChatMsg;
 // HISTORIQUE UI
 // ══════════════════════════════════════════════════
 
-function renderHistorique() {
-  const view = document.getElementById('view-historique');
-  if (!view) return;
-
-  const typeLabel = {
-    'assignment': '✓ Assignation',
-    'notification': '📱 Notification',
-    'broadcast': '📢 Broadcast',
-    'chat': '💬 Chat',
-    'dispo': '◫ Dispo reçue',
-    'slot_add': '+ Séance ajoutée',
-    'slot_remove': '✕ Séance supprimée',
-  };
-  const typeColor = {
-    'assignment': 'var(--g)',
-    'notification': 'var(--b)',
-    'broadcast': 'var(--o)',
-    'chat': 'var(--muted)',
-    'dispo': 'var(--gold)',
-  };
-
-  // Stats par humoriste
-  const stats = {};
-  COMEDIANS.forEach(c => {
-    const passes = historique.filter(h => h.type === 'assignment' && h.data?.humId === c.id).length;
-    stats[c.id] = { passes, presence: c.presence };
-  });
-
-  view.innerHTML = `
-    <div style="margin-bottom:16px">
-      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Activité récente</div>
-      ${historique.length === 0 ? `<div style="font-size:11px;color:var(--muted2);padding:20px 0">Aucune activité enregistrée</div>` :
-        historique.slice(0,50).map(h => `
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-            <span style="font-size:9px;color:${typeColor[h.type]||'var(--muted)'};white-space:nowrap;padding-top:1px">${typeLabel[h.type]||h.type}</span>
-            <span style="font-size:10px;flex:1;color:var(--text)">${formatHistEntry(h)}</span>
-            <span style="font-size:9px;color:var(--muted2);white-space:nowrap">${h.date} ${h.time}</span>
-          </div>`).join('')}
-    </div>
-    <div style="margin-top:20px">
-      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Passages par humoriste</div>
-      <table style="width:100%;border-collapse:collapse;font-size:11px">
-        <thead><tr>
-          <th style="text-align:left;padding:6px 10px;font-size:9px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border2);background:var(--s1)">Humoriste</th>
-          <th style="text-align:left;padding:6px 10px;font-size:9px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border2);background:var(--s1)">Passages</th>
-          <th style="text-align:left;padding:6px 10px;font-size:9px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border2);background:var(--s1)">Présence</th>
-          <th style="text-align:left;padding:6px 10px;font-size:9px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border2);background:var(--s1)">Statut dispos</th>
-        </tr></thead>
-        <tbody>${COMEDIANS.map(c => {
-          const p = stats[c.id]?.passes || 0;
-          const pCol = c.presence >= 90 ? 'var(--g)' : c.presence >= 75 ? 'var(--o)' : 'var(--r)';
-          const ds = effectiveDispoStatus(c.id);
-          const dsLabel = {replied:'✓ Répondu',pending:'⏳ Envoyé',none:'—'}[ds];
-          const dsCol = {replied:'var(--g)',pending:'var(--gold)',none:'var(--muted2)'}[ds];
-          return `<tr style="border-bottom:1px solid var(--border)">
-            <td style="padding:8px 10px;display:flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:50%;background:${c.gender==='f'?'#f472b6':'#3b82f6'};flex-shrink:0"></span>${c.name}</td>
-            <td style="padding:8px 10px;color:var(--muted)">${p}</td>
-            <td style="padding:8px 10px;color:${pCol}">${c.presence}%</td>
-            <td style="padding:8px 10px;color:${dsCol}">${dsLabel}</td>
-          </tr>`;
-        }).join('')}</tbody>
-      </table>
-    </div>`;
-}
 
 function formatHistEntry(h) {
   if (h.type === 'assignment') return `${h.data?.name || '?'} → ${h.data?.key || ''}`;
@@ -5808,17 +5709,6 @@ loadFromSupabase().then(ok => {
   }
 }).catch(() => {});
 
-// Ajouter rubrique Historique dans sidebar + nav
-(function addHistoriqueSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  const ctag = sidebar?.querySelector('.ctag');
-  if (!ctag) return;
-  const div = document.createElement('div');
-  div.className = 'ni';
-  div.setAttribute('onclick', "nav('historique')");
-  div.innerHTML = '<span class="ni-lbl">Historique</span>';
-  sidebar.insertBefore(div, ctag);
-})();
 
 // Ajouter Email config dans réglages
 (function addWASection() {
