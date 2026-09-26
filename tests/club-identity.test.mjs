@@ -394,8 +394,12 @@ test("portal.html : plus aucun repli sur le code du club pilote", () => {
     "sans code, le portail ne doit ouvrir AUCUN club plutot que celui du pilote");
 });
 
-test("portal.html : sans code, un ecran d'explication est prevu", () => {
+test("portal.html : sans code, l'humoriste peut saisir celui de son club", () => {
   const portal = readFileSync(new URL('../portal.html', import.meta.url), 'utf8');
   assert.match(portal, /if \(!PORTAL_CODE\)/, 'le cas « aucun code » doit etre traite explicitement');
-  assert.match(portal, /Ce lien est incomplet/, "l'humoriste doit comprendre quoi faire, pas rester sur une page vide");
+  // Arriver sans code n'est pas une erreur : c'est le cas de l'humoriste qui
+  // ouvre l'adresse du site et clique sur « Portail Humoriste »
+  // (showHumoristPortal() redirige sans parametre). Une impasse le bloquerait.
+  assert.match(portal, /id="saisie-code"/, "un champ de saisie du code doit etre propose");
+  assert.match(portal, /api\/portal-resolve/, "le code doit etre verifie AVANT de recharger la page");
 });

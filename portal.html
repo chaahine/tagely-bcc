@@ -311,26 +311,70 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 // seul un tres vieux favori pourrait ne pas l'avoir.
 const PORTAL_CODE = new URLSearchParams(location.search).get('code');
 
-function afficherLienIncomplet() {
+// Arriver ici sans code n'est pas forcement une erreur : c'est aussi le cas
+// de l'humoriste qui ouvre simplement l'adresse du site et clique sur
+// « Portail Humoriste » (showHumoristPortal() dans index.html redirige sans
+// parametre). On ne le renvoie donc pas les mains vides — on lui demande son
+// code, ce qui est la seule reponse juste quand plusieurs clubs coexistent.
+function afficherSaisieCode() {
   document.body.innerHTML = `
     <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
                 font-family:'Inter',sans-serif;background:#080810;color:#f0f0f0;text-align:center">
-      <div style="max-width:380px">
-        <div style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:22px;color:#f97316;letter-spacing:4px;margin-bottom:18px">STAGELY</div>
-        <div style="font-size:15px;font-weight:600;margin-bottom:10px">Ce lien est incomplet</div>
-        <div style="font-size:13px;color:#8a8a95;line-height:1.7">
-          Il manque le code de ton club. Ouvre le lien que ton club t'a envoye par email,
-          ou demande-lui de te le renvoyer.
+      <div style="width:100%;max-width:340px">
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:22px;color:#f97316;letter-spacing:4px;margin-bottom:8px">STAGELY</div>
+        <div style="font-size:12px;color:#555;margin-bottom:26px">Portail Humoriste</div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:8px">Le code de ton club</div>
+        <div style="font-size:12px;color:#8a8a95;line-height:1.6;margin-bottom:18px">
+          Il est dans le lien que ton club t'a envoye. Si tu ne l'as pas, demande-lui.
         </div>
+        <input id="saisie-code" maxlength="12" autocapitalize="characters" autocomplete="off"
+          placeholder="Ex : ABC123"
+          style="width:100%;background:#111;border:1px solid #222;border-radius:10px;padding:14px 16px;
+                 color:#f0f0f0;font-size:16px;text-align:center;letter-spacing:3px;text-transform:uppercase;
+                 font-family:'Rajdhani',sans-serif;font-weight:700;margin-bottom:12px">
+        <div id="saisie-err" style="display:none;font-size:11px;color:#ef4444;margin-bottom:12px"></div>
+        <button id="saisie-btn"
+          style="width:100%;padding:13px;background:#f97316;color:#fff;border:none;border-radius:10px;
+                 font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;cursor:pointer">
+          Acceder →
+        </button>
       </div>
     </div>`;
+
+  const champ = document.getElementById('saisie-code');
+  const err = document.getElementById('saisie-err');
+  const valider = async () => {
+    const code = (champ.value || '').trim().toUpperCase();
+    err.style.display = 'none';
+    if (code.length < 4) {
+      err.textContent = 'Code trop court'; err.style.display = 'block'; return;
+    }
+    // On verifie le code AVANT de recharger : sinon un code errone relancerait
+    // la page pour reafficher le meme ecran, sans rien expliquer.
+    try {
+      const r = await fetch('/api/portal-resolve', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ code }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!d || !d.club_id) {
+        err.textContent = "Ce code ne correspond a aucun club"; err.style.display = 'block'; return;
+      }
+      location.href = `${location.pathname}?code=${encodeURIComponent(code)}`;
+    } catch (e) {
+      err.textContent = 'Erreur reseau, reessaie'; err.style.display = 'block';
+    }
+  };
+  document.getElementById('saisie-btn').addEventListener('click', valider);
+  champ.addEventListener('keydown', (e) => { if (e.key === 'Enter') valider(); });
+  champ.focus();
 }
 
 if (!PORTAL_CODE) {
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', afficherLienIncomplet);
+    document.addEventListener('DOMContentLoaded', afficherSaisieCode);
   } else {
-    afficherLienIncomplet();
+    afficherSaisieCode();
   }
 }
 const MOIS = ['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','nov','déc'];
