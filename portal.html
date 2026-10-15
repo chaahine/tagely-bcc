@@ -290,8 +290,9 @@ input,select,textarea,button{font-family:'Inter',sans-serif}
 
 <script>
 // ── CONFIG ──
-const SB_URL = 'https://dvdwfxytdsvwjtirxncz.supabase.co';
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2ZHdmeHl0ZHN2d2p0aXJ4bmN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTY0MTMsImV4cCI6MjA5MjYzMjQxM30.7u70HAAepfCfU7T58IlN_u-b-rI5uBzqT7lISLQsrWY';
+// Plus aucun accès direct à Supabase : lectures via /api/data-read,
+// écritures via /api/portal-write — toutes deux résolvent le club depuis le
+// code d'accès, côté serveur.
 
 // Chantier multitenant, étape B : le code d'accès portail (ex. 'BCCD25') est
 // désormais envoyé au serveur (api/portal-write.js) à chaque écriture, qui le
@@ -432,7 +433,6 @@ let user = null;
 let mode = 'dispos';
 let hvSlots = {};
 let assignments = {};
-let comedians = [];
 let manageDates = {};
 
 // ── Résolution club_id (chantier multitenant, étape D) ──
@@ -475,25 +475,40 @@ function getClubId() {
   return clubIdPromise;
 }
 
-// ── SUPABASE (lecture seule) ──
-// Les écritures ne passent plus par ici (clé anon) mais par /api/portal-write
-// (clé service_role côté serveur, cf portalWrite() plus bas). Les lectures
-// restent directes vers Supabase, couvertes par une policy RLS "lecture
-// publique" — mais scopées par club_id depuis l'étape D (voir getClubId()
-// ci-dessus) : indispensable dès qu'un 2e club existera, sinon un comédien
-// du club A verrait les données du club B.
-async function sb(table, opts={}) {
-  const {method='GET', params='', body} = opts;
+// ── Lectures (api/data-read.js) ──
+// Jusqu'au 15/10/2026, lecture directe de Supabase avec la clé anon et un
+// filtre club_id ajouté ici, côté navigateur : retirer ce filtre suffisait à
+// lire les humoristes (emails, téléphones) de tous les clubs. Le serveur
+// résout désormais le code d'accès lui-même et n'ouvre que les tables utiles
+// au portail. getClubId() reste appelé pour afficher le vrai nom du club.
+function sbParamsToQuery(params) {
+  const query = { filters: [] };
+  new URLSearchParams(String(params || '').replace(/^\?/, '')).forEach((value, key) => {
+    if (key === 'order') query.order = value;
+    else if (key === 'limit' || key === 'offset') query[key] = parseInt(value, 10);
+    else {
+      const dot = value.indexOf('.');
+      query.filters.push({ col: key, op: value.slice(0, dot), value: value.slice(dot + 1) });
+    }
+  });
+  return query;
+}
+
+async function dataRead(body) {
   try {
-    const h = {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
-    if (method==='POST') h['Prefer']='resolution=merge-duplicates';
-    if (method==='DELETE') h['Prefer']='return=minimal';
-    const clubId = await getClubId();
-    const clubFilter = 'club_id=eq.' + encodeURIComponent(clubId || '');
-    const finalParams = params ? params + '&' + clubFilter : '?' + clubFilter;
-    const r = await fetch(SB_URL+'/rest/v1/'+table+finalParams, {method, headers:h, body:body?JSON.stringify(body):undefined});
-    return method==='GET' ? await r.json() : r.ok;
-  } catch(e) { return method==='GET'?null:false; }
+    const r = await fetch('/api/data-read', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ ...body, code: PORTAL_CODE })
+    });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch(e) { return null; }
+}
+
+async function sb(table, opts={}) {
+  getClubId();
+  return dataRead({ table, query: sbParamsToQuery(opts.params) });
 }
 
 // ── Proxy d'écriture serveur (api/portal-write.js) ──
@@ -526,12 +541,10 @@ function showTab(name) {
 // ── INIT ──
 async function init() {
   // Charger données
-  const [c, a, tmpl] = await Promise.all([
-    sb('comedians',{params:'?order=name'}),
+  const [a, tmpl] = await Promise.all([
     sb('assignments'),
     sb('schedule_templates',{params:'?order=weekday,time'})
   ]);
-  comedians = c||[];
   assignments = {};
   (a||[]).forEach(r => {
     if (!assignments[r.slot_key]) assignments[r.slot_key]=[];
@@ -616,11 +629,16 @@ async function doLogin() {
   }
 
   const fullName = (prenom+' '+nom).toUpperCase();
-  const normalize = s => s.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
   
-  // Chercher par email d'abord (unique), puis par nom
-  let found = comedians.find(c => c.email && c.email.toLowerCase() === email.toLowerCase());
-  if (!found) found = comedians.find(c => normalize(c.name) === normalize(fullName));
+  // Chercher par email d'abord (unique), puis par nom — côté serveur : le
+  // portail ne télécharge plus la liste des humoristes du club.
+  const lookup = await dataRead({ lookup: 'comedian', email, name: fullName });
+  if (!lookup) {
+    document.getElementById('f-err').textContent = '⚠ Erreur de connexion, réessaie';
+    document.getElementById('f-err').style.display = 'block';
+    return;
+  }
+  let found = lookup.comedian;
   
   if (!found) {
     const result = await portalWrite('ensureComedian', {
@@ -632,7 +650,6 @@ async function doLogin() {
       return;
     }
     found = result.comedian;
-    comedians.push(found);
   }
   
   user = found;

@@ -670,10 +670,13 @@ async function checkAdminPwd() {
       // la vraie identité du club au prochain rechargement de page, sans
       // repasser par /api/admin-login (voir DOMContentLoaded plus bas).
       localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({ token: data.token, expiresAt: data.expiresAt, club: data.club || null }));
-      if (data.club) applyClubInfo(data.club);
-      document.getElementById('admin-login-screen').style.display = 'none';
-      document.getElementById('home-screen').style.display = 'none';
-      document.getElementById('admin-screen').style.removeProperty('display');
+      // Rechargement complet plutôt qu'un simple changement d'écran : les
+      // données ont été chargées au démarrage de la page, AVANT la connexion,
+      // donc sans club connu (repli BCC_CLUB_ID de getCurrentClubId()). Sans
+      // ce rechargement, n'importe quel club voyait les humoristes du BCC
+      // jusqu'au prochain F5 — constaté le 08/10/2026 sur le compte démo.
+      location.reload();
+      return;
     } else if (res.status === 403 && /suspendu/i.test(String(data.error || ''))) {
       // Essai expiré : le serveur refuse d'ouvrir une session. Sans porte de
       // sortie ici, le club serait dans un cul-de-sac parfait — plus de
@@ -4775,9 +4778,8 @@ function checkRoute() {
 
 const LS_KEY = 'stagely_bcc_v1';
 
-// ── SUPABASE CONFIG ──
-const SUPABASE_URL = 'https://dvdwfxytdsvwjtirxncz.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2ZHdmeHl0ZHN2d2p0aXJ4bmN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTY0MTMsImV4cCI6MjA5MjYzMjQxM30.7u70HAAepfCfU7T58IlN_u-b-rI5uBzqT7lISLQsrWY';
+// ── SUPABASE : plus aucun accès direct depuis le navigateur (lectures via
+// /api/data-read, écritures via /api/admin-write) ──
 localStorage.removeItem('stagely_sb_key');
 let sbConnected = false;
 
@@ -5084,32 +5086,42 @@ document.addEventListener('click', (ev) => {
   }
 });
 
+// Traduit les params PostgREST historiques des appelants ("?order=name&
+// slot_key=gte.X&limit=1000") en requête structurée pour /api/data-read, qui
+// n'accepte qu'une liste fermée de colonnes, d'opérateurs et de tris.
+function sbParamsToQuery(params) {
+  const query = { filters: [] };
+  new URLSearchParams(String(params || '').replace(/^\?/, '')).forEach((value, key) => {
+    if (key === 'order') query.order = value;
+    else if (key === 'limit' || key === 'offset') query[key] = parseInt(value, 10);
+    else {
+      const dot = value.indexOf('.');
+      query.filters.push({ col: key, op: value.slice(0, dot), value: value.slice(dot + 1) });
+    }
+  });
+  return query;
+}
+
+// Lectures : passent par /api/data-read (clé service_role côté serveur, club
+// tiré du token admin). Jusqu'au 15/10/2026 elles partaient directement vers
+// Supabase avec la clé anon et un filtre club_id ajouté ICI, côté navigateur :
+// n'importe qui pouvait retirer ce filtre et lire tous les clubs. Sans session
+// admin, aucune lecture n'est possible (le serveur répond 401).
 async function sbFetch(table, options = {}) {
-  const { method='GET', body, params='' } = options;
+  const { params = '' } = options;
+  const session = getAdminSession();
+  if (!session || !session.token) return null;
   try {
-    const headers = {
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json',
-    };
-    if (method === 'POST') headers['Prefer'] = 'resolution=merge-duplicates';
-    if (method === 'DELETE') headers['Prefer'] = 'return=minimal';
-    // Chantier multitenant, étape D : toute lecture directe (clé anon) est
-    // désormais scopée par club_id, comme le sont déjà les écritures côté
-    // serveur (voir clubOrFilter() dans api/_lib.js). sbFetch() n'est utilisé
-    // QUE pour des lectures (cf. commentaire plus haut) donc ce filtre
-    // s'applique systématiquement, pas seulement pour method==='GET'.
-    const clubFilter = `club_id=eq.${encodeURIComponent(getCurrentClubId())}`;
-    const finalParams = params ? `${params}&${clubFilter}` : `?${clubFilter}`;
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${finalParams}`, {
-      method, headers,
-      body: body ? JSON.stringify(body) : undefined
+    const res = await fetch('/api/data-read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.token}` },
+      body: JSON.stringify({ table, query: sbParamsToQuery(params) })
     });
     if (!res.ok) { const e = await res.text(); throw new Error(e); }
-    return method === 'GET' ? await res.json() : true;
+    return await res.json();
   } catch(e) {
-    console.warn(`Supabase ${method} ${table}:`, e.message);
-    return method === 'GET' ? null : false;
+    console.warn(`Lecture ${table}:`, e.message);
+    return null;
   }
 }
 
@@ -5696,8 +5708,14 @@ if (savedTheme === 'light') {
 const loaded = loadAll();
 if (loaded) console.log('✓ Données restaurées depuis localStorage');
 
-// Charger depuis Supabase — remplace TOUJOURS les comedians
-loadFromSupabase().then(ok => {
+// Charger depuis Supabase — remplace TOUJOURS les comedians.
+// Seulement avec une session admin (ou le vestige de portail intégré) : sur
+// l'écran d'accueil, aucun club n'est connu et getCurrentClubId() retombe sur
+// le BCC — la page téléchargeait alors les fiches de ses humoristes chez
+// n'importe quel visiteur.
+const _bootParams = new URLSearchParams(location.search);
+const _needsData = isAdminSessionValid() || _bootParams.get('code') || location.hash.startsWith('#/portal');
+(_needsData ? loadFromSupabase() : Promise.resolve(false)).then(ok => {
   if (ok) {
     const activeView = document.querySelector('.view.on')?.id?.replace('view-', '') || 'dashboard';
     if (activeView === 'dashboard') renderDashboard();
