@@ -2069,23 +2069,10 @@ let weekOffset = 0;
 const MOIS=['jan','fév','mar','avr','mai','juin','juil','aoû','sep','oct','nov','déc'];
 const MOIS_FULL=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
 
-let COMEDIANS = [
-  {id:'lotfi',    name:'LOTFI ABDELLI',     prio:'headliner',presence:95, gender:'m', duration:20, phone:'', email:'lotfi@example.com'},
-  {id:'david',    name:'DAVID AZRIA',        prio:'headliner',presence:91, gender:'m', duration:20, phone:'', email:'david@example.com'},
-  {id:'patrick',  name:'PATRICK DOUGLAS',    prio:'regular',  presence:98, gender:'m', duration:15, phone:'', email:'patrick@example.com'},
-  {id:'tony',     name:'TONY SAINT LAURENT', prio:'regular',  presence:96, gender:'m', duration:15, phone:'', email:'tony@example.com'},
-  {id:'leongomes',name:'LÉON GOMES',         prio:'regular',  presence:82, gender:'m', duration:10, phone:'', email:''},
-  {id:'guillaume',name:'GUILLAUME DOLLE',    prio:'regular',  presence:88, gender:'m', duration:15, phone:'', email:''},
-  {id:'mh',       name:'MH',                 prio:'regular',  presence:90, gender:'f', duration:15, phone:'', email:'mh@example.com'},
-  {id:'alicia',   name:'ALICIA THE QUEEN',   prio:'regular',  presence:85, gender:'f', duration:10, phone:'', email:'alicia@example.com'},
-  {id:'anne',     name:'ANNE',               prio:'new',      presence:100,gender:'f', duration:10, phone:'', email:''},
-  {id:'merlin',   name:'MERLIN',             prio:'new',      presence:80, gender:'m', duration:10, phone:'', email:''},
-  {id:'sara',     name:'SARA NMOR',          prio:'new',      presence:100,gender:'f', duration:10, phone:'', email:''},
-  {id:'karim',    name:'KARIM BRIMO',        prio:'regular',  presence:78, gender:'m', duration:10, phone:'', email:''},
-  {id:'nadia',    name:'NADIA B.',            prio:'regular',  presence:87, gender:'f', duration:10, phone:'', email:''},
-  {id:'thomas',   name:'THOMAS K.',           prio:'new',     presence:100,gender:'m', duration:10, phone:'', email:''},
-  {id:'sof',      name:'SOFIA A.',            prio:'regular', presence:92, gender:'f', duration:10, phone:'', email:''},
-];
+// Vide au démarrage : rempli par loadFromSupabase() avec les humoristes du club
+// connecté. Contenait jusqu'au 15/10/2026 une liste du BCC codée en dur,
+// visible par n'importe quel visiteur et par tout nouveau club.
+let COMEDIANS = [];
 const ORIG = JSON.parse(JSON.stringify(COMEDIANS));
 
 // DISPOS_DATA : humId -> { "YYYY-MM-DD-slot": {dispo, mc} }
