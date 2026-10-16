@@ -67,7 +67,7 @@
 // (403) si le club n'a pas accès — jamais une confiance au client, exactement
 // le même réflexe que clubId/scope pour l'isolation multitenant.
 
-import { applyCors, sbAdmin, verifyAdminToken, isNonEmptyString, SLOT_KEY_RE, clubOrFilter, newId, sanitizeChapeauEntry, requireProAccess, resolveClubCaps, countComedians, PLAN_CAPS, COMEDIAN_PRIOS, stripMarkup } from './_lib.js';
+import { applyCors, sbAdmin, verifyAdminToken, isNonEmptyString, SLOT_KEY_RE, clubOrFilter, newId, sanitizeChapeauEntry, requireProAccess, resolveClubCaps, countComedians, PLAN_CAPS, COMEDIAN_PRIOS, stripMarkup, foreignComedianIds } from './_lib.js';
 
 const MAX_BULK = 5000; // garde-fou anti-abus sur les upserts en masse
 
@@ -213,8 +213,19 @@ export default async function handler(req, res) {
         const p = payload || {};
         const out = {};
 
+        // Toute ligne qui vise un humoriste d'un AUTRE club est écartée : sans
+        // ce filtre, l'upsert (on_conflict=id / comedian_id) réécrirait son
+        // club_id et l'arracherait à son club, dispos comprises. Voir
+        // foreignComedianIds() dans _lib.js.
+        const referenced = [];
+        for (const key of ['comedians', 'assignments', 'dispoStatus', 'dispos']) {
+          if (Array.isArray(p[key])) p[key].slice(0, MAX_BULK).forEach(r => referenced.push(key === 'comedians' ? r?.id : r?.comedian_id));
+        }
+        const foreign = referenced.length ? await foreignComedianIds(referenced, clubId) : new Set();
+        const own = (id) => !foreign.has(id);
+
         if (Array.isArray(p.comedians)) {
-          let rows = p.comedians.map(sanitizeComedian).filter(Boolean).slice(0, MAX_BULK)
+          let rows = p.comedians.map(sanitizeComedian).filter(Boolean).filter(r => own(r.id)).slice(0, MAX_BULK)
             .map(r => ({ ...r, club_id: clubId }));
           // Plafond d'humoristes du palier — voir PLAN_CAPS dans _lib.js
           // (30 en Essentiel, 150 en Pro, illimité en Réseau et pendant
@@ -268,21 +279,21 @@ export default async function handler(req, res) {
           // Scopé au club authentifié uniquement — avant ce correctif, ce DELETE n'avait
           // aucun filtre (?id=gte.0) et effaçait TOUTE la table, tous clubs confondus.
           await sbAdmin('assignments', { method: 'DELETE', params: `?${scope}` });
-          const rows = p.assignments.map(sanitizeAssignment).filter(Boolean).slice(0, MAX_BULK)
+          const rows = p.assignments.map(sanitizeAssignment).filter(Boolean).filter(r => own(r.comedian_id)).slice(0, MAX_BULK)
             .map(r => ({ ...r, club_id: clubId }));
           if (rows.length) await sbAdmin('assignments', { method: 'POST', body: rows });
           out.assignments = rows.length;
         }
 
         if (Array.isArray(p.dispoStatus)) {
-          const rows = p.dispoStatus.map(sanitizeDispoStatus).filter(Boolean).slice(0, MAX_BULK)
+          const rows = p.dispoStatus.map(sanitizeDispoStatus).filter(Boolean).filter(r => own(r.comedian_id)).slice(0, MAX_BULK)
             .map(r => ({ ...r, club_id: clubId }));
           if (rows.length) await sbAdmin('dispo_status', { method: 'POST', params: '?on_conflict=comedian_id', body: rows });
           out.dispoStatus = rows.length;
         }
 
         if (Array.isArray(p.dispos)) {
-          const rows = p.dispos.map(sanitizeDispo).filter(Boolean).slice(0, MAX_BULK)
+          const rows = p.dispos.map(sanitizeDispo).filter(Boolean).filter(r => own(r.comedian_id)).slice(0, MAX_BULK)
             .map(r => ({ ...r, club_id: clubId }));
           if (rows.length) await sbAdmin('dispos', { method: 'POST', params: '?on_conflict=comedian_id,slot_key', body: rows });
           out.dispos = rows.length;

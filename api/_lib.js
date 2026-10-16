@@ -477,6 +477,45 @@ export function idFromEmail(email) {
   return String(email).toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 50);
 }
 
+// ── Identifiants d'humoristes entre clubs (correctif 2026-10-16) ──
+// comedians.id est la clé primaire de TOUTE la table, et dispos/dispo_status
+// s'indexent sur comedian_id sans club. Le portail fabriquait l'id à partir
+// du seul email (idFromEmail) : un humoriste inscrit dans un 2e club recevait
+// le même id, et l'upsert déplaçait sa fiche ET ses dispos vers ce club — il
+// disparaissait du premier. Prouvé en prod le 16/10/2026 avec deux clubs de
+// test. Désormais : un id nouveau ne touche jamais une fiche d'un autre club,
+// et une écriture qui vise l'id d'un autre club est écartée.
+
+// Ids parmi `ids` qui appartiennent à un AUTRE club que clubId.
+export async function foreignComedianIds(ids, clubId) {
+  const unique = [...new Set(ids.filter(id => typeof id === 'string' && id))];
+  const foreign = new Set();
+  for (let i = 0; i < unique.length; i += 100) {
+    const chunk = unique.slice(i, i + 100);
+    // Valeurs entre guillemets dans in.(...) : un id contenant une virgule ou
+    // une parenthèse reste une seule valeur. Un id contenant un guillemet ne
+    // peut pas être exprimé proprement : on le considère étranger (écarté).
+    const quotable = chunk.filter(id => !id.includes('"') && !id.includes('\\'));
+    chunk.filter(id => !quotable.includes(id)).forEach(id => foreign.add(id));
+    if (!quotable.length) continue;
+    const list = quotable.map(id => `"${id}"`).join(',');
+    const rows = await sbAdmin('comedians', {
+      params: `?id=in.(${encodeURIComponent(list)})&club_id=neq.${encodeURIComponent(clubId)}&select=id`,
+    });
+    (Array.isArray(rows) ? rows : []).forEach(r => foreign.add(r.id));
+  }
+  return foreign;
+}
+
+// Id pour un humoriste qui s'inscrit au portail d'un club : dérivé de l'email
+// ET du club, et jamais celui d'une fiche existante d'un autre club.
+export async function newComedianIdForClub(email, clubId) {
+  const base = `${idFromEmail(email)}_${String(clubId).replace(/-/g, '').slice(0, 8)}`;
+  const taken = await sbAdmin('comedians', { params: `?id=eq.${encodeURIComponent(base)}&select=id,club_id` });
+  if (!Array.isArray(taken) || !taken.length || taken[0].club_id === clubId) return base;
+  return `${base}_${newId().slice(0, 8)}`;
+}
+
 // Génère un id aléatoire pour les lignes créées côté serveur (rooms,
 // schedule_templates, ...) qui n'ont pas d'id "naturel" comme les comédiens
 // (idFromEmail). crypto.randomUUID() est disponible nativement sur le

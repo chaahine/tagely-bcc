@@ -136,7 +136,9 @@ test('club déjà au-dessus du plafond : il ne peut pas pour autant en ajouter u
 
 test('un petit club ne paie jamais l\'aller-retour de comptage', async () => {
   const { calls } = await sync({ count: 10 });
-  const counted = calls.some(c => c.method === 'GET' && c.url.includes('/comedians'));
+  // La vérification d'appartenance (foreignComedianIds, club_id=neq.) part
+  // toujours, et c'est voulu : seul le COMPTAGE du plafond doit être évité.
+  const counted = calls.some(c => c.method === 'GET' && c.url.includes('/comedians') && !c.url.includes('club_id=neq.'));
   assert.equal(counted, false, 'sous le plafond, aucune requête de comptage ne doit partir');
 });
 

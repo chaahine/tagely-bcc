@@ -192,3 +192,51 @@ test('portail : recherche par email scopée sur le club du code', async () => {
     assert.ok(q.url.includes(`club_id=eq.${CLUB_B}`));
   } finally { m.restore(); }
 });
+
+// ════════════════════════════════════════════════════════════════════════
+// Humoriste inscrit dans deux clubs (bug prouvé en prod le 16/10/2026)
+// ════════════════════════════════════════════════════════════════════════
+
+const { default: adminWrite } = await import('../api/admin-write.js');
+const { default: portalWrite } = await import('../api/portal-write.js');
+
+test('portail : un humoriste déjà fiché dans le club A reçoit un id différent dans le club B', async () => {
+  let posted = null;
+  const m = installFetchMock((call) => {
+    if (call.url.includes('/clubs?')) return [{ id: CLUB_B, status: 'trial', name: 'B' }];
+    if (call.url.includes('/comedians?email=')) return []; // pas encore dans B
+    if (call.url.includes('/comedians?id=eq.')) return [{ id: 'x', club_id: CLUB_A }]; // id de base pris par A
+    return [];
+  });
+  const orig = globalThis.fetch;
+  globalThis.fetch = async (url, opts = {}) => { if (opts.method === 'POST' && String(url).includes('/comedians')) posted = JSON.parse(opts.body)[0]; return orig(url, opts); };
+  try {
+    const res = fakeRes();
+    await portalWrite(fakeReq({ body: { action: 'ensureComedian', payload: { code: 'CODEB', newComedian: { name: 'JEAN', email: 'jean@x.fr', phone: '06' } } } }), res);
+    assert.equal(res.statusCode, 200);
+    assert.equal(posted.club_id, CLUB_B);
+    assert.ok(posted.id.startsWith('jean_x_fr_bbbbbbbb_'), posted.id);
+  } finally { globalThis.fetch = orig; m.restore(); }
+});
+
+test('admin : une sauvegarde qui vise un humoriste du club A depuis le club B est écartée', async () => {
+  const writes = [];
+  const m = installFetchMock((call) => {
+    if (call.method === 'GET' && call.url.includes('club_id=neq.')) return [{ id: 'jean_de_A' }];
+    return [];
+  });
+  const orig = globalThis.fetch;
+  globalThis.fetch = async (url, opts = {}) => { if (opts.method === 'POST') writes.push({ url: String(url), body: JSON.parse(opts.body) }); return orig(url, opts); };
+  try {
+    const res = fakeRes();
+    await adminWrite(fakeReq({ token: tokenFor(CLUB_B), body: { action: 'sync', payload: {
+      comedians: [{ id: 'jean_de_A', name: 'JEAN' }, { id: 'paul_de_B', name: 'PAUL' }],
+      dispos: [{ comedian_id: 'jean_de_A', slot_key: '2026-11-06-20H15', dispo: true }, { comedian_id: 'paul_de_B', slot_key: '2026-11-06-20H15', dispo: true }],
+      dispoStatus: [{ comedian_id: 'jean_de_A' }],
+    } } }), res);
+    assert.equal(res.statusCode, 200);
+    const all = writes.flatMap(w => w.body);
+    assert.ok(!all.some(r => r.id === 'jean_de_A' || r.comedian_id === 'jean_de_A'), 'aucune écriture sur la fiche du club A');
+    assert.ok(all.some(r => r.id === 'paul_de_B'));
+  } finally { globalThis.fetch = orig; m.restore(); }
+});

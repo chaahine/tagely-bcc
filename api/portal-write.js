@@ -41,7 +41,7 @@
 // lectures/écritures — un id de comédien deviné/fuité d'un club A ne permet
 // plus d'agir sur les données d'un club B.
 
-import { applyCors, sbAdmin, isNonEmptyString, SLOT_KEY_RE, idFromEmail, clubOrFilter, resolveClubIdByPortalCode, sendTransactionalEmail, sanitizeChapeauEntry, requireProAccess, stripMarkup } from './_lib.js';
+import { applyCors, sbAdmin, isNonEmptyString, SLOT_KEY_RE, clubOrFilter, resolveClubIdByPortalCode, sendTransactionalEmail, sanitizeChapeauEntry, requireProAccess, stripMarkup, newComedianIdForClub } from './_lib.js';
 
 const MAX_ROWS = 500;
 
@@ -106,7 +106,7 @@ export default async function handler(req, res) {
         let comedian = await findComedianByEmail(email, clubId);
         let created = false;
         if (!comedian) {
-          const comedianId = idFromEmail(email);
+          const comedianId = await newComedianIdForClub(email, clubId);
           const row = {
             id: comedianId,
             // stripMarkup : cette fiche est creee par quiconque possede le code
