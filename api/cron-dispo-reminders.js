@@ -99,6 +99,16 @@ export function targetMonth(now) {
   return { year, month };
 }
 
+// Adresse du site pour le lien du portail. Une route cron n'a pas d'origine
+// fiable dans sa requête : STAGELY_PUBLIC_URL si posé (domaine à venir), sinon
+// le domaine de production que Vercel fournit, sinon l'adresse actuelle.
+function portalOrigin() {
+  const forced = process.env.STAGELY_PUBLIC_URL;
+  if (forced) return forced.replace(/\/+$/, '');
+  const prod = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  return prod ? `https://${prod}` : 'https://tagely-bcc.vercel.app';
+}
+
 function pad2(n) { return String(n).padStart(2, '0'); }
 
 // Bornes [from, to) sur slot_key (format "YYYY-MM-DD-HHhMM", trie
@@ -158,7 +168,8 @@ export async function runDispoReminders(now) {
       const html = `
         <p>Salut ${firstName},</p>
         <p>Petit rappel : merci de renseigner tes disponibilités pour <strong>${monthLabel}</strong> avant le <strong>${deadlineDay} ${currentMonthLabel}</strong>.</p>
-        ${club.portal_code ? `<p>Code d'accès au portail : <strong>${club.portal_code}</strong></p>` : ''}
+        ${club.portal_code ? `<p><a href="${portalOrigin()}/portal.html?code=${encodeURIComponent(club.portal_code)}" style="display:inline-block;padding:12px 20px;background:#f97316;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold">Donner mes disponibilités</a></p>
+        <p style="color:#888;font-size:13px">Code d'accès au portail : <strong>${club.portal_code}</strong></p>` : ''}
         <p>${club.name || 'L’équipe'}</p>
       `;
       const result = await sendTransactionalEmail({
