@@ -25,7 +25,7 @@
 //
 // Dans les deux cas : génère un slug (dérivé du nom, retry sur collision) et
 // un portal_code (aléatoire, retry sur collision), insère `clubs`
-// (status='trial', essai 30 jours — l'application/expiration du trial est
+// (status='trial', essai 60 jours — l'application/expiration du trial est
 // hors scope ici, volontairement) puis une salle par défaut ("Salle
 // principale", même pattern que resolveDefaultRoomId() dans
 // admin-write.js). Pas de grille pré-remplie : chaque club configure la
@@ -60,7 +60,7 @@ import {
   computePlanAccess,
 } from './_lib.js';
 
-const TRIAL_DAYS = 30;
+const TRIAL_DAYS = 60; // 2 mois — offre de lancement du 17/10/2026 (était 30)
 // Alphabet sans caractères ambigus (pas de 0/O, 1/I) — cohérent avec le
 // format du code portail existant (ex. BCCD25 pour le BCC).
 const PORTAL_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

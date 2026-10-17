@@ -3,7 +3,7 @@
 // * * *" }]).
 //
 // Contexte (audit de cohérence multitenant) : clubs.trial_ends_at est écrit à
-// l'inscription self-service (api/club-signup.js, essai 30 jours) mais
+// l'inscription self-service (api/club-signup.js, essai 60 jours) mais
 // n'était vérifié nulle part — un club en essai gardait un accès illimité de
 // fait, le blocage `status === 'suspended'` (déjà en place et fonctionnel,
 // cf. admin-login.js et resolveClubIdByPortalCode() dans _lib.js) ne se
