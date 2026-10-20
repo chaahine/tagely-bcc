@@ -3,7 +3,7 @@
   "appName": "Stagely",
   "webDir": "www",
   "server": {
-    "url": "https://tagely-bcc.vercel.app",
+    "url": "https://stagely.fr",
     "cleartext": false
   },
   "ios": {

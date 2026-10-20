@@ -370,14 +370,16 @@ test('portalOrigin : jamais de barre oblique finale en double', () => {
   assert.ok(!sandbox.__o.endsWith('/'), 'sinon le lien contiendrait //portal.html');
 });
 
-test('le domaine du club pilote ne subsiste que comme repli sans DOM', () => {
+test('l\'ancien domaine vercel.app n\'est plus écrit en dur, stagely.fr seulement en repli', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   const enDur = html.split('\n')
     .map((l, i) => [i + 1, l])
     .filter(([, l]) => l.includes('tagely-bcc.vercel.app'))
     .filter(([, l]) => !l.trimStart().startsWith('//'));
-  assert.equal(enDur.length, 1,
-    `le domaine ne doit plus apparaitre qu'une fois (le repli de portalOrigin) — trouve aux lignes ${enDur.map(([i]) => i).join(', ')}`);
+  assert.equal(enDur.length, 0,
+    `tagely-bcc.vercel.app redirige vers stagely.fr depuis le 20/10/2026 — trouve aux lignes ${enDur.map(([i]) => i).join(', ')}`);
+  const repli = html.split('\n').filter(l => l.includes("'https://stagely.fr'") && !l.trimStart().startsWith('//'));
+  assert.equal(repli.length, 1, 'stagely.fr ne doit apparaitre qu\'une fois, comme repli de portalOrigin');
 });
 
 // ── Le portail n'ouvre plus le club pilote quand le code manque ────────────

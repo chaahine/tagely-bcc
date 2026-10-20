@@ -106,7 +106,7 @@ function portalOrigin() {
   const forced = process.env.STAGELY_PUBLIC_URL;
   if (forced) return forced.replace(/\/+$/, '');
   const prod = process.env.VERCEL_PROJECT_PRODUCTION_URL;
-  return prod ? `https://${prod}` : 'https://tagely-bcc.vercel.app';
+  return prod ? `https://${prod}` : 'https://stagely.fr';
 }
 
 function pad2(n) { return String(n).padStart(2, '0'); }
