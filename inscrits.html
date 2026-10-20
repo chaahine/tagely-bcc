@@ -106,11 +106,11 @@ function showMsg(html) {
 
 async function load() {
   const token = getToken();
-  if (!token) return showMsg('Connecte-toi d’abord à Stagely avec ton compte BCC, puis reviens ici.<br><br><a href="/">Se connecter</a>');
+  if (!token) return showMsg('Connecte-toi d’abord à Stagely avec ton compte BCC, puis reviens ici.<br><br><a href="/" target="_top">Se connecter</a>');
   try {
     const r = await fetch('/api/owner-signups', { method: 'POST', headers: { Authorization: 'Bearer ' + token } });
     const body = await r.json().catch(() => ({}));
-    if (!r.ok) return showMsg(esc(body.error || 'Erreur ' + r.status) + (r.status === 401 ? '<br><br><a href="/">Se reconnecter</a>' : ''));
+    if (!r.ok) return showMsg(esc(body.error || 'Erreur ' + r.status) + (r.status === 401 ? '<br><br><a href="/" target="_top">Se reconnecter</a>' : ''));
     data = body;
     document.getElementById('updated').textContent = 'Mis à jour ' + new Date(body.generated_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     document.getElementById('msg').hidden = true;
