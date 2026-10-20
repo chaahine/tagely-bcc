@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Stagely — Inscrits</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#f97316">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;color:inherit}
+body{font-family:'Inter',sans-serif;background:#080810;color:#f0f0f0;min-height:100vh;padding:24px 16px}
+.wrap{max-width:1100px;margin:0 auto}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+.logo{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:22px;color:#f97316;letter-spacing:4px}
+.logo span{color:#f0f0f0;letter-spacing:1px;font-weight:600;margin-left:8px}
+.meta{font-size:11px;color:#555}
+.meta button{background:none;border:1px solid #222;border-radius:6px;color:#aaa;padding:4px 10px;margin-left:8px;cursor:pointer;font-size:11px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:22px}
+.kpi{background:#111;border:1px solid #1d1d26;border-radius:12px;padding:14px 16px}
+.kpi .l{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:#666;font-weight:600}
+.kpi .v{font-family:'Rajdhani',sans-serif;font-size:30px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:11px;color:#555}
+.kpi.hl .v{color:#f97316}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.tools input{flex:1;min-width:180px;background:#111;border:1px solid #222;border-radius:8px;padding:9px 12px;color:#f0f0f0;font-size:13px}
+.tools input:focus{outline:none;border-color:#f97316}
+.chip{background:#111;border:1px solid #222;border-radius:999px;padding:7px 12px;font-size:12px;color:#aaa;cursor:pointer}
+.chip.on{border-color:#f97316;color:#f97316}
+.tbl{overflow-x:auto;border:1px solid #1d1d26;border-radius:12px}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:760px}
+th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:#666;font-weight:600;padding:10px 12px;border-bottom:1px solid #1d1d26;background:#0d0d15}
+td{padding:11px 12px;border-bottom:1px solid #15151d;vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+.name{font-weight:600}
+.sub{font-size:11px;color:#666;margin-top:2px}
+.badge{display:inline-block;font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px}
+.b-trial{background:rgba(249,115,22,.12);color:#fb923c}
+.b-active{background:rgba(34,197,94,.12);color:#4ade80}
+.b-suspended{background:rgba(239,68,68,.12);color:#f87171}
+.b-bcc{background:#1d1d26;color:#888;margin-left:6px}
+.warn{color:#f87171}
+.empty,.msg{text-align:center;color:#666;padding:40px 16px;font-size:13px}
+.msg a{color:#f97316}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="logo">STAGELY<span>Inscrits</span></div>
+    <div class="meta"><span id="updated"></span><button id="refresh" type="button">Actualiser</button></div>
+  </div>
+
+  <div id="msg" class="msg">Chargement…</div>
+
+  <div id="content" hidden>
+    <div class="kpis" id="kpis"></div>
+    <div class="tools">
+      <input id="q" type="search" placeholder="Rechercher un club, une ville, un email…">
+      <button class="chip on" data-f="all" type="button">Tous</button>
+      <button class="chip" data-f="trial" type="button">En essai</button>
+      <button class="chip" data-f="active" type="button">Abonnés</button>
+      <button class="chip" data-f="suspended" type="button">Suspendus</button>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr>
+          <th>Club</th><th>Inscrit le</th><th>Compte</th><th>Statut</th><th>Formule</th><th class="num">Humoristes</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const SESSION_KEY = 'stagely_admin_session';
+const DAY = 24 * 60 * 60 * 1000;
+const PLAN_LABEL = { essentiel: 'Essentiel', pro: 'Pro', reseau: 'Réseau' };
+const PLAN_PRICE = { essentiel: 39.90, pro: 69.90, reseau: 99.90 };
+let data = null;
+let filter = 'all';
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return isNaN(d) ? '—' : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+function getToken() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+    return s && s.token && s.expiresAt && Date.now() < s.expiresAt ? s.token : null;
+  } catch (e) { return null; }
+}
+function showMsg(html) {
+  document.getElementById('msg').innerHTML = html;
+  document.getElementById('msg').hidden = false;
+  document.getElementById('content').hidden = true;
+}
+
+async function load() {
+  const token = getToken();
+  if (!token) return showMsg('Connecte-toi d’abord à Stagely avec ton compte BCC, puis reviens ici.<br><br><a href="/">Se connecter</a>');
+  try {
+    const r = await fetch('/api/owner-signups', { method: 'POST', headers: { Authorization: 'Bearer ' + token } });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) return showMsg(esc(body.error || 'Erreur ' + r.status) + (r.status === 401 ? '<br><br><a href="/">Se reconnecter</a>' : ''));
+    data = body;
+    document.getElementById('updated').textContent = 'Mis à jour ' + new Date(body.generated_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('msg').hidden = true;
+    document.getElementById('content').hidden = false;
+    render();
+  } catch (e) {
+    showMsg('Impossible de joindre le serveur.');
+  }
+}
+
+function render() {
+  const now = Date.now();
+  const clubs = data.clubs.filter(c => !c.is_bcc);
+  const by = s => clubs.filter(c => c.status === s).length;
+  const since = days => clubs.filter(c => c.signed_up_at && now - new Date(c.signed_up_at) < days * DAY).length;
+  const mrr = clubs.filter(c => c.status === 'active').reduce((t, c) => t + (PLAN_PRICE[c.plan] || PLAN_PRICE.essentiel), 0);
+  const kpis = [
+    { l: 'Clubs inscrits', v: clubs.length, s: 'hors BCC', hl: true },
+    { l: '7 derniers jours', v: since(7), s: since(30) + ' sur 30 jours' },
+    { l: 'En essai', v: by('trial'), s: 'essai de 2 mois' },
+    { l: 'Abonnés', v: by('active'), s: mrr.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) + ' / mois' },
+    { l: 'Suspendus', v: by('suspended'), s: 'essai expiré' },
+    { l: 'Comptes', v: data.accounts, s: 'personnes inscrites' },
+  ];
+  document.getElementById('kpis').innerHTML = kpis.map(k =>
+    `<div class="kpi${k.hl ? ' hl' : ''}"><div class="l">${k.l}</div><div class="v">${k.v}</div><div class="s">${esc(k.s)}</div></div>`).join('');
+
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  const rows = data.clubs.filter(c => (filter === 'all' || c.status === filter) &&
+    (!q || [c.name, c.city, c.slug, ...(c.admins || [])].join(' ').toLowerCase().includes(q)));
+
+  document.getElementById('rows').innerHTML = rows.length ? rows.map(c => {
+    let statusSub = '';
+    if (c.status === 'trial' && c.trial_ends_at) {
+      const left = Math.ceil((new Date(c.trial_ends_at) - now) / DAY);
+      statusSub = left >= 0 ? `${left} j restants` : `<span class="warn">expiré depuis ${-left} j</span>`;
+    }
+    const label = { trial: 'Essai', active: 'Abonné', suspended: 'Suspendu' }[c.status] || esc(c.status || '—');
+    return `<tr>
+      <td><div class="name">${esc(c.name)}${c.is_bcc ? '<span class="badge b-bcc">toi</span>' : ''}</div><div class="sub">${esc(c.city || '')}</div></td>
+      <td>${fmtDate(c.signed_up_at)}</td>
+      <td>${(c.admins || []).map(esc).join('<br>') || '—'}</td>
+      <td><span class="badge b-${esc(c.status)}">${label}</span><div class="sub">${statusSub}</div></td>
+      <td>${esc(PLAN_LABEL[c.plan] || 'Essentiel')}${c.stripe_subscription_id ? '<div class="sub">Stripe</div>' : ''}</td>
+      <td class="num">${c.comedians}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" class="empty">Aucun club ne correspond.</td></tr>';
+}
+
+document.getElementById('q').addEventListener('input', () => data && render());
+document.querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x === b));
+  filter = b.dataset.f;
+  if (data) render();
+}));
+document.getElementById('refresh').addEventListener('click', load);
+load();
+</script>
+</body>
+</html>
