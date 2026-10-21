@@ -127,6 +127,14 @@ td.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-num
 .gate .alt{text-align:center;margin-top:14px;font-size:12px}
 .gate .alt a{color:var(--muted)}
 
+/* mini-compteurs dans un panneau */
+.mini{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(118px,100%),1fr));gap:10px;margin-bottom:16px}
+.mini div{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:rgba(0,0,0,.2)}
+.mini b{display:block;font-size:22px;font-weight:600;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.mini span{font:500 10px var(--mono);letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}
+.mini small{display:block;font:11px var(--mono);color:var(--dim);margin-top:2px}
+.p-ok{color:var(--ok)}.p-bad{color:var(--bad)}.p-dim{color:var(--muted)}.p-acc{color:var(--acc)}
+.note{font:11px var(--mono);color:var(--dim);margin-top:14px;line-height:1.6}
 .state{text-align:center;padding:60px 16px;font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:1px}
 .scan{width:180px;height:2px;margin:0 auto 16px;background:linear-gradient(90deg,transparent,var(--acc),transparent);animation:scan 1.2s infinite ease-in-out}
 @keyframes scan{0%{transform:translateX(-60%);opacity:.3}50%{opacity:1}100%{transform:translateX(60%);opacity:.3}}
@@ -292,6 +300,44 @@ async function loadStagely() {
   if (!r.ok) return stagelyGate(d.error || 'Erreur ' + r.status);
   stagelyData = d;
   renderStagely(true);
+  loadEmails(t);
+}
+
+// ── Emails Stagely (Brevo) ──
+const MAIL_STATUS = {
+  requests: ['Envoyé', 'p-dim'], delivered: ['Délivré', 'p-dim'], opened: ['Ouvert', 'p-ok'], clicks: ['Cliqué', 'p-acc'],
+  hardBounces: ['Rebond', 'p-bad'], softBounces: ['Rebond temporaire', 'p-bad'], blocked: ['Bloqué', 'p-bad'],
+  invalid: ['Adresse invalide', 'p-bad'], spam: ['Signalé spam', 'p-bad'], deferred: ['Différé', 'p-bad'], error: ['Erreur', 'p-bad'],
+};
+const pct = (n, d) => d ? Math.round(n / d * 100) + ' %' : '—';
+
+async function loadEmails(t) {
+  const box = () => document.getElementById('emails');
+  try {
+    const r = await fetch('/api/owner-emails', { method: 'POST', headers: { Authorization: 'Bearer ' + t } });
+    const d = await r.json().catch(() => ({}));
+    if (current !== 'stagely' || !box()) return;
+    if (!r.ok) { box().innerHTML = `<div class="panel"><div class="ph">Emails Stagely</div><div class="empty">${esc(d.error || 'Erreur ' + r.status)}</div></div>`; return; }
+    const k = d.totals;
+    box().innerHTML = `<div class="panel fade"><div class="ph"><span>Emails Stagely <em>${d.days} j</em></span><span>BREVO · NOREPLY@STAGELY.FR</span></div>
+      <div class="mini">
+        <div><span>Envoyés</span><b>${k.sent}</b></div>
+        <div><span>Délivrés</span><b>${k.delivered}</b><small>${pct(k.delivered, k.sent)}</small></div>
+        <div><span>Ouverts</span><b class="p-ok">${k.opened}</b><small>${pct(k.opened, k.delivered)} des délivrés</small></div>
+        <div><span>Cliqués</span><b class="p-acc">${k.clicked}</b><small>${pct(k.clicked, k.delivered)} des délivrés</small></div>
+        <div><span>Rebonds</span><b${k.bounced ? ' class="p-bad"' : ''}>${k.bounced}</b><small>${k.blocked} bloqué(s)</small></div>
+        <div><span>Spam</span><b${k.spam ? ' class="p-bad"' : ''}>${k.spam}</b></div>
+      </div>
+      <div class="tbl"><table><thead><tr><th>Date</th><th>Destinataire</th><th>Sujet</th><th>Statut</th></tr></thead><tbody>
+      ${d.recent.length ? d.recent.map(m => { const [l, c] = MAIL_STATUS[m.status] || [m.status, 'p-dim'];
+        return `<tr><td>${fmtDT(m.date)}</td><td>${esc(m.email)}</td><td>${esc(m.subject)}</td><td><span class="pill ${c}">${esc(l)}</span></td></tr>`; }).join('')
+        : '<tr><td colspan="4" class="empty">Aucun email sur la période</td></tr>'}
+      </tbody></table></div>
+      <div class="note">Les réponses ne passent pas par Brevo : elles arrivent directement dans la boîte du club, ou dans stagely.prog@gmail.com.</div>
+    </div>`;
+  } catch (e) {
+    if (box()) box().innerHTML = '<div class="panel"><div class="ph">Emails Stagely</div><div class="empty">Brevo injoignable</div></div>';
+  }
 }
 
 function renderStagely(animate) {
@@ -327,7 +373,9 @@ function renderStagely(animate) {
         ${[['all', 'Tous'], ['trial', 'Essai'], ['active', 'Abonnés'], ['suspended', 'Suspendus']].map(([f, l]) => `<button class="chip${stagelyFilter === f ? ' on' : ''}" data-f="${f}" type="button">${l}</button>`).join('')}
       </div></div>
       <div class="tbl"><table><thead><tr><th>Club</th><th>Inscrit le</th><th>Compte</th><th>Statut</th><th>Formule</th><th style="text-align:right">Humoristes</th></tr></thead><tbody id="rows"></tbody></table></div>
-    </div></div>`;
+    </div>
+    <div id="emails" style="margin-top:12px"><div class="panel"><div class="ph">Emails Stagely <em>30 j</em></div><div class="state" style="padding:24px"><div class="scan"></div>LECTURE DE BREVO…</div></div></div>
+    </div>`;
 
   const q = document.getElementById('q');
   q.addEventListener('input', renderStagelyRows);
@@ -389,7 +437,7 @@ function renderFairyTails(d) {
       ${kpi('Total encaissé', eurC(v.total && v.total.montantCentimes), ((v.total && v.total.nombre) || 0) + ' vente(s) · panier ' + eurC(v.panierMoyenCentimes))}
       ${kpi('Visites 7 j', visites7.toLocaleString('fr-FR'), 'conversion ' + (e.tauxGlobal ?? 0) + ' %', false, visites7)}
       ${kpi('Livres créés', (cr.semaine || 0).toLocaleString('fr-FR'), (cr.jour || 0) + ' aujourd’hui · ' + (cr.total || 0) + ' au total', false, cr.semaine || 0)}
-      ${pub.configure ? kpi('Pub Meta 7 j', eurC(pub.depenseCentimes), 'ROAS ' + (pub.roas || 0) + ' · résultat ' + eurC(pub.resultatCentimes)) : kpi('Paniers abandonnés', ab.auPaiement || 0, eurC(ab.manqueAGagnerCentimes) + ' de manque à gagner', false, ab.auPaiement || 0)}
+      ${kpi('Paniers abandonnés', ab.auPaiement || 0, eurC(ab.manqueAGagnerCentimes) + ' de manque à gagner', false, ab.auPaiement || 0)}
     </div>
     <div class="grid2">
       <div class="panel chart"><div class="ph"><span>Fréquentation <em>14 j</em></span><span class="legend"><span><i></i>VISITES</span><span><i class="l2"></i>LIVRES CRÉÉS</span></span></div>${lineChart(freq, 'visites', 'livresCrees')}</div>
@@ -398,6 +446,7 @@ function renderFairyTails(d) {
         <div class="rate"><span>Création ${e.tauxCreation ?? 0} % · achat ${e.tauxAchat ?? 0} %</span><b>${e.tauxGlobal ?? 0} %</b></div>
       </div></div>
     </div>
+    ${metaPanel(pub)}
     <div class="panel"><div class="ph">Dernières ventes</div>
       <div class="tbl"><table><thead><tr><th>Date</th><th>Enfant</th><th>Offre</th><th>Client</th><th style="text-align:right">Montant</th></tr></thead><tbody>
       ${ventes.length ? ventes.map(s => `<tr><td>${fmtDT(s.date)}</td><td><strong>${esc(s.prenom || '—')}</strong></td><td>${esc(OFFRE_LABEL[s.offre] || s.offre || '—')}</td><td class="sub" style="margin:0">${esc(s.email || '')}</td><td class="num">${eurC(s.montantCentimes)}</td></tr>`).join('')
@@ -405,6 +454,30 @@ function renderFairyTails(d) {
       </tbody></table></div>
     </div></div>`;
   countUp();
+}
+
+// Campagnes Meta : fairytails.fr calcule déjà tout (app/lib/meta-ads.ts),
+// on se contente de l'afficher.
+function metaPanel(pub) {
+  const head = '<div class="ph"><span>Campagnes Meta <em>7 j</em></span><span>FAIRY TAILS ADS</span></div>';
+  if (!pub.configure) return `<div class="panel" style="margin-bottom:12px">${head}<div class="empty">Meta n’est pas branché sur fairytails.fr (META_ADS_TOKEN absent)</div></div>`;
+  if (pub.erreur) return `<div class="panel" style="margin-bottom:12px">${head}<div class="empty p-bad">Meta : ${esc(pub.erreur)}</div></div>`;
+  const ctr = (c, i) => i ? (c / i * 100).toFixed(2).replace('.', ',') + ' %' : '—';
+  const camps = pub.campagnes || [];
+  return `<div class="panel" style="margin-bottom:12px">${head}
+    <div class="mini">
+      <div><span>Dépense</span><b>${eurC(pub.depenseCentimes)}</b></div>
+      <div><span>Résultat</span><b class="${(pub.resultatCentimes || 0) >= 0 ? 'p-ok' : 'p-bad'}">${eurC(pub.resultatCentimes)}</b><small>ROAS ${String(pub.roas || 0).replace('.', ',')}</small></div>
+      <div><span>Achats</span><b class="p-acc">${pub.achats || 0}</b><small>${pub.achats ? eurC(pub.coutParAchatCentimes) + ' / achat' : '—'}</small></div>
+      <div><span>Impressions</span><b>${(pub.impressions || 0).toLocaleString('fr-FR')}</b><small>CPM ${eurC(pub.cpmCentimes)}</small></div>
+      <div><span>Portée</span><b>${(pub.portee || 0).toLocaleString('fr-FR')}</b></div>
+      <div><span>Clics</span><b>${(pub.clics || 0).toLocaleString('fr-FR')}</b><small>CTR ${ctr(pub.clics, pub.impressions)} · CPC ${eurC(pub.cpcCentimes)}</small></div>
+    </div>
+    <div class="tbl"><table><thead><tr><th>Campagne</th><th style="text-align:right">Dépense</th><th style="text-align:right">Impressions</th><th style="text-align:right">Clics</th><th style="text-align:right">CTR</th><th style="text-align:right">CPC</th><th style="text-align:right">Achats</th><th style="text-align:right">Coût / achat</th></tr></thead><tbody>
+    ${camps.length ? camps.map(c => `<tr><td><strong>${esc(c.nom)}</strong></td><td class="num">${eurC(c.depenseCentimes)}</td><td class="num">${(c.impressions || 0).toLocaleString('fr-FR')}</td><td class="num">${(c.clics || 0).toLocaleString('fr-FR')}</td><td class="num">${ctr(c.clics, c.impressions)}</td><td class="num">${eurC(c.cpcCentimes)}</td><td class="num">${c.achats || 0}</td><td class="num">${c.achats ? eurC(Math.round(c.depenseCentimes / c.achats)) : '—'}</td></tr>`).join('')
+      : '<tr><td colspan="8" class="empty">Aucune campagne active sur la période</td></tr>'}
+    </tbody></table></div>
+  </div>`;
 }
 
 // ── Navigation ──
