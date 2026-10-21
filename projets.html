@@ -163,6 +163,9 @@ td.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-num
 //  - Stagely     : /api/owner-signups (session admin de stagely.fr)
 //  - Fairy Tails : /api/owner-fairytails, qui relaie /api/admin-stats de
 //                  fairytails.fr (mot de passe gardé côté serveur).
+// Session du tableau de bord (mot de passe seul, /api/owner-login). Une
+// session de l'app Stagely ouverte sur ce navigateur sert aussi.
+const DASH_KEY = 'projets_session';
 const SESSION_KEY = 'stagely_admin_session';
 const CHOICE_KEY = 'projets_choix';
 const DAY = 864e5;
@@ -189,11 +192,17 @@ const fmtDate = iso => { const d = new Date(iso); return isNaN(d) ? '—' : d.to
 const fmtDT = iso => { const d = new Date(iso); return isNaN(d) ? '—' : d.toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); };
 
 function token() {
-  try {
-    const s = JSON.parse(store.get(SESSION_KEY) || 'null');
-    return s && s.token && s.expiresAt && Date.now() < s.expiresAt ? s.token : null;
-  } catch (e) { return null; }
+  for (const k of [DASH_KEY, SESSION_KEY]) {
+    try {
+      const s = JSON.parse(store.get(k) || 'null');
+      if (s && s.token && s.expiresAt && Date.now() < s.expiresAt) return s.token;
+    } catch (e) {}
+  }
+  return null;
 }
+// Sur un 403 (session Stagely valide mais pas celle du fondateur), on ne
+// touche pas à la session de l'app : elle reste bonne pour l'app elle-même.
+function dropSession(status) { store.del(DASH_KEY); if (status === 401) store.del(SESSION_KEY); }
 function loading(label) {
   view.innerHTML = `<div class="state"><div class="scan"></div>${esc(label)}</div>`;
 }
@@ -258,13 +267,12 @@ function weeklyBars(dates) {
   </svg>`;
 }
 
-// ── Connexion Stagely (sert aussi au relais Fairy Tails) ──
+// ── Connexion : un seul mot de passe pour tout le tableau de bord ──
 function stagelyGate(message) {
   view.innerHTML = `<div class="gate fade"><form class="panel" id="login">
-    <h2>Connexion</h2><p>${esc(message || 'Connecte-toi avec ton compte Stagely (BCC) pour afficher tes tableaux de bord.')}</p>
+    <h2>Accès</h2><p>${esc(message || 'Mot de passe de ton compte Stagely. Il ouvre Stagely et Fairy Tails.')}</p>
     <div class="err" id="err"></div>
-    <label for="em">Email</label><input id="em" type="email" autocomplete="username" required>
-    <label for="pw">Mot de passe</label><input id="pw" type="password" autocomplete="current-password" required>
+    <label for="pw">Mot de passe</label><input id="pw" type="password" autocomplete="current-password" required autofocus>
     <button type="submit">Entrer →</button>
     <div class="alt"><a href="/mot-de-passe.html">Mot de passe oublié ?</a></div>
   </form></div>`;
@@ -273,14 +281,13 @@ function stagelyGate(message) {
     const btn = e.target.querySelector('button'), err = document.getElementById('err');
     btn.disabled = true; err.style.display = 'none';
     try {
-      const r = await fetch('/api/admin-login', {
+      const r = await fetch('/api/owner-login', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: document.getElementById('em').value, password: document.getElementById('pw').value, rememberMe: true }),
+        body: JSON.stringify({ password: document.getElementById('pw').value }),
       });
       const d = await r.json().catch(() => ({}));
-      if (!r.ok || !d.token) throw new Error(d.error || 'Email ou mot de passe incorrect');
-      // Même forme que index.html : la session sert aussi dans l'app Stagely.
-      store.set(SESSION_KEY, JSON.stringify({ token: d.token, expiresAt: d.expiresAt, club: d.club || null }));
+      if (!r.ok || !d.token) throw new Error(d.error || 'Mot de passe incorrect');
+      store.set(DASH_KEY, JSON.stringify({ token: d.token, expiresAt: d.expiresAt }));
       load();
     } catch (ex) {
       err.textContent = ex.message; err.style.display = 'block'; btn.disabled = false;
@@ -296,8 +303,8 @@ async function loadStagely() {
   const r = await fetch('/api/owner-signups', { method: 'POST', headers: { Authorization: 'Bearer ' + t } });
   const d = await r.json().catch(() => ({}));
   if (current !== 'stagely') return;
-  if (r.status === 401) { store.del(SESSION_KEY); return stagelyGate('Session expirée, reconnecte-toi.'); }
-  if (!r.ok) return stagelyGate(d.error || 'Erreur ' + r.status);
+  if (r.status === 401 || r.status === 403) { dropSession(r.status); return stagelyGate(r.status === 403 ? d.error : 'Session expirée, reconnecte-toi.'); }
+  if (!r.ok) return view.innerHTML = `<div class="state">${esc(d.error || 'Erreur ' + r.status)}</div>`;
   stagelyData = d;
   renderStagely(true);
   loadEmails(t);
@@ -410,12 +417,12 @@ function renderStagelyRows() {
 // ── Fairy Tails ──
 async function loadFairyTails() {
   const t = token();
-  if (!t) return stagelyGate('Connecte-toi d’abord avec ton compte Stagely : il protège aussi l’accès à Fairy Tails depuis cette page.');
+  if (!t) return stagelyGate();
   loading('SYNCHRONISATION FAIRY TAILS… (jusqu’à 30 s)');
   const r = await fetch('/api/owner-fairytails', { method: 'POST', headers: { Authorization: 'Bearer ' + t } });
   const d = await r.json().catch(() => ({}));
   if (current !== 'fairytails') return;
-  if (r.status === 401) { store.del(SESSION_KEY); return stagelyGate('Session expirée, reconnecte-toi.'); }
+  if (r.status === 401 || r.status === 403) { dropSession(r.status); return stagelyGate(r.status === 403 ? d.error : 'Session expirée, reconnecte-toi.'); }
   if (!r.ok) return view.innerHTML = `<div class="state">${esc(d.error || 'Erreur ' + r.status)}</div>`;
   renderFairyTails(d);
 }
