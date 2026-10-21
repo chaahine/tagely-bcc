@@ -4332,14 +4332,41 @@ async function rmSlot(di,si){
     console.warn('[Stagely] rmSlot: pas d\'id DB pour ce créneau (repli local, jamais synchronisé) — suppression locale uniquement');
   }
 }
+// Heure saisie librement -> suffixe de créneau "HHhMM" ("20H30"), ou null.
+// Accepte 20:30, 20h30, 20.30, 2030, 20h, 20 — sur téléphone le clavier
+// numérique n'a pas de « : ».
+function parseSlotTime(raw){
+  const t = String(raw || '').trim().toLowerCase().replace(/\s+/g, '');
+  let m = t.match(/^(\d{1,2})[:h.]?(\d{2})?$/) || t.match(/^(\d{1,2})(\d{2})$/);
+  if (!m) return null;
+  const h = Number(m[1]), min = Number(m[2] || 0);
+  if (h > 23 || min > 59) return null;
+  return `${String(h).padStart(2,'0')}H${String(min).padStart(2,'0')}`;
+}
+
+// Avant, seule la touche Entrée validait : un clic ailleurs ou la fermeture
+// du clavier du téléphone effaçait la saisie sans rien enregistrer. D'où le
+// bouton « Ajouter », et une sortie du champ qui enregistre si l'heure est
+// valide au lieu de la jeter.
 function showAddSlot(wd){
   const el=document.getElementById(`sct-${wd}`);
   const btn=el.querySelector('.asbtn');btn.style.display='none';
   const inp=document.createElement('input');
   inp.className='st-inp';inp.placeholder='20:00';inp.maxLength=5;
-  el.appendChild(inp);inp.focus();
-  inp.onkeydown=e=>{if(e.key==='Enter')confirmSlot(wd,inp);if(e.key==='Escape')renderSlotsCfg();};
-  inp.onblur=()=>setTimeout(()=>{if(document.activeElement!==inp)renderSlotsCfg();},200);
+  inp.setAttribute('enterkeyhint','done');inp.setAttribute('inputmode','decimal');
+  const ok=document.createElement('button');
+  ok.className='asbtn';ok.type='button';ok.textContent='Ajouter';
+  ok.style.cssText='border-color:var(--o);color:var(--o)';
+  let done=false;
+  const submit=()=>{ if(done) return; done=true; confirmSlot(wd,inp).then(saved=>{ if(!saved) done=false; }); };
+  ok.onmousedown=e=>e.preventDefault(); // garde le focus dans le champ
+  ok.onclick=submit;
+  el.appendChild(inp);el.appendChild(ok);inp.focus();
+  inp.onkeydown=e=>{if(e.key==='Enter')submit();if(e.key==='Escape'){done=true;renderSlotsCfg();}};
+  inp.onblur=()=>setTimeout(()=>{
+    if(done||document.activeElement===inp) return;
+    if(parseSlotTime(inp.value)) submit(); else renderSlotsCfg();
+  },200);
 }
 function restoreSlot(key) {
   delete cancelledSlots[key];
@@ -4349,12 +4376,12 @@ function restoreSlot(key) {
 }
 
 async function confirmSlot(wd,inp){
-  let v=inp.value.trim().replace(':','H').toUpperCase();
-  if(!v.match(/^\d{1,2}H\d{2}$/)){toast('Format : 20:00');return;}
-  const[h,m]=v.split('H');v=`${h}H${m.padStart(2,'0')}`;
+  const v=parseSlotTime(inp.value);
+  if(!v){toast('Format : 20:00');return false;}
+  const[h,m]=v.split('H');
   const existing = DAYS_CONFIG.find(d => d.wd === wd);
   const day = existing || { wd, name: DAY_NAMES_BY_WD[wd], label: DAY_LABELS_BY_WD[wd], slots: [], slotIds: {} };
-  if(day.slots.includes(v)){toast('Déjà existant');return;}
+  if(day.slots.includes(v)){toast('Déjà existant');return false;}
   // Chantier multitenant, étape D : écrit désormais réellement en base
   // (schedule_templates, scopée club) — avant, ce commentaire ("disponible
   // sur le portail") était trompeur : portal.html avait sa PROPRE copie
@@ -4362,7 +4389,7 @@ async function confirmSlot(wd,inp){
   // c'est vrai : les deux se chargent depuis la même table.
   const time = `${h.padStart(2,'0')}:${m.padStart(2,'0')}`;
   const result = await adminWrite('addScheduleSlot', {weekday: day.wd, time, label: day.label});
-  if (!result || !result.success) { toast('✕ Erreur — créneau non enregistré'); return; }
+  if (!result || !result.success) { toast('✕ Erreur — créneau non enregistré'); return false; }
   // Premier créneau d'un jour jusqu'ici vide : le jour entre dans la grille,
   // à sa place dans la semaine.
   if (!existing) {
@@ -4374,6 +4401,7 @@ async function confirmSlot(wd,inp){
   if (result.template && result.template.id) day.slotIds[v] = result.template.id;
   renderSlotsCfg();
   toast(`✓ Séance ${day.name} ${v.replace('H',':')} ajoutée — disponible sur le portail`);
+  return true;
 }
 
 // ══════════════════════════════════════════════════
