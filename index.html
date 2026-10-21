@@ -479,7 +479,7 @@ html.light{
 /* ══════════════════════════════════════
    VUE HUMORISTE — LOGIN + DISPOS
 ══════════════════════════════════════ */
-#hv-screen{display:none;position:fixed;inset:0;z-index:500;background:#0a0a0a;overflow:hidden}
+#hv-screen{display:none;position:fixed;inset:0;z-index:500;background:#080808;overflow:hidden}
 #hv-screen>div{height:100%;display:flex;flex-direction:column;overflow:hidden;width:100%}
 #hv-login{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;overflow-y:auto;padding:20px;width:100%}
 #hv-login>div{width:100%;max-width:400px}
@@ -546,7 +546,7 @@ html.light{
 <body>
 
 <!-- ÉCRAN D'ACCUEIL -->
-<div id="home-screen" style="display:none;position:fixed;inset:0;background:#080810;z-index:9999;align-items:center;justify-content:center;flex-direction:column">
+<div id="home-screen" style="display:none;position:fixed;inset:0;background:#080808;z-index:9999;align-items:center;justify-content:center;flex-direction:column">
   <div style="width:100%;max-width:400px;padding:32px 24px">
     <div style="text-align:center;margin-bottom:40px">
       <div style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:28px;color:#f97316;letter-spacing:4px;margin-bottom:6px">STAGELY</div>
@@ -574,7 +574,7 @@ html.light{
 </div>
 
 <!-- ÉCRAN LOGIN ADMIN -->
-<div id="admin-login-screen" style="display:none;position:fixed;inset:0;background:#080810;z-index:9999;align-items:center;justify-content:center">
+<div id="admin-login-screen" style="display:none;position:fixed;inset:0;background:#080808;z-index:9999;align-items:center;justify-content:center">
   <div style="width:100%;max-width:360px;padding:32px 24px">
     <button onclick="showHomeScreen()" style="background:none;border:none;color:#555;cursor:pointer;font-size:12px;margin-bottom:24px;display:flex;align-items:center;gap:4px;padding:0">← Retour</button>
     <div style="text-align:center;margin-bottom:32px">
@@ -771,7 +771,7 @@ async function handleBillingReturn(params) {
 <div style="min-height:100vh;display:flex;flex-direction:column;font-family:'Inter','Rajdhani',sans-serif">
 
   <!-- HEADER -->
-  <div style="background:#0d0d0d;border-bottom:1px solid #1a1a1a;padding:0 24px;height:54px;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative">
+  <div style="background:#0f0f0f;border-bottom:1px solid #1a1a1a;padding:0 24px;height:54px;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative">
     <span style="color:#f97316;font-weight:800;font-size:16px;letter-spacing:4px">STAGELY</span>
     <span id="hv-header-name" style="font-size:10px;color:#444;position:absolute;right:20px"></span>
   </div>
@@ -847,7 +847,7 @@ async function handleBillingReturn(params) {
   <!-- ESPACE CONNECTÉ -->
   <div id="hv-space" style="display:none;flex:1;flex-direction:column">
     <!-- TABS -->
-    <div style="background:#0d0d0d;border-bottom:1px solid #1a1a1a;display:flex;flex-shrink:0">
+    <div style="background:#0f0f0f;border-bottom:1px solid #1a1a1a;display:flex;flex-shrink:0">
       <button onclick="hvTab('dispos')" id="tab-dispos" style="flex:1;padding:14px 8px;background:none;border:none;border-bottom:2px solid #f97316;color:#f97316;font-size:11px;font-weight:700;letter-spacing:.8px;cursor:pointer;font-family:'Inter','Rajdhani',sans-serif">📅 DISPOS</button>
       <button onclick="hvTab('dates')" id="tab-dates" style="flex:1;padding:14px 8px;background:none;border:none;border-bottom:2px solid transparent;color:#444;font-size:11px;font-weight:700;letter-spacing:.8px;cursor:pointer;font-family:'Inter','Rajdhani',sans-serif">🗓 MES DATES</button>
       <button onclick="hvTab('profil')" id="tab-profil" style="flex:1;padding:14px 8px;background:none;border:none;border-bottom:2px solid transparent;color:#444;font-size:11px;font-weight:700;letter-spacing:.8px;cursor:pointer;font-family:'Inter','Rajdhani',sans-serif">👤 PROFIL</button>
@@ -3510,8 +3510,8 @@ function exportPDF() {
     </div>
     <table style="width:100%;border-collapse:collapse">
       <thead><tr>
-        <th style="padding:8px 16px;font-size:10px;color:#444;text-transform:uppercase;letter-spacing:1px;text-align:left;background:#0a0a0a;border-bottom:1px solid #222">Créneau</th>
-        <th colspan="3" style="padding:8px 16px;font-size:10px;color:#444;text-transform:uppercase;letter-spacing:1px;text-align:left;background:#0a0a0a;border-bottom:1px solid #222">Artistes</th>
+        <th style="padding:8px 16px;font-size:10px;color:#444;text-transform:uppercase;letter-spacing:1px;text-align:left;background:#0f0f0f;border-bottom:1px solid #222">Créneau</th>
+        <th colspan="3" style="padding:8px 16px;font-size:10px;color:#444;text-transform:uppercase;letter-spacing:1px;text-align:left;background:#0f0f0f;border-bottom:1px solid #222">Artistes</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
