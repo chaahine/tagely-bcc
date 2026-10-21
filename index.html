@@ -4286,16 +4286,29 @@ function toggleTheme(btn) {
   toast(isLight ? '☀️ Mode clair activé' : '🌙 Mode sombre activé');
 }
 
+// Les 7 jours sont toujours affichés, même ceux sans aucune séance : avant,
+// seuls les jours déjà présents dans DAYS_CONFIG avaient une ligne, si bien
+// qu'un club tout juste inscrit (grille vide) ne voyait AUCUN bouton
+// « + séance », et qu'un club ne pouvait jamais ouvrir un jour nouveau (le
+// lundi au BCC). Les lignes sont repérées par jour de semaine (wd), plus par
+// leur position dans DAYS_CONFIG, qui n'existe pas pour un jour vide.
+const SLOTS_CFG_WEEK = [1, 2, 3, 4, 5, 6, 0];
+const weekOrder = wd => (wd === 0 ? 7 : wd);
+
 function renderSlotsCfg(){
   const el=document.getElementById('slots-cfg');if(!el) return;
-  el.innerHTML=DAYS_CONFIG.map((day,di)=>`
+  el.innerHTML=SLOTS_CFG_WEEK.map(wd=>{
+    const di = DAYS_CONFIG.findIndex(d => d.wd === wd);
+    const slots = di >= 0 ? DAYS_CONFIG[di].slots : [];
+    return `
     <div class="sc-r">
-      <span class="sc-d">${day.name}</span>
-      <div class="sc-ts" id="sct-${di}">
-        ${day.slots.map((s,si)=>`<span class="sc-chip">${s.replace('H',':')} <button class="sc-del" onclick="rmSlot(${di},${si})">✕</button></span>`).join('')}
-        <button class="asbtn" onclick="showAddSlot(${di})">+ séance</button>
+      <span class="sc-d">${DAY_NAMES_BY_WD[wd]}</span>
+      <div class="sc-ts" id="sct-${wd}">
+        ${slots.map((s,si)=>`<span class="sc-chip">${s.replace('H',':')} <button class="sc-del" onclick="rmSlot(${di},${si})">✕</button></span>`).join('')}
+        <button class="asbtn" onclick="showAddSlot(${wd})">+ séance</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 // Chantier multitenant, étape D : la grille vit en base (schedule_templates),
 // scopée par club. rmSlot() reste optimiste côté UI (retire immédiatement,
@@ -4319,13 +4332,13 @@ async function rmSlot(di,si){
     console.warn('[Stagely] rmSlot: pas d\'id DB pour ce créneau (repli local, jamais synchronisé) — suppression locale uniquement');
   }
 }
-function showAddSlot(di){
-  const el=document.getElementById(`sct-${di}`);
+function showAddSlot(wd){
+  const el=document.getElementById(`sct-${wd}`);
   const btn=el.querySelector('.asbtn');btn.style.display='none';
   const inp=document.createElement('input');
   inp.className='st-inp';inp.placeholder='20:00';inp.maxLength=5;
   el.appendChild(inp);inp.focus();
-  inp.onkeydown=e=>{if(e.key==='Enter')confirmSlot(di,inp);if(e.key==='Escape')renderSlotsCfg();};
+  inp.onkeydown=e=>{if(e.key==='Enter')confirmSlot(wd,inp);if(e.key==='Escape')renderSlotsCfg();};
   inp.onblur=()=>setTimeout(()=>{if(document.activeElement!==inp)renderSlotsCfg();},200);
 }
 function restoreSlot(key) {
@@ -4335,11 +4348,12 @@ function restoreSlot(key) {
   toast('✓ Séance rétablie');
 }
 
-async function confirmSlot(di,inp){
+async function confirmSlot(wd,inp){
   let v=inp.value.trim().replace(':','H').toUpperCase();
   if(!v.match(/^\d{1,2}H\d{2}$/)){toast('Format : 20:00');return;}
   const[h,m]=v.split('H');v=`${h}H${m.padStart(2,'0')}`;
-  const day = DAYS_CONFIG[di];
+  const existing = DAYS_CONFIG.find(d => d.wd === wd);
+  const day = existing || { wd, name: DAY_NAMES_BY_WD[wd], label: DAY_LABELS_BY_WD[wd], slots: [], slotIds: {} };
   if(day.slots.includes(v)){toast('Déjà existant');return;}
   // Chantier multitenant, étape D : écrit désormais réellement en base
   // (schedule_templates, scopée club) — avant, ce commentaire ("disponible
@@ -4349,6 +4363,12 @@ async function confirmSlot(di,inp){
   const time = `${h.padStart(2,'0')}:${m.padStart(2,'0')}`;
   const result = await adminWrite('addScheduleSlot', {weekday: day.wd, time, label: day.label});
   if (!result || !result.success) { toast('✕ Erreur — créneau non enregistré'); return; }
+  // Premier créneau d'un jour jusqu'ici vide : le jour entre dans la grille,
+  // à sa place dans la semaine.
+  if (!existing) {
+    const at = DAYS_CONFIG.findIndex(d => weekOrder(d.wd) > weekOrder(wd));
+    DAYS_CONFIG.splice(at < 0 ? DAYS_CONFIG.length : at, 0, day);
+  }
   day.slots.push(v);day.slots.sort();
   if (!day.slotIds) day.slotIds = {};
   if (result.template && result.template.id) day.slotIds[v] = result.template.id;
