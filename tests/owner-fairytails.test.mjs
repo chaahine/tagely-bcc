@@ -3,15 +3,17 @@
 // ════════════════════════════════════════════════════════════════════════
 // Exécution : node --test tests/*.test.mjs
 //
-// Ce qui compte : seul le fondateur du BCC peut s'en servir, et un mauvais
-// mot de passe Fairy Tails est signalé comme tel (code ft_key) pour que la
-// page le redemande au lieu de déconnecter la session Stagely.
+// Ce qui compte : seul le fondateur du BCC peut s'en servir (le mot de passe
+// Fairy Tails est côté serveur, la page ne le demande plus), et un mot de
+// passe serveur périmé ne renvoie jamais 401, que la page prendrait pour une
+// session Stagely expirée.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 process.env.ADMIN_TOKEN_SECRET = 'test-secret-do-not-use-in-prod';
 process.env.SUPABASE_SERVICE_KEY = 'test-service-key';
+process.env.FAIRYTAILS_ADMIN_SECRET = 'bon';
 
 const { issueAdminToken, BCC_CLUB_ID } = await import('../api/_lib.js');
 const handler = (await import('../api/owner-fairytails.js')).default;
@@ -32,10 +34,9 @@ globalThis.fetch = async (url) => {
   return { ok: true, status: 200, json: async () => rows, text: async () => '' };
 };
 
-function call(adminId, key) {
+function call(adminId) {
   const headers = {};
   if (adminId) headers.authorization = 'Bearer ' + issueAdminToken(adminId, [{ id: BCC_CLUB_ID, name: 'BCC' }], BCC_CLUB_ID).token;
-  if (key) headers['x-ft-key'] = key;
   const res = { statusCode: 200, setHeader() {}, end() { return res; } };
   res.status = c => { res.statusCode = c; return res; };
   res.json = b => { res.body = b; return res; };
@@ -43,23 +44,33 @@ function call(adminId, key) {
 }
 
 test('sans session Stagely : 401, Fairy Tails jamais appelé', async () => {
-  assert.equal((await call(null, 'bon')).statusCode, 401);
+  assert.equal((await call(null)).statusCode, 401);
   assert.equal(ftCalls.length, 0);
 });
 
 test('co-admin du BCC : 403, Fairy Tails jamais appelé', async () => {
-  assert.equal((await call('coadmin', 'bon')).statusCode, 403);
+  assert.equal((await call('coadmin')).statusCode, 403);
   assert.equal(ftCalls.length, 0);
 });
 
-test('fondateur, mauvais mot de passe Fairy Tails : 401 avec code ft_key', async () => {
-  const res = await call('owner', 'faux');
-  assert.equal(res.statusCode, 401);
-  assert.equal(res.body.code, 'ft_key');
-});
-
-test('fondateur, bon mot de passe : JSON de Fairy Tails relayé', async () => {
-  const res = await call('owner', 'bon');
+test('fondateur : JSON de Fairy Tails relayé avec le mot de passe serveur', async () => {
+  const res = await call('owner');
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.ventes.total.nombre, 3);
+  assert.equal(new URL(ftCalls.at(-1)).searchParams.get('secret'), 'bon');
+});
+
+test('mot de passe serveur périmé : 502, jamais 401', async () => {
+  process.env.FAIRYTAILS_ADMIN_SECRET = 'ancien';
+  const res = await call('owner');
+  assert.equal(res.statusCode, 502);
+  process.env.FAIRYTAILS_ADMIN_SECRET = 'bon';
+});
+
+test('variable absente : erreur explicite pour le fondateur', async () => {
+  delete process.env.FAIRYTAILS_ADMIN_SECRET;
+  const res = await call('owner');
+  assert.equal(res.statusCode, 500);
+  assert.match(res.body.error, /FAIRYTAILS_ADMIN_SECRET/);
+  process.env.FAIRYTAILS_ADMIN_SECRET = 'bon';
 });

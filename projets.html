@@ -154,9 +154,8 @@ td.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-num
 // Une seule page, un seul style, deux sources :
 //  - Stagely     : /api/owner-signups (session admin de stagely.fr)
 //  - Fairy Tails : /api/owner-fairytails, qui relaie /api/admin-stats de
-//                  fairytails.fr avec le mot de passe /ventes saisi ici.
+//                  fairytails.fr (mot de passe gardé côté serveur).
 const SESSION_KEY = 'stagely_admin_session';
-const FT_KEY = 'projets_ft_key';
 const CHOICE_KEY = 'projets_choix';
 const DAY = 864e5;
 const PLAN_LABEL = { essentiel: 'Essentiel', pro: 'Pro', reseau: 'Réseau' };
@@ -281,20 +280,6 @@ function stagelyGate(message) {
   });
 }
 
-function ftGate(message) {
-  view.innerHTML = `<div class="gate fade"><form class="panel" id="ftlogin">
-    <h2>Fairy Tails</h2><p>${esc(message || 'Entre le mot de passe de ton tableau de bord /ventes. Il reste mémorisé sur cet appareil.')}</p>
-    <div class="err" id="err"></div>
-    <label for="ftk">Mot de passe</label><input id="ftk" type="password" autocomplete="off" required>
-    <button type="submit">Entrer →</button>
-  </form></div>`;
-  document.getElementById('ftlogin').addEventListener('submit', e => {
-    e.preventDefault();
-    store.set(FT_KEY, document.getElementById('ftk').value);
-    load();
-  });
-}
-
 // ── Stagely ──
 async function loadStagely() {
   const t = token();
@@ -378,13 +363,10 @@ function renderStagelyRows() {
 async function loadFairyTails() {
   const t = token();
   if (!t) return stagelyGate('Connecte-toi d’abord avec ton compte Stagely : il protège aussi l’accès à Fairy Tails depuis cette page.');
-  const key = store.get(FT_KEY);
-  if (!key) return ftGate();
   loading('SYNCHRONISATION FAIRY TAILS… (jusqu’à 30 s)');
-  const r = await fetch('/api/owner-fairytails', { method: 'POST', headers: { Authorization: 'Bearer ' + t, 'X-FT-Key': key } });
+  const r = await fetch('/api/owner-fairytails', { method: 'POST', headers: { Authorization: 'Bearer ' + t } });
   const d = await r.json().catch(() => ({}));
   if (current !== 'fairytails') return;
-  if (d.code === 'ft_key') { store.del(FT_KEY); return ftGate(d.error); }
   if (r.status === 401) { store.del(SESSION_KEY); return stagelyGate('Session expirée, reconnecte-toi.'); }
   if (!r.ok) return view.innerHTML = `<div class="state">${esc(d.error || 'Erreur ' + r.status)}</div>`;
   renderFairyTails(d);
@@ -443,6 +425,8 @@ document.getElementById('refresh').addEventListener('click', load);
 const tick = () => { document.getElementById('clock').textContent = new Date().toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' }).toUpperCase(); };
 tick(); setInterval(tick, 1000);
 
+// Ancien mot de passe Fairy Tails mémorisé avant qu'il passe côté serveur.
+store.del('projets_ft_key');
 const fromHash = location.hash.slice(1);
 show(['stagely', 'fairytails'].includes(fromHash) ? fromHash : (store.get(CHOICE_KEY) === 'fairytails' ? 'fairytails' : 'stagely'));
 </script>
