@@ -626,7 +626,12 @@ export async function resolveClubByPortalCode(code) {
 // d'expédition visible dans n'importe quel email envoyé), donc pas besoin de
 // variable d'environnement pour elle — seule la clé API Brevo (BREVO_API_KEY)
 // est un vrai secret et reste en variable d'environnement.
-export const STAGELY_SENDER_EMAIL = 'chahinedjadel@gmail.com';
+//
+// Depuis le 2026-10 : noreply@stagely.fr (domaine authentifié chez Brevo,
+// DKIM + DMARC dans la zone OVH). Une réponse à un email sans Reply-To
+// propre au club arrive sur l'adresse de support.
+export const STAGELY_SENDER_EMAIL = 'noreply@stagely.fr';
+export const STAGELY_SUPPORT_EMAIL = 'stagely.prog@gmail.com';
 
 export async function sendTransactionalEmail({ to, subject, html, senderName, replyToEmail, replyToName } = {}) {
   if (!to || !subject || !html) {
@@ -642,6 +647,8 @@ export async function sendTransactionalEmail({ to, subject, html, senderName, re
   // jamais bloquant si absent (voir email.js pour le même choix).
   if (replyToEmail) {
     payload.replyTo = { email: replyToEmail, name: replyToName || senderName || 'Stagely' };
+  } else {
+    payload.replyTo = { email: STAGELY_SUPPORT_EMAIL, name: 'Stagely' };
   }
   try {
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {

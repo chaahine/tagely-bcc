@@ -71,7 +71,7 @@ test('sendTransactionalEmail : construit le payload Brevo attendu (sender = club
     assert.equal(call.body.to[0].email, 'admin@bcc.fr');
     assert.equal(call.body.subject, 'Sujet test');
     assert.equal(call.body.htmlContent, '<p>hello</p>');
-    assert.equal(call.body.replyTo, undefined, 'pas de replyTo si replyToEmail absent');
+    assert.deepEqual(call.body.replyTo, { email: 'stagely.prog@gmail.com', name: 'Stagely' }, 'réponses vers le support si replyToEmail absent');
     return {};
   });
   const result = await sendTransactionalEmail({ to: 'admin@bcc.fr', subject: 'Sujet test', html: '<p>hello</p>', senderName: 'Beer Comedy Club' });
