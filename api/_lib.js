@@ -231,6 +231,59 @@ export function verifyInviteToken(token) {
   return { club_id: data.club_id, email: data.email, exp: data.exp };
 }
 
+// ── Token de mot de passe oublié (2026-10) ─────────────────────────────────
+// Même principe que le token d'invitation (signé, pas de table), avec
+// role: 'reset' pour qu'aucun des trois tokens ne soit accepté à la place
+// d'un autre. Valable 1 heure.
+//
+// Usage unique sans table : le token embarque une empreinte du hash de mot de
+// passe en vigueur au moment de la demande (`ph`). Dès que le mot de passe a
+// changé, l'empreinte ne correspond plus et le lien est mort — y compris un
+// lien resté dans une boîte mail compromise.
+const RESET_TTL_MS = 60 * 60 * 1000;
+
+export function passwordFingerprint(passwordHash) {
+  return sha256Hex(`reset:${passwordHash || ''}`).slice(0, 16);
+}
+
+export function issueResetToken(adminId, passwordHash, nowMs = Date.now()) {
+  const secret = process.env.ADMIN_TOKEN_SECRET;
+  if (!secret) throw new Error('ADMIN_TOKEN_SECRET manquante côté serveur');
+  if (!adminId || typeof adminId !== 'string') throw new Error('issueResetToken: adminId requis');
+  const exp = nowMs + RESET_TTL_MS;
+  const payload = Buffer.from(JSON.stringify({
+    role: 'reset',
+    admin_id: adminId,
+    ph: passwordFingerprint(passwordHash),
+    exp,
+  })).toString('base64url');
+  const sig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  return { token: `${payload}.${sig}`, exp };
+}
+
+// Renvoie { admin_id, ph, exp } si le token est valide, sinon null. L'appelant
+// doit encore comparer `ph` au hash actuel en base.
+export function verifyResetToken(token) {
+  const secret = process.env.ADMIN_TOKEN_SECRET;
+  if (!secret) return null;
+  if (typeof token !== 'string' || !token.includes('.')) return null;
+  const [payload, sig] = token.split('.');
+  if (!payload || !sig) return null;
+  const expectedSig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  if (!timingSafeEqualStr(sig, expectedSig)) return null;
+  let data;
+  try {
+    data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+  } catch {
+    return null;
+  }
+  if (!data || data.role !== 'reset') return null;
+  if (typeof data.exp !== 'number' || Date.now() > data.exp) return null;
+  if (typeof data.admin_id !== 'string' || !data.admin_id) return null;
+  if (typeof data.ph !== 'string' || !data.ph) return null;
+  return { admin_id: data.admin_id, ph: data.ph, exp: data.exp };
+}
+
 // ── Filtre de scoping club ──
 // Depuis l'étape C, le backfill a donné un club_id non-NULL à toutes les
 // lignes existantes (voir stagely-migrate-bcc.sql) : il n'y a plus de ligne

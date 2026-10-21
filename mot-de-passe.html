@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Stagely — Mot de passe oublié</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#f97316">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;color:inherit}
+body{
+  font-family:'Inter',sans-serif;background:#080810;color:#f0f0f0;min-height:100vh;
+  display:flex;align-items:center;justify-content:center;padding:24px
+}
+.card{width:100%;max-width:400px;padding:32px 24px}
+.logo{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:22px;color:#f97316;letter-spacing:4px;text-align:center;margin-bottom:8px}
+.sub{font-size:12px;color:#777;text-align:center;margin-bottom:28px;line-height:1.5}
+.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#666;display:block;margin-bottom:6px;font-weight:600}
+.inp{
+  width:100%;background:#111;border:1px solid #222;border-radius:10px;padding:13px 16px;
+  color:#f0f0f0;font-size:14px;margin-bottom:14px;font-family:'Inter',sans-serif
+}
+.inp:focus{outline:none;border-color:#f97316}
+.btn{
+  width:100%;padding:13px;background:#f97316;color:#fff;border:none;border-radius:10px;
+  font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;cursor:pointer;margin-top:6px
+}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.err{
+  display:none;font-size:12px;color:#ef4444;margin-bottom:12px;padding:10px 12px;
+  background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;text-align:center
+}
+.ok{
+  display:none;font-size:13px;color:#22c55e;padding:14px;text-align:center;line-height:1.5;
+  background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:10px;margin-bottom:12px
+}
+.foot{text-align:center;font-size:12px;color:#555;margin-top:20px}
+.foot a{color:#f97316;text-decoration:none}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">STAGELY</div>
+
+  <!-- Étape 1 : demander le lien -->
+  <form id="step-request" hidden>
+    <div class="sub">Indique l'email de ton compte. Tu recevras un lien pour choisir un nouveau mot de passe.</div>
+    <div class="err" id="err-request"></div>
+    <div class="ok" id="ok-request"></div>
+    <label class="lbl" for="email">Email</label>
+    <input class="inp" id="email" type="email" autocomplete="username" required>
+    <button class="btn" id="btn-request" type="submit">Envoyer le lien →</button>
+  </form>
+
+  <!-- Étape 2 : choisir le nouveau mot de passe (lien reçu par email) -->
+  <form id="step-confirm" hidden>
+    <div class="sub">Choisis ton nouveau mot de passe.</div>
+    <div class="err" id="err-confirm"></div>
+    <div class="ok" id="ok-confirm"></div>
+    <label class="lbl" for="pwd">Nouveau mot de passe</label>
+    <input class="inp" id="pwd" type="password" autocomplete="new-password" minlength="6" required>
+    <label class="lbl" for="pwd2">Confirme-le</label>
+    <input class="inp" id="pwd2" type="password" autocomplete="new-password" minlength="6" required>
+    <button class="btn" id="btn-confirm" type="submit">Enregistrer →</button>
+  </form>
+
+  <div class="foot"><a href="/?admin=1">← Retour à la connexion</a></div>
+</div>
+
+<script>
+const token = new URLSearchParams(location.search).get('token');
+
+function show(el, text) { el.textContent = text; el.style.display = text ? 'block' : 'none'; }
+
+async function post(body) {
+  const r = await fetch('/api/password-reset', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'Erreur, réessaie plus tard');
+  return data;
+}
+
+if (token) {
+  const form = document.getElementById('step-confirm');
+  form.hidden = false;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = document.getElementById('err-confirm');
+    const pwd = document.getElementById('pwd').value;
+    show(err, '');
+    if (pwd.length < 6) return show(err, 'Le mot de passe doit faire au moins 6 caractères');
+    if (pwd !== document.getElementById('pwd2').value) return show(err, 'Les deux mots de passe ne sont pas identiques');
+    const btn = document.getElementById('btn-confirm');
+    btn.disabled = true;
+    try {
+      await post({ action: 'confirm', token, password: pwd });
+      form.querySelectorAll('.inp,.lbl,.btn,.sub').forEach(x => x.style.display = 'none');
+      show(document.getElementById('ok-confirm'), '✓ Mot de passe enregistré. Tu peux te connecter.');
+      setTimeout(() => { location.href = '/?admin=1'; }, 2000);
+    } catch (ex) {
+      show(err, ex.message);
+      btn.disabled = false;
+    }
+  });
+} else {
+  const form = document.getElementById('step-request');
+  form.hidden = false;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = document.getElementById('err-request');
+    show(err, '');
+    const btn = document.getElementById('btn-request');
+    btn.disabled = true;
+    try {
+      const data = await post({ action: 'request', email: document.getElementById('email').value });
+      show(document.getElementById('ok-request'), data.message + ' Pense à regarder dans les spams.');
+      btn.textContent = 'Renvoyer le lien';
+    } catch (ex) {
+      show(err, ex.message);
+    }
+    btn.disabled = false;
+  });
+}
+</script>
+</body>
+</html>

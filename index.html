@@ -587,6 +587,7 @@ html.light{
     <input type="password" id="admin-pwd" placeholder="Mot de passe" autocomplete="current-password"
       style="width:100%;background:#111;border:1px solid #222;border-radius:10px;padding:13px 16px;color:#f0f0f0;font-size:14px;margin-bottom:12px;box-sizing:border-box"
       onkeydown="if(event.key==='Enter') checkAdminPwd()">
+    <div style="text-align:right;margin:-4px 0 12px"><a href="/mot-de-passe.html" style="font-size:12px;color:#888;text-decoration:none">Mot de passe oublié ?</a></div>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer;user-select:none">
       <input type="checkbox" id="admin-remember" style="width:16px;height:16px;accent-color:#f97316;cursor:pointer">
       <span style="font-size:12px;color:#888">Se souvenir de moi</span>
@@ -713,6 +714,10 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('home-screen').style.display = 'none';
     document.getElementById('admin-login-screen').style.display = 'none';
     document.getElementById('admin-screen').style.removeProperty('display');
+  } else if (params.get('admin') === '1') {
+    // Retour depuis /mot-de-passe.html : on atterrit directement sur la
+    // connexion admin plutôt que sur l'écran d'accueil.
+    showAdminLogin();
   } else {
     showHomeScreen();
   }
