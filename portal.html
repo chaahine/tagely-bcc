@@ -511,6 +511,19 @@ async function sb(table, opts={}) {
   return dataRead({ table, query: sbParamsToQuery(opts.params) });
 }
 
+// Toutes les lignes, page par page : une lecture est plafonnée à 1000 lignes
+// et le planning du BCC les dépasse — les dates les plus récentes manquaient.
+async function sbAll(table, params) {
+  const PAGE = 1000;
+  let all = [];
+  for (let offset = 0; ; offset += PAGE) {
+    const rows = await sb(table, { params: `${params}&limit=${PAGE}&offset=${offset}` });
+    if (rows === null) return null;
+    all = all.concat(rows);
+    if (rows.length < PAGE) return all;
+  }
+}
+
 // ── Proxy d'écriture serveur (api/portal-write.js) ──
 async function portalWrite(action, payload) {
   try {
@@ -542,7 +555,7 @@ function showTab(name) {
 async function init() {
   // Charger données
   const [a, tmpl] = await Promise.all([
-    sb('assignments'),
+    sbAll('assignments', '?order=id'),
     sb('schedule_templates',{params:'?order=weekday,time'})
   ]);
   assignments = {};

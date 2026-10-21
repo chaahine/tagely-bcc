@@ -2128,6 +2128,10 @@ function makeKey(dayIndex, slot, wkOffset) {
 }
 
 let assignments = {};
+// Vrai seulement après une lecture COMPLÈTE réussie des assignations (voir
+// loadFromSupabase) : tant que c'est faux, saveToSupabase() n'envoie pas le
+// planning, pour ne jamais remplacer la table par un état incomplet.
+let assignmentsLoaded = false;
 let cancelledSlots = {};
 let exportMonthOverride = null;
 
@@ -5165,6 +5169,23 @@ async function sbFetch(table, options = {}) {
   }
 }
 
+// Lit TOUTES les lignes d'une table, page par page. /api/data-read, comme
+// PostgREST, plafonne une lecture à 1000 lignes : le planning du BCC a
+// dépassé 1000 assignations en octobre 2026, et les plus récentes (ids les
+// plus hauts) disparaissaient au rechargement — puis la sauvegarde suivante,
+// qui remplace toute la table, les effaçait pour de bon.
+// Renvoie null au moindre échec, jamais une liste partielle.
+async function sbFetchAll(table, params = '') {
+  const PAGE = 1000;
+  let all = [];
+  for (let offset = 0; ; offset += PAGE) {
+    const rows = await sbFetch(table, { params: `${params}${params ? '&' : '?'}limit=${PAGE}&offset=${offset}` });
+    if (rows === null) return null;
+    all = all.concat(rows);
+    if (rows.length < PAGE) return all;
+  }
+}
+
 // ── Écritures admin : passent par /api/admin-write (clé service_role côté serveur) ──
 // sbFetch() ci-dessus reste utilisé UNIQUEMENT pour les lectures (GET), couvertes
 // par une policy RLS "lecture publique" côté Supabase. Toute écriture admin (upsert
@@ -5356,7 +5377,7 @@ async function loadFromSupabase() {
       // table puis réinsère dans l'ordre du tableau client (saveToSupabase()
       // + action 'sync'), donc l'id sérial suit exactement cet ordre : le
       // trier le restitue à l'identique, MC en tête.
-      sbFetch('assignments', {params:'?order=id'}),
+      sbFetchAll('assignments', '?order=id'),
       loadDisposPaginated(dateFrom, dateTo),
       sbFetch('dispo_status'),
       sbFetch('chat_messages', {params:'?order=created_at&limit=100'}),
@@ -5377,8 +5398,16 @@ async function loadFromSupabase() {
       lsData.DISPOS_DATA = {};
       localStorage.setItem(LS_KEY, JSON.stringify(lsData));
     }
-    // Assignments
-    Object.keys(assignments).forEach(k => delete assignments[k]);
+    // Assignments — si la lecture a échoué, on garde la mémoire telle quelle et
+    // on interdit à saveToSupabase() de renvoyer le planning : la sauvegarde
+    // REMPLACE toute la table, un planning vide ou incomplet l'effacerait.
+    if (asgn === null) {
+      console.warn('[Stagely] Échec chargement assignments — sauvegarde du planning suspendue');
+      assignmentsLoaded = false;
+    } else {
+      assignmentsLoaded = true;
+      Object.keys(assignments).forEach(k => delete assignments[k]);
+    }
     asgn?.forEach(a => {
       if (!assignments[a.slot_key]) assignments[a.slot_key] = [];
       if (!assignments[a.slot_key].includes(a.comedian_id)) assignments[a.slot_key].push(a.comedian_id);
@@ -5470,7 +5499,9 @@ async function saveToSupabase() {
         // cachet ne passe QUE par la fiche (saveFiche()), jamais ici.
         cachet_amount: Number.isFinite(c.cachet_amount) ? c.cachet_amount : undefined,
       }))} : {}),
-      assignments: asgnRows, // toujours présent : remplace intégralement (reflète clearAll aussi)
+      // Remplace intégralement côté serveur (reflète clearAll aussi) — donc
+      // jamais envoyé si le planning n'a pas été entièrement chargé.
+      ...(assignmentsLoaded ? {assignments: asgnRows} : {}),
       ...(statusRows.length ? {dispoStatus: statusRows} : {}),
       ...(dispoRows.length ? {dispos: dispoRows} : {})
     });
