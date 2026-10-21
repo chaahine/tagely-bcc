@@ -2,67 +2,449 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title>Mes projets</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@600;700;800&display=swap" rel="stylesheet">
-<meta name="theme-color" content="#080808">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#050507">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <style>
+:root{
+  --bg:#050507;--panel:rgba(255,255,255,.025);--line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.14);
+  --text:#ecedf2;--muted:#7c7f8c;--dim:#4a4d58;
+  --ok:#3ee08f;--warn:#ffb547;--bad:#ff5d6c;
+  --acc:#ff7a1a;--acc-rgb:255,122,26;
+  --mono:'JetBrains Mono',ui-monospace,monospace;--sans:'Space Grotesk',system-ui,sans-serif;
+}
+body[data-p="fairytails"]{--acc:#a36bff;--acc-rgb:163,107,255}
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%}
-body{font-family:'Inter',sans-serif;background:#080808;color:#f0f0f0;display:flex;flex-direction:column}
-.bar{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #1e1e1e;background:#0f0f0f;flex-wrap:wrap}
-.title{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:16px;letter-spacing:3px;color:#888;margin-right:auto}
-.pick{display:flex;background:#111;border:1px solid #222;border-radius:999px;padding:3px}
-.pick button{border:none;background:none;color:#888;font:600 13px 'Inter',sans-serif;padding:7px 16px;border-radius:999px;cursor:pointer}
-.pick button.on{background:var(--c);color:#fff}
-.open{font-size:12px;color:#666;text-decoration:none}
-.open:hover{color:#aaa}
-iframe{flex:1;width:100%;border:none;background:#080808}
+html{background:var(--bg)}
+body{
+  font-family:var(--sans);color:var(--text);background:var(--bg);min-height:100vh;
+  padding:0 16px calc(32px + env(safe-area-inset-bottom));
+  background-image:
+    radial-gradient(900px 500px at 85% -10%,rgba(var(--acc-rgb),.16),transparent 60%),
+    radial-gradient(700px 400px at -10% 110%,rgba(var(--acc-rgb),.08),transparent 60%),
+    linear-gradient(rgba(255,255,255,.028) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.028) 1px,transparent 1px);
+  background-size:auto,auto,44px 44px,44px 44px;background-attachment:fixed;
+  transition:background-image .6s;
+}
+.wrap{max-width:1180px;margin:0 auto}
+
+/* ── En-tête ── */
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:calc(18px + env(safe-area-inset-top)) 0 22px}
+.brand{font-family:var(--mono);font-size:12px;letter-spacing:4px;color:var(--muted);margin-right:auto;display:flex;align-items:center;gap:10px}
+.brand b{color:var(--text);font-weight:600}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:10px;letter-spacing:2px;color:var(--ok)}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px var(--ok);animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.clock{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:1px}
+.seg{display:flex;padding:4px;border:1px solid var(--line2);border-radius:999px;background:rgba(0,0,0,.4);backdrop-filter:blur(10px)}
+.seg button{all:unset;cursor:pointer;font:600 13px var(--sans);letter-spacing:.5px;color:var(--muted);padding:8px 18px;border-radius:999px;transition:.25s}
+.seg button:hover{color:var(--text)}
+.seg button.on{color:#fff;background:rgba(var(--acc-rgb),.18);box-shadow:inset 0 0 0 1px rgba(var(--acc-rgb),.7),0 0 22px rgba(var(--acc-rgb),.35)}
+.iconbtn{all:unset;cursor:pointer;font:500 11px var(--mono);letter-spacing:1px;color:var(--muted);border:1px solid var(--line2);border-radius:8px;padding:8px 10px}
+.iconbtn:hover{color:var(--text);border-color:rgba(var(--acc-rgb),.6)}
+
+/* ── Titre de projet ── */
+.hero{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.hero h1{font-size:34px;font-weight:700;letter-spacing:-1px;line-height:1}
+.hero h1 span{color:var(--acc);text-shadow:0 0 28px rgba(var(--acc-rgb),.55)}
+.hero p{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:8px}
+.tag{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;padding:5px 9px;border-radius:6px;border:1px solid var(--line2);color:var(--muted)}
+.tag.bad{color:var(--bad);border-color:rgba(255,93,108,.4);background:rgba(255,93,108,.06)}
+.tag.ok{color:var(--ok);border-color:rgba(62,224,143,.35)}
+
+/* ── Panneaux ── */
+.panel{min-width:0;position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;backdrop-filter:blur(8px);overflow:hidden}
+.panel::before,.panel::after{content:"";position:absolute;width:12px;height:12px;border-color:rgba(var(--acc-rgb),.75);border-style:solid;pointer-events:none}
+.panel::before{top:-1px;left:-1px;border-width:2px 0 0 2px;border-top-left-radius:14px}
+.panel::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0;border-bottom-right-radius:14px}
+.ph{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px}
+.ph em{font-style:normal;color:var(--dim)}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));gap:12px;margin-bottom:12px}
+.kpi .v{font-size:clamp(22px,6vw,32px);font-weight:600;letter-spacing:-1px;font-variant-numeric:tabular-nums;line-height:1.1}
+.kpi.hl .v{color:var(--acc);text-shadow:0 0 24px rgba(var(--acc-rgb),.45)}
+.kpi .s{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px}
+.kpi .ph{margin-bottom:8px}
+
+.grid2{display:grid;grid-template-columns:1.6fr 1fr;gap:12px;margin-bottom:12px}
+@media (max-width:860px){.grid2{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:600px){.clock{display:none}.hero h1{font-size:26px}.seg button{padding:8px 14px}.fun .row{grid-template-columns:96px 1fr 48px}}
+
+/* graphique */
+.chart svg{width:100%;height:190px;display:block;overflow:visible}
+.chart .ax{font:10px var(--mono);fill:var(--dim)}
+.legend{display:flex;gap:14px;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px}
+.legend i{display:inline-block;width:10px;height:2px;margin-right:6px;vertical-align:middle;background:var(--acc)}
+.legend i.l2{background:#fff;opacity:.6}
+
+/* entonnoir */
+.fun{display:flex;flex-direction:column;gap:12px}
+.fun .row{display:grid;grid-template-columns:110px 1fr 56px;align-items:center;gap:10px;font-size:13px}
+.fun .row span{color:var(--muted);font-size:12px}
+.fun .bar{height:8px;border-radius:99px;background:rgba(255,255,255,.05);overflow:hidden}
+.fun .bar b{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,rgba(var(--acc-rgb),.5),var(--acc));box-shadow:0 0 12px rgba(var(--acc-rgb),.6);width:0;transition:width 1s cubic-bezier(.2,.8,.2,1)}
+.fun .row strong{font-family:var(--mono);font-size:13px;text-align:right;font-weight:500}
+.fun .rate{font-family:var(--mono);font-size:11px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px;display:flex;justify-content:space-between}
+.fun .rate b{color:var(--acc);font-weight:500}
+
+/* tableaux */
+.tbl{overflow-x:auto;margin:0 -18px -16px}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
+th{font:500 10px var(--mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);text-align:left;padding:10px 18px;border-bottom:1px solid var(--line)}
+td{padding:12px 18px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top}
+tr:last-child td{border-bottom:none}
+tbody tr{transition:background .2s}
+tbody tr:hover{background:rgba(var(--acc-rgb),.05)}
+td.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.sub{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:3px}
+.pill{display:inline-flex;align-items:center;gap:6px;font:500 11px var(--mono);letter-spacing:.5px}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
+.p-trial{color:var(--warn)}.p-active{color:var(--ok)}.p-suspended{color:var(--bad)}
+.tools{display:flex;gap:8px;flex-wrap:wrap}
+.tools input{background:rgba(0,0,0,.35);border:1px solid var(--line2);border-radius:8px;padding:7px 10px;color:var(--text);font:12px var(--mono);min-width:160px;flex:1}
+.tools input:focus{outline:none;border-color:rgba(var(--acc-rgb),.7)}
+.chip{all:unset;cursor:pointer;font:500 11px var(--mono);color:var(--muted);border:1px solid var(--line2);border-radius:99px;padding:6px 11px}
+.chip.on{color:var(--acc);border-color:rgba(var(--acc-rgb),.7)}
+
+/* formulaires de connexion */
+.gate{max-width:380px;margin:40px auto}
+.gate .panel{padding:26px 24px}
+.gate h2{font-size:20px;font-weight:600;margin-bottom:6px}
+.gate p{font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.5}
+.gate label{display:block;font:500 10px var(--mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.gate input{width:100%;background:rgba(0,0,0,.4);border:1px solid var(--line2);border-radius:10px;padding:12px 14px;color:var(--text);font:14px var(--sans);margin-bottom:14px}
+.gate input:focus{outline:none;border-color:rgba(var(--acc-rgb),.8);box-shadow:0 0 0 3px rgba(var(--acc-rgb),.15)}
+.gate button{width:100%;border:none;border-radius:10px;padding:13px;font:600 14px var(--sans);color:#fff;cursor:pointer;background:var(--acc);box-shadow:0 0 24px rgba(var(--acc-rgb),.45)}
+.gate button:disabled{opacity:.5}
+.gate .err{color:var(--bad);font-size:12px;margin-bottom:12px;display:none}
+.gate .alt{text-align:center;margin-top:14px;font-size:12px}
+.gate .alt a{color:var(--muted)}
+
+.state{text-align:center;padding:60px 16px;font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:1px}
+.scan{width:180px;height:2px;margin:0 auto 16px;background:linear-gradient(90deg,transparent,var(--acc),transparent);animation:scan 1.2s infinite ease-in-out}
+@keyframes scan{0%{transform:translateX(-60%);opacity:.3}50%{opacity:1}100%{transform:translateX(60%);opacity:.3}}
+.empty{color:var(--dim);text-align:center;padding:26px;font-family:var(--mono);font-size:12px}
+.fade{animation:fade .5s ease both}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
-<body>
-<div class="bar">
-  <div class="title">MES PROJETS</div>
-  <div class="pick" id="pick"></div>
-  <a class="open" id="open" target="_blank" rel="noopener">Ouvrir seul ↗</a>
+<body data-p="stagely">
+<div class="wrap">
+  <header>
+    <div class="brand">◢ <b>MES PROJETS</b> <span class="live"><i></i>LIVE</span></div>
+    <div class="clock" id="clock"></div>
+    <div class="seg" id="seg">
+      <button type="button" data-id="stagely">Stagely</button>
+      <button type="button" data-id="fairytails">Fairy Tails</button>
+    </div>
+    <button class="iconbtn" id="refresh" type="button" title="Actualiser">↻ SYNC</button>
+  </header>
+  <main id="view"></main>
 </div>
-<iframe id="view" title="Tableau de bord"></iframe>
 
 <script>
-// Chaque tableau de bord reste servi par son propre site, avec sa propre
-// connexion : Stagely lit la session admin de stagely.fr, Fairy Tails son mot
-// de passe /ventes. Cette page ne fait que choisir lequel afficher — aucune
-// donnée d'un projet ne transite par l'autre.
-const PROJECTS = {
-  stagely:    { label: 'Stagely',     url: '/inscrits.html',              color: '#f97316' },
-  fairytails: { label: 'Fairy Tails', url: 'https://fairytails.fr/ventes', color: '#8b5cf6' },
-};
-const KEY = 'projets_choix';
+// Une seule page, un seul style, deux sources :
+//  - Stagely     : /api/owner-signups (session admin de stagely.fr)
+//  - Fairy Tails : /api/owner-fairytails, qui relaie /api/admin-stats de
+//                  fairytails.fr avec le mot de passe /ventes saisi ici.
+const SESSION_KEY = 'stagely_admin_session';
+const FT_KEY = 'projets_ft_key';
+const CHOICE_KEY = 'projets_choix';
+const DAY = 864e5;
+const PLAN_LABEL = { essentiel: 'Essentiel', pro: 'Pro', reseau: 'Réseau' };
+const PLAN_PRICE = { essentiel: 39.90, pro: 69.90, reseau: 99.90 };
+const OFFRE_LABEL = { ebook: 'eBook', imprime: 'Imprimé', duo: 'Duo', imprime_upsell: 'Imprimé (ajout)' };
+const view = document.getElementById('view');
+let current = 'stagely';
+let stagelyFilter = 'all';
+let stagelyData = null;
 
-function remembered() {
-  const fromHash = location.hash.slice(1);
-  if (PROJECTS[fromHash]) return fromHash;
-  try { const v = localStorage.getItem(KEY); if (PROJECTS[v]) return v; } catch (e) {}
-  return 'stagely';
+// ── Petits outils ──
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} },
+};
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
+const eur = (n, dec = 0) => (n || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: dec, maximumFractionDigits: dec });
+const eurC = c => eur((c || 0) / 100, (c || 0) % 100 ? 2 : 0);
+const fmtDate = iso => { const d = new Date(iso); return isNaN(d) ? '—' : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }); };
+const fmtDT = iso => { const d = new Date(iso); return isNaN(d) ? '—' : d.toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); };
+
+function token() {
+  try {
+    const s = JSON.parse(store.get(SESSION_KEY) || 'null');
+    return s && s.token && s.expiresAt && Date.now() < s.expiresAt ? s.token : null;
+  } catch (e) { return null; }
+}
+function loading(label) {
+  view.innerHTML = `<div class="state"><div class="scan"></div>${esc(label)}</div>`;
+}
+function kpi(label, value, sub, hl, raw) {
+  return `<div class="panel kpi${hl ? ' hl' : ''}"><div class="ph">${esc(label)}</div>
+    <div class="v" ${raw != null ? `data-count="${raw}"` : ''}>${value}</div><div class="s">${sub || '&nbsp;'}</div></div>`;
+}
+// Les chiffres montent jusqu'à leur valeur : purement décoratif, la valeur
+// finale est déjà dans le texte si l'animation ne tourne pas.
+function countUp() {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  view.querySelectorAll('[data-count]').forEach(el => {
+    const end = parseFloat(el.dataset.count), final = el.innerHTML;
+    if (!isFinite(end) || end === 0) return;
+    const t0 = performance.now(), dur = 900;
+    const step = t => {
+      const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(end * e).toLocaleString('fr-FR');
+      if (p < 1) requestAnimationFrame(step); else el.innerHTML = final;
+    };
+    requestAnimationFrame(step);
+  });
+  requestAnimationFrame(() => view.querySelectorAll('.fun .bar b').forEach(b => { b.style.width = b.dataset.w; }));
+}
+
+// Courbe de deux séries sur des jours : aire pour la première, trait pour la seconde.
+function lineChart(points, k1, k2) {
+  if (!points.length) return '<div class="empty">Pas encore de données</div>';
+  const W = 600, H = 170, P = 8;
+  const max = Math.max(1, ...points.map(p => Math.max(p[k1] || 0, k2 ? p[k2] || 0 : 0)));
+  const x = i => P + (i * (W - 2 * P)) / Math.max(1, points.length - 1);
+  const y = v => H - 18 - ((v || 0) / max) * (H - 36);
+  const path = k => points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p[k]).toFixed(1)}`).join('');
+  const area = `${path(k1)}L${x(points.length - 1)},${H - 18}L${x(0)},${H - 18}Z`;
+  const day = s => new Date(s).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Évolution sur ${points.length} jours">
+    <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgb(var(--acc-rgb))" stop-opacity=".35"/><stop offset="1" stop-color="rgb(var(--acc-rgb))" stop-opacity="0"/></linearGradient></defs>
+    ${[0.25, 0.5, 0.75].map(f => `<line x1="${P}" x2="${W - P}" y1="${y(max * f)}" y2="${y(max * f)}" stroke="rgba(255,255,255,.05)"/>`).join('')}
+    <path d="${area}" fill="url(#g1)"/>
+    <path d="${path(k1)}" fill="none" stroke="rgb(var(--acc-rgb))" stroke-width="2" vector-effect="non-scaling-stroke" style="filter:drop-shadow(0 0 6px rgba(var(--acc-rgb),.8))"/>
+    ${k2 ? `<path d="${path(k2)}" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="1.5" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>` : ''}
+    ${points.map((p, i) => `<circle cx="${x(i)}" cy="${y(p[k1])}" r="9" fill="transparent"><title>${day(p.date)} — ${p[k1] || 0}${k2 ? ' / ' + (p[k2] || 0) : ''}</title></circle>`).join('')}
+    <text class="ax" x="${P}" y="${H - 2}">${day(points[0].date)}</text>
+    <text class="ax" x="${W - P}" y="${H - 2}" text-anchor="end">${day(points[points.length - 1].date)}</text>
+    <text class="ax" x="${P}" y="12">max ${max}</text>
+  </svg>`;
+}
+
+// Inscriptions par semaine sur 12 semaines, en barres.
+function weeklyBars(dates) {
+  const now = Date.now(), weeks = Array.from({ length: 12 }, () => 0);
+  dates.forEach(d => { const w = Math.floor((now - new Date(d)) / (7 * DAY)); if (w >= 0 && w < 12) weeks[11 - w]++; });
+  const W = 600, H = 170, max = Math.max(1, ...weeks), bw = (W - 16) / 12;
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Inscriptions par semaine">
+    ${weeks.map((n, i) => {
+      const h = (n / max) * (H - 40), x = 8 + i * bw + 4, yy = H - 18 - h;
+      return `<rect x="${x}" y="${yy}" width="${bw - 8}" height="${Math.max(h, 2)}" rx="3" fill="rgb(var(--acc-rgb))" opacity="${n ? (i === 11 ? 1 : .55) : .12}" ${i === 11 ? 'style="filter:drop-shadow(0 0 8px rgba(var(--acc-rgb),.8))"' : ''}><title>${n} inscription${n > 1 ? 's' : ''}</title></rect>
+        ${n ? `<text class="ax" x="${x + (bw - 8) / 2}" y="${yy - 5}" text-anchor="middle">${n}</text>` : ''}`;
+    }).join('')}
+    <text class="ax" x="8" y="${H - 2}">il y a 12 sem.</text>
+    <text class="ax" x="${W - 8}" y="${H - 2}" text-anchor="end">cette semaine</text>
+  </svg>`;
+}
+
+// ── Connexion Stagely (sert aussi au relais Fairy Tails) ──
+function stagelyGate(message) {
+  view.innerHTML = `<div class="gate fade"><form class="panel" id="login">
+    <h2>Connexion</h2><p>${esc(message || 'Connecte-toi avec ton compte Stagely (BCC) pour afficher tes tableaux de bord.')}</p>
+    <div class="err" id="err"></div>
+    <label for="em">Email</label><input id="em" type="email" autocomplete="username" required>
+    <label for="pw">Mot de passe</label><input id="pw" type="password" autocomplete="current-password" required>
+    <button type="submit">Entrer →</button>
+    <div class="alt"><a href="/mot-de-passe.html">Mot de passe oublié ?</a></div>
+  </form></div>`;
+  document.getElementById('login').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button'), err = document.getElementById('err');
+    btn.disabled = true; err.style.display = 'none';
+    try {
+      const r = await fetch('/api/admin-login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: document.getElementById('em').value, password: document.getElementById('pw').value, rememberMe: true }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d.token) throw new Error(d.error || 'Email ou mot de passe incorrect');
+      // Même forme que index.html : la session sert aussi dans l'app Stagely.
+      store.set(SESSION_KEY, JSON.stringify({ token: d.token, expiresAt: d.expiresAt, club: d.club || null }));
+      load();
+    } catch (ex) {
+      err.textContent = ex.message; err.style.display = 'block'; btn.disabled = false;
+    }
+  });
+}
+
+function ftGate(message) {
+  view.innerHTML = `<div class="gate fade"><form class="panel" id="ftlogin">
+    <h2>Fairy Tails</h2><p>${esc(message || 'Entre le mot de passe de ton tableau de bord /ventes. Il reste mémorisé sur cet appareil.')}</p>
+    <div class="err" id="err"></div>
+    <label for="ftk">Mot de passe</label><input id="ftk" type="password" autocomplete="off" required>
+    <button type="submit">Entrer →</button>
+  </form></div>`;
+  document.getElementById('ftlogin').addEventListener('submit', e => {
+    e.preventDefault();
+    store.set(FT_KEY, document.getElementById('ftk').value);
+    load();
+  });
+}
+
+// ── Stagely ──
+async function loadStagely() {
+  const t = token();
+  if (!t) return stagelyGate();
+  loading('SYNCHRONISATION STAGELY…');
+  const r = await fetch('/api/owner-signups', { method: 'POST', headers: { Authorization: 'Bearer ' + t } });
+  const d = await r.json().catch(() => ({}));
+  if (current !== 'stagely') return;
+  if (r.status === 401) { store.del(SESSION_KEY); return stagelyGate('Session expirée, reconnecte-toi.'); }
+  if (!r.ok) return stagelyGate(d.error || 'Erreur ' + r.status);
+  stagelyData = d;
+  renderStagely(true);
+}
+
+function renderStagely(animate) {
+  const d = stagelyData, now = Date.now();
+  const clubs = d.clubs.filter(c => !c.is_bcc);
+  const by = s => clubs.filter(c => c.status === s).length;
+  const since = n => clubs.filter(c => c.signed_up_at && now - new Date(c.signed_up_at) < n * DAY).length;
+  const mrr = clubs.filter(c => c.status === 'active').reduce((t, c) => t + (PLAN_PRICE[c.plan] || PLAN_PRICE.essentiel), 0);
+  const endingSoon = clubs.filter(c => c.status === 'trial' && c.trial_ends_at && new Date(c.trial_ends_at) - now < 7 * DAY && new Date(c.trial_ends_at) > now).length;
+
+  view.innerHTML = `<div class="fade">
+    <div class="hero"><div><h1><span>Stagely</span> · inscrits</h1><p>MAJ ${new Date(d.generated_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} · STAGELY.FR</p></div>
+      ${endingSoon ? `<span class="tag bad">${endingSoon} ESSAI${endingSoon > 1 ? 'S' : ''} FINI${endingSoon > 1 ? 'SSENT' : 'T'} SOUS 7 J</span>` : '<span class="tag ok">RAS</span>'}</div>
+    <div class="kpis">
+      ${kpi('Clubs inscrits', clubs.length, 'hors BCC', true, clubs.length)}
+      ${kpi('7 derniers jours', since(7), since(30) + ' sur 30 jours', false, since(7))}
+      ${kpi('En essai', by('trial'), 'essai de 2 mois', false, by('trial'))}
+      ${kpi('Abonnés', by('active'), eur(mrr, 2) + ' / mois', false, by('active'))}
+      ${kpi('Suspendus', by('suspended'), 'essai expiré', false, by('suspended'))}
+      ${kpi('Comptes', d.accounts, 'personnes inscrites', false, d.accounts)}
+    </div>
+    <div class="grid2">
+      <div class="panel chart"><div class="ph">Inscriptions par semaine <em>12 sem.</em></div>${weeklyBars(clubs.map(c => c.signed_up_at).filter(Boolean))}</div>
+      <div class="panel"><div class="ph">Répartition</div><div class="fun">
+        ${[['En essai', by('trial')], ['Abonnés', by('active')], ['Suspendus', by('suspended')]].map(([l, n]) =>
+          `<div class="row"><span>${l}</span><div class="bar"><b data-w="${clubs.length ? Math.round(n / clubs.length * 100) : 0}%"></b></div><strong>${n}</strong></div>`).join('')}
+        <div class="rate"><span>Conversion essai → abonné</span><b>${by('active') + by('suspended') ? Math.round(by('active') / (by('active') + by('suspended')) * 100) + ' %' : '—'}</b></div>
+      </div></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><span>Clubs</span><div class="tools">
+        <input id="q" type="search" placeholder="club, ville, email…">
+        ${[['all', 'Tous'], ['trial', 'Essai'], ['active', 'Abonnés'], ['suspended', 'Suspendus']].map(([f, l]) => `<button class="chip${stagelyFilter === f ? ' on' : ''}" data-f="${f}" type="button">${l}</button>`).join('')}
+      </div></div>
+      <div class="tbl"><table><thead><tr><th>Club</th><th>Inscrit le</th><th>Compte</th><th>Statut</th><th>Formule</th><th style="text-align:right">Humoristes</th></tr></thead><tbody id="rows"></tbody></table></div>
+    </div></div>`;
+
+  const q = document.getElementById('q');
+  q.addEventListener('input', renderStagelyRows);
+  view.querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => {
+    stagelyFilter = b.dataset.f;
+    view.querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x === b));
+    renderStagelyRows();
+  }));
+  renderStagelyRows();
+  if (animate) countUp(); else view.querySelectorAll('.fun .bar b').forEach(b => { b.style.width = b.dataset.w; });
+}
+
+function renderStagelyRows() {
+  const now = Date.now(), q = (document.getElementById('q').value || '').trim().toLowerCase();
+  const rows = stagelyData.clubs.filter(c => (stagelyFilter === 'all' || c.status === stagelyFilter) &&
+    (!q || [c.name, c.city, c.slug, ...(c.admins || [])].join(' ').toLowerCase().includes(q)));
+  document.getElementById('rows').innerHTML = rows.length ? rows.map(c => {
+    let sub = '';
+    if (c.status === 'trial' && c.trial_ends_at) {
+      const left = Math.ceil((new Date(c.trial_ends_at) - now) / DAY);
+      sub = left >= 0 ? `${left} j restants` : `expiré depuis ${-left} j`;
+    }
+    const label = { trial: 'Essai', active: 'Abonné', suspended: 'Suspendu' }[c.status] || esc(c.status || '—');
+    return `<tr><td><strong>${esc(c.name)}</strong>${c.is_bcc ? ' <span class="tag">TOI</span>' : ''}<div class="sub">${esc(c.city || '')}</div></td>
+      <td>${fmtDate(c.signed_up_at)}</td><td>${(c.admins || []).map(esc).join('<br>') || '—'}</td>
+      <td><span class="pill p-${esc(c.status)}">${label}</span><div class="sub">${sub}</div></td>
+      <td>${esc(PLAN_LABEL[c.plan] || 'Essentiel')}${c.stripe_subscription_id ? '<div class="sub">Stripe</div>' : ''}</td>
+      <td class="num">${c.comedians}</td></tr>`;
+  }).join('') : '<tr><td colspan="6" class="empty">Aucun club ne correspond</td></tr>';
+}
+
+// ── Fairy Tails ──
+async function loadFairyTails() {
+  const t = token();
+  if (!t) return stagelyGate('Connecte-toi d’abord avec ton compte Stagely : il protège aussi l’accès à Fairy Tails depuis cette page.');
+  const key = store.get(FT_KEY);
+  if (!key) return ftGate();
+  loading('SYNCHRONISATION FAIRY TAILS… (jusqu’à 30 s)');
+  const r = await fetch('/api/owner-fairytails', { method: 'POST', headers: { Authorization: 'Bearer ' + t, 'X-FT-Key': key } });
+  const d = await r.json().catch(() => ({}));
+  if (current !== 'fairytails') return;
+  if (d.code === 'ft_key') { store.del(FT_KEY); return ftGate(d.error); }
+  if (r.status === 401) { store.del(SESSION_KEY); return stagelyGate('Session expirée, reconnecte-toi.'); }
+  if (!r.ok) return view.innerHTML = `<div class="state">${esc(d.error || 'Erreur ' + r.status)}</div>`;
+  renderFairyTails(d);
+}
+
+function renderFairyTails(d) {
+  const v = d.ventes || {}, e = d.entonnoir || {}, pub = d.publicite || {}, cr = d.creations || {}, ab = d.abandons || {};
+  const freq = d.frequentation || [];
+  const visites7 = e.visites || 0;
+  const funnel = [['Visites', e.visites], ['Livres créés', e.creations], ['Paiements ouverts', e.paiementsOuverts], ['Achats', e.achats]];
+  const fmax = Math.max(1, ...funnel.map(f => f[1] || 0));
+  const ventes = d.dernieresVentes || [];
+
+  view.innerHTML = `<div class="fade">
+    <div class="hero"><div><h1><span>Fairy Tails</span> · ventes</h1><p>FAIRYTAILS.FR · STRIPE ${d.stripeOk === false ? 'INDISPONIBLE' : 'OK'}</p></div>
+      ${d.offreActive ? '<span class="tag ok">OFFRE DE LANCEMENT ACTIVE</span>' : ''}</div>
+    <div class="kpis">
+      ${kpi('Aujourd’hui', eurC(v.jour && v.jour.montantCentimes), ((v.jour && v.jour.nombre) || 0) + ' vente(s)', true)}
+      ${kpi('7 derniers jours', eurC(v.semaine && v.semaine.montantCentimes), ((v.semaine && v.semaine.nombre) || 0) + ' vente(s)')}
+      ${kpi('Total encaissé', eurC(v.total && v.total.montantCentimes), ((v.total && v.total.nombre) || 0) + ' vente(s) · panier ' + eurC(v.panierMoyenCentimes))}
+      ${kpi('Visites 7 j', visites7.toLocaleString('fr-FR'), 'conversion ' + (e.tauxGlobal ?? 0) + ' %', false, visites7)}
+      ${kpi('Livres créés', (cr.semaine || 0).toLocaleString('fr-FR'), (cr.jour || 0) + ' aujourd’hui · ' + (cr.total || 0) + ' au total', false, cr.semaine || 0)}
+      ${pub.configure ? kpi('Pub Meta 7 j', eurC(pub.depenseCentimes), 'ROAS ' + (pub.roas || 0) + ' · résultat ' + eurC(pub.resultatCentimes)) : kpi('Paniers abandonnés', ab.auPaiement || 0, eurC(ab.manqueAGagnerCentimes) + ' de manque à gagner', false, ab.auPaiement || 0)}
+    </div>
+    <div class="grid2">
+      <div class="panel chart"><div class="ph"><span>Fréquentation <em>14 j</em></span><span class="legend"><span><i></i>VISITES</span><span><i class="l2"></i>LIVRES CRÉÉS</span></span></div>${lineChart(freq, 'visites', 'livresCrees')}</div>
+      <div class="panel"><div class="ph">Entonnoir <em>7 j</em></div><div class="fun">
+        ${funnel.map(([l, n]) => `<div class="row"><span>${l}</span><div class="bar"><b data-w="${Math.round((n || 0) / fmax * 100)}%"></b></div><strong>${(n || 0).toLocaleString('fr-FR')}</strong></div>`).join('')}
+        <div class="rate"><span>Création ${e.tauxCreation ?? 0} % · achat ${e.tauxAchat ?? 0} %</span><b>${e.tauxGlobal ?? 0} %</b></div>
+      </div></div>
+    </div>
+    <div class="panel"><div class="ph">Dernières ventes</div>
+      <div class="tbl"><table><thead><tr><th>Date</th><th>Enfant</th><th>Offre</th><th>Client</th><th style="text-align:right">Montant</th></tr></thead><tbody>
+      ${ventes.length ? ventes.map(s => `<tr><td>${fmtDT(s.date)}</td><td><strong>${esc(s.prenom || '—')}</strong></td><td>${esc(OFFRE_LABEL[s.offre] || s.offre || '—')}</td><td class="sub" style="margin:0">${esc(s.email || '')}</td><td class="num">${eurC(s.montantCentimes)}</td></tr>`).join('')
+        : '<tr><td colspan="5" class="empty">Aucune vente pour l’instant</td></tr>'}
+      </tbody></table></div>
+    </div></div>`;
+  countUp();
+}
+
+// ── Navigation ──
+function load() { return (current === 'stagely' ? loadStagely() : loadFairyTails()).catch(() => { view.innerHTML = '<div class="state">Impossible de joindre le serveur.</div>'; }); }
 
 function show(id) {
-  const p = PROJECTS[id];
-  document.getElementById('view').src = p.url;
-  document.getElementById('open').href = p.url;
-  document.title = p.label + ' — Mes projets';
-  document.querySelectorAll('#pick button').forEach(b => b.classList.toggle('on', b.dataset.id === id));
+  current = id;
+  document.body.dataset.p = id;
+  document.title = (id === 'stagely' ? 'Stagely' : 'Fairy Tails') + ' — Mes projets';
+  document.querySelectorAll('#seg button').forEach(b => b.classList.toggle('on', b.dataset.id === id));
   history.replaceState(null, '', '#' + id);
-  try { localStorage.setItem(KEY, id); } catch (e) {}
+  store.set(CHOICE_KEY, id);
+  load();
 }
 
-document.getElementById('pick').innerHTML = Object.entries(PROJECTS)
-  .map(([id, p]) => `<button type="button" data-id="${id}" style="--c:${p.color}">${p.label}</button>`).join('');
-document.querySelectorAll('#pick button').forEach(b => b.addEventListener('click', () => show(b.dataset.id)));
-show(remembered());
+document.querySelectorAll('#seg button').forEach(b => b.addEventListener('click', () => b.dataset.id !== current && show(b.dataset.id)));
+document.getElementById('refresh').addEventListener('click', load);
+const tick = () => { document.getElementById('clock').textContent = new Date().toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' }).toUpperCase(); };
+tick(); setInterval(tick, 1000);
+
+const fromHash = location.hash.slice(1);
+show(['stagely', 'fairytails'].includes(fromHash) ? fromHash : (store.get(CHOICE_KEY) === 'fairytails' ? 'fairytails' : 'stagely'));
 </script>
 </body>
 </html>
