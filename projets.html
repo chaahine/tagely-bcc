@@ -228,29 +228,6 @@ function countUp() {
   requestAnimationFrame(() => view.querySelectorAll('.fun .bar b').forEach(b => { b.style.width = b.dataset.w; }));
 }
 
-// Courbe de deux séries sur des jours : aire pour la première, trait pour la seconde.
-function lineChart(points, k1, k2) {
-  if (!points.length) return '<div class="empty">Pas encore de données</div>';
-  const W = 600, H = 170, P = 8;
-  const max = Math.max(1, ...points.map(p => Math.max(p[k1] || 0, k2 ? p[k2] || 0 : 0)));
-  const x = i => P + (i * (W - 2 * P)) / Math.max(1, points.length - 1);
-  const y = v => H - 18 - ((v || 0) / max) * (H - 36);
-  const path = k => points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p[k]).toFixed(1)}`).join('');
-  const area = `${path(k1)}L${x(points.length - 1)},${H - 18}L${x(0)},${H - 18}Z`;
-  const day = s => new Date(s).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Évolution sur ${points.length} jours">
-    <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgb(var(--acc-rgb))" stop-opacity=".35"/><stop offset="1" stop-color="rgb(var(--acc-rgb))" stop-opacity="0"/></linearGradient></defs>
-    ${[0.25, 0.5, 0.75].map(f => `<line x1="${P}" x2="${W - P}" y1="${y(max * f)}" y2="${y(max * f)}" stroke="rgba(255,255,255,.05)"/>`).join('')}
-    <path d="${area}" fill="url(#g1)"/>
-    <path d="${path(k1)}" fill="none" stroke="rgb(var(--acc-rgb))" stroke-width="2" vector-effect="non-scaling-stroke" style="filter:drop-shadow(0 0 6px rgba(var(--acc-rgb),.8))"/>
-    ${k2 ? `<path d="${path(k2)}" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="1.5" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>` : ''}
-    ${points.map((p, i) => `<circle cx="${x(i)}" cy="${y(p[k1])}" r="9" fill="transparent"><title>${day(p.date)} — ${p[k1] || 0}${k2 ? ' / ' + (p[k2] || 0) : ''}</title></circle>`).join('')}
-    <text class="ax" x="${P}" y="${H - 2}">${day(points[0].date)}</text>
-    <text class="ax" x="${W - P}" y="${H - 2}" text-anchor="end">${day(points[points.length - 1].date)}</text>
-    <text class="ax" x="${P}" y="12">max ${max}</text>
-  </svg>`;
-}
-
 // Inscriptions par semaine sur 12 semaines, en barres.
 function weeklyBars(dates) {
   const now = Date.now(), weeks = Array.from({ length: 12 }, () => 0);
@@ -428,32 +405,45 @@ async function loadFairyTails() {
 }
 
 function renderFairyTails(d) {
-  const v = d.ventes || {}, e = d.entonnoir || {}, pub = d.publicite || {}, cr = d.creations || {}, ab = d.abandons || {};
-  const freq = d.frequentation || [];
-  const visites7 = e.visites || 0;
+  // Chahine, 22/10/2026 : « un nombre précis de visites par jour », la courbe ne donnait
+  // aucun chiffre exact. Tableau jour par jour à la place, et retrait de ce qui ne sert
+  // pas au quotidien (bandeau d'offre, paniers abandonnés cumulés, bloc Meta en panne).
+  const v = d.ventes || {}, e = d.entonnoir || {}, cr = d.creations || {};
+  const freq = [...(d.frequentation || [])].reverse();
+  const auj = freq[0] || {}, hier = freq[1] || {};
+  const nb = n => (n || 0).toLocaleString('fr-FR');
+  const vmax = Math.max(1, ...freq.map(f => f.visites || 0));
+  const jour = s => new Date(s + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
   const funnel = [['Visites', e.visites], ['Livres créés', e.creations], ['Paiements ouverts', e.paiementsOuverts], ['Achats', e.achats]];
-  const fmax = Math.max(1, ...funnel.map(f => f[1] || 0));
+  const prov = d.provenance || [];
   const ventes = d.dernieresVentes || [];
 
   view.innerHTML = `<div class="fade">
-    <div class="hero"><div><h1><span>Fairy Tails</span> · ventes</h1><p>FAIRYTAILS.FR · STRIPE ${d.stripeOk === false ? 'INDISPONIBLE' : 'OK'}</p></div>
-      ${d.offreActive ? '<span class="tag ok">OFFRE DE LANCEMENT ACTIVE</span>' : ''}</div>
+    <div class="hero"><div><h1><span>Fairy Tails</span> · ventes</h1><p>FAIRYTAILS.FR · STRIPE ${d.stripeOk === false ? 'INDISPONIBLE' : 'OK'}</p></div></div>
     <div class="kpis">
-      ${kpi('Aujourd’hui', eurC(v.jour && v.jour.montantCentimes), ((v.jour && v.jour.nombre) || 0) + ' vente(s)', true)}
-      ${kpi('7 derniers jours', eurC(v.semaine && v.semaine.montantCentimes), ((v.semaine && v.semaine.nombre) || 0) + ' vente(s)')}
-      ${kpi('Total encaissé', eurC(v.total && v.total.montantCentimes), ((v.total && v.total.nombre) || 0) + ' vente(s) · panier ' + eurC(v.panierMoyenCentimes))}
-      ${kpi('Visites 7 j', visites7.toLocaleString('fr-FR'), 'conversion ' + (e.tauxGlobal ?? 0) + ' %', false, visites7)}
-      ${kpi('Livres créés', (cr.semaine || 0).toLocaleString('fr-FR'), (cr.jour || 0) + ' aujourd’hui · ' + (cr.total || 0) + ' au total', false, cr.semaine || 0)}
-      ${kpi('Paniers abandonnés', ab.auPaiement || 0, eurC(ab.manqueAGagnerCentimes) + ' de manque à gagner', false, ab.auPaiement || 0)}
+      ${kpi('Visites aujourd’hui', nb(auj.visites), 'hier : ' + nb(hier.visites), true, auj.visites || 0)}
+      ${kpi('Visites 7 jours', nb(e.visites), 'conversion ' + (e.tauxGlobal ?? 0) + ' %', false, e.visites || 0)}
+      ${kpi('Livres créés aujourd’hui', nb(cr.jour), nb(cr.semaine) + ' sur 7 jours', false, cr.jour || 0)}
+      ${kpi('Ventes aujourd’hui', eurC(v.jour && v.jour.montantCentimes), ((v.jour && v.jour.nombre) || 0) + ' vente(s)')}
+      ${kpi('Ventes 7 jours', eurC(v.semaine && v.semaine.montantCentimes), ((v.semaine && v.semaine.nombre) || 0) + ' vente(s)')}
+      ${kpi('Total encaissé', eurC(v.total && v.total.montantCentimes), ((v.total && v.total.nombre) || 0) + ' vente(s)')}
     </div>
     <div class="grid2">
-      <div class="panel chart"><div class="ph"><span>Fréquentation <em>14 j</em></span><span class="legend"><span><i></i>VISITES</span><span><i class="l2"></i>LIVRES CRÉÉS</span></span></div>${lineChart(freq, 'visites', 'livresCrees')}</div>
-      <div class="panel"><div class="ph">Entonnoir <em>7 j</em></div><div class="fun">
-        ${funnel.map(([l, n]) => `<div class="row"><span>${l}</span><div class="bar"><b data-w="${Math.round((n || 0) / fmax * 100)}%"></b></div><strong>${(n || 0).toLocaleString('fr-FR')}</strong></div>`).join('')}
-        <div class="rate"><span>Création ${e.tauxCreation ?? 0} % · achat ${e.tauxAchat ?? 0} %</span><b>${e.tauxGlobal ?? 0} %</b></div>
-      </div></div>
+      <div class="panel"><div class="ph">Visites par jour <em>14 j</em></div>
+        <div class="tbl fun"><table><thead><tr><th>Jour</th><th style="text-align:right">Visites</th><th style="text-align:right">Livres créés</th><th></th></tr></thead><tbody>
+        ${freq.map(f => `<tr><td>${jour(f.date)}</td><td class="num"><strong>${nb(f.visites)}</strong></td><td class="num">${nb(f.livresCrees)}</td><td style="width:40%"><div class="bar"><b data-w="${Math.round((f.visites || 0) / vmax * 100)}%"></b></div></td></tr>`).join('')}
+        </tbody></table></div></div>
+      <div>
+        <div class="panel" style="margin-bottom:12px"><div class="ph">Entonnoir <em>7 j</em></div>
+          <div class="tbl"><table><tbody>
+          ${funnel.map(([l, n]) => `<tr><td>${l}</td><td class="num"><strong>${nb(n)}</strong></td></tr>`).join('')}
+          </tbody></table></div></div>
+        <div class="panel"><div class="ph">Provenance des visites <em>7 j</em></div>
+          <div class="tbl"><table><tbody>
+          ${prov.length ? prov.map(p => `<tr><td>${esc(p.source === 'meta' ? 'Facebook / Instagram' : p.source === 'direct' ? 'Direct' : p.source === 'google' ? 'Google' : p.source)}</td><td class="num"><strong>${nb(p.visites)}</strong></td></tr>`).join('') : '<tr><td class="empty">—</td></tr>'}
+          </tbody></table></div></div>
+      </div>
     </div>
-    ${metaPanel(pub)}
     <div class="panel"><div class="ph">Dernières ventes</div>
       <div class="tbl"><table><thead><tr><th>Date</th><th>Enfant</th><th>Offre</th><th>Client</th><th style="text-align:right">Montant</th></tr></thead><tbody>
       ${ventes.length ? ventes.map(s => `<tr><td>${fmtDT(s.date)}</td><td><strong>${esc(s.prenom || '—')}</strong></td><td>${esc(OFFRE_LABEL[s.offre] || s.offre || '—')}</td><td class="sub" style="margin:0">${esc(s.email || '')}</td><td class="num">${eurC(s.montantCentimes)}</td></tr>`).join('')
@@ -461,30 +451,6 @@ function renderFairyTails(d) {
       </tbody></table></div>
     </div></div>`;
   countUp();
-}
-
-// Campagnes Meta : fairytails.fr calcule déjà tout (app/lib/meta-ads.ts),
-// on se contente de l'afficher.
-function metaPanel(pub) {
-  const head = '<div class="ph"><span>Campagnes Meta <em>7 j</em></span><span>FAIRY TAILS ADS</span></div>';
-  if (!pub.configure) return `<div class="panel" style="margin-bottom:12px">${head}<div class="empty">Meta n’est pas branché sur fairytails.fr (META_ADS_TOKEN absent)</div></div>`;
-  if (pub.erreur) return `<div class="panel" style="margin-bottom:12px">${head}<div class="empty p-bad">Meta : ${esc(pub.erreur)}</div></div>`;
-  const ctr = (c, i) => i ? (c / i * 100).toFixed(2).replace('.', ',') + ' %' : '—';
-  const camps = pub.campagnes || [];
-  return `<div class="panel" style="margin-bottom:12px">${head}
-    <div class="mini">
-      <div><span>Dépense</span><b>${eurC(pub.depenseCentimes)}</b></div>
-      <div><span>Résultat</span><b class="${(pub.resultatCentimes || 0) >= 0 ? 'p-ok' : 'p-bad'}">${eurC(pub.resultatCentimes)}</b><small>ROAS ${String(pub.roas || 0).replace('.', ',')}</small></div>
-      <div><span>Achats</span><b class="p-acc">${pub.achats || 0}</b><small>${pub.achats ? eurC(pub.coutParAchatCentimes) + ' / achat' : '—'}</small></div>
-      <div><span>Impressions</span><b>${(pub.impressions || 0).toLocaleString('fr-FR')}</b><small>CPM ${eurC(pub.cpmCentimes)}</small></div>
-      <div><span>Portée</span><b>${(pub.portee || 0).toLocaleString('fr-FR')}</b></div>
-      <div><span>Clics</span><b>${(pub.clics || 0).toLocaleString('fr-FR')}</b><small>CTR ${ctr(pub.clics, pub.impressions)} · CPC ${eurC(pub.cpcCentimes)}</small></div>
-    </div>
-    <div class="tbl"><table><thead><tr><th>Campagne</th><th style="text-align:right">Dépense</th><th style="text-align:right">Impressions</th><th style="text-align:right">Clics</th><th style="text-align:right">CTR</th><th style="text-align:right">CPC</th><th style="text-align:right">Achats</th><th style="text-align:right">Coût / achat</th></tr></thead><tbody>
-    ${camps.length ? camps.map(c => `<tr><td><strong>${esc(c.nom)}</strong></td><td class="num">${eurC(c.depenseCentimes)}</td><td class="num">${(c.impressions || 0).toLocaleString('fr-FR')}</td><td class="num">${(c.clics || 0).toLocaleString('fr-FR')}</td><td class="num">${ctr(c.clics, c.impressions)}</td><td class="num">${eurC(c.cpcCentimes)}</td><td class="num">${c.achats || 0}</td><td class="num">${c.achats ? eurC(Math.round(c.depenseCentimes / c.achats)) : '—'}</td></tr>`).join('')
-      : '<tr><td colspan="8" class="empty">Aucune campagne active sur la période</td></tr>'}
-    </tbody></table></div>
-  </div>`;
 }
 
 // ── Navigation ──
