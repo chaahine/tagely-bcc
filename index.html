@@ -1051,6 +1051,7 @@ async function handleBillingReturn(params) {
           <span class="wk-lbl" id="wk-lbl"></span>
           <button class="arr" onclick="chgWk(1)">›</button>
         </div>
+        <span id="plan-send-status" style="font-size:10px"></span>
         <div style="font-size:10px;color:var(--muted);display:flex;align-items:center;gap:8px">
           <span><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--g);margin-right:3px"></span>Dispo</span>
         </div>
@@ -2148,15 +2149,37 @@ let exportMonthOverride = null;
 let EVENTS = [];
 let ROOMS = [];
 
-// ── EMAIL SENT TRACKING (localStorage) ──
+// ── EMAIL SENT TRACKING ──
+// PLANNING_SENDS[month][comedianId] = sent_at (ISO, ou null pour un envoi
+// antérieur au suivi serveur). Chargé depuis la table planning_sends, donc
+// identique sur l'ordi et le téléphone. Le localStorage n'est plus qu'un
+// repli pour les envois faits avant cette table.
+let PLANNING_SENDS = {};
 function getEmailSentKey(comedianId, monthPrefix) {
   return `emailSent_${currentCode||'default'}_${monthPrefix}_${comedianId}`;
 }
-function markEmailSent(comedianId, monthPrefix) {
-  localStorage.setItem(getEmailSentKey(comedianId, monthPrefix), '1');
+function markEmailSent(comedianId, monthPrefix, sentAt) {
+  (PLANNING_SENDS[monthPrefix] = PLANNING_SENDS[monthPrefix] || {})[comedianId] = sentAt || null;
+  try { localStorage.setItem(getEmailSentKey(comedianId, monthPrefix), '1'); } catch(e) {}
 }
 function wasEmailSent(comedianId, monthPrefix) {
-  return !!localStorage.getItem(getEmailSentKey(comedianId, monthPrefix));
+  if (PLANNING_SENDS[monthPrefix] && comedianId in PLANNING_SENDS[monthPrefix]) return true;
+  try { return !!localStorage.getItem(getEmailSentKey(comedianId, monthPrefix)); } catch(e) { return false; }
+}
+function emailSentAt(comedianId, monthPrefix) {
+  return (PLANNING_SENDS[monthPrefix] || {})[comedianId] || null;
+}
+// Dernier envoi du mois, tous humoristes confondus : { at, count } ou null.
+function planningSendInfo(monthPrefix) {
+  const m = PLANNING_SENDS[monthPrefix];
+  if (!m || !Object.keys(m).length) return null;
+  const dates = Object.values(m).filter(Boolean).sort();
+  return { at: dates.length ? dates[dates.length - 1] : null, count: Object.keys(m).length };
+}
+function fmtSentAt(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return `le ${d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})} à ${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`;
 }
 
 (function() {
@@ -3014,8 +3037,24 @@ function getWkLabel() {
   return `${ws.getDate()} ${MOIS[ws.getMonth()]} – ${we.getDate()} ${MOIS[we.getMonth()]} ${we.getFullYear()}`;
 }
 
+// Bandeau à côté de la semaine : le planning du mois affiché a-t-il été
+// envoyé, et quand. Tant qu'il ne l'est pas, le portail cache ces dates.
+function renderPlanSendStatus() {
+  const el = document.getElementById('plan-send-status');
+  if (!el) return;
+  const d = new Date(getWeekStart());
+  d.setDate(d.getDate() + 1); // mardi, premier jour de séance de la semaine
+  const month = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  const label = MOIS_FULL[d.getMonth()];
+  const info = planningSendInfo(month);
+  el.innerHTML = info
+    ? `<span style="color:var(--g);background:var(--g2);border:1px solid var(--gb);padding:2px 8px;border-radius:3px;font-weight:700">✓ Planning ${label} envoyé${info.at ? ' ' + fmtSentAt(info.at) : ''} · ${info.count} humoriste${info.count>1?'s':''}</span>`
+    : `<span style="color:var(--muted);background:var(--s3);border:1px solid var(--border2);padding:2px 8px;border-radius:3px" title="Les humoristes ne voient pas encore ces dates dans leur portail">Planning ${label} pas encore envoyé · invisible pour les humoristes</span>`;
+}
+
 function renderPlanning() {
   document.getElementById('wk-lbl').textContent = getWkLabel();
+  renderPlanSendStatus();
   const MAX = parseInt(document.getElementById('s-max')?.value)||4;
   const weekStart = getWeekStart(); // lundi
   let html = '';
@@ -4554,6 +4593,7 @@ function _renderSendPlanningList(byComedian) {
     const hasEmail = !!c.email;
     const hasPhone = !!c.phone;
     const emailSent = wasEmailSent(id, activePrefix);
+    const sentAt = emailSentAt(id, activePrefix);
     const msg = buildPlanningMessage(id, keys);
     if (idx === 0) firstMsg = msg;
     html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--border2);border-radius:4px">
@@ -4561,7 +4601,7 @@ function _renderSendPlanningList(byComedian) {
       <span style="font-size:11px;font-weight:600;flex:1">${c.name}</span>
       <span style="font-size:10px;color:var(--muted)">${keys.length} date${keys.length>1?'s':''}</span>
       ${emailSent
-        ? `<span style="font-size:9px;color:var(--g);background:var(--g2);padding:1px 6px;border-radius:2px;border:1px solid var(--gb);font-weight:700" title="Mail envoyé ce mois">✓ Envoyé</span>`
+        ? `<span style="font-size:9px;color:var(--g);background:var(--g2);padding:1px 6px;border-radius:2px;border:1px solid var(--gb);font-weight:700" title="Mail envoyé ce mois">✓ Envoyé${sentAt ? ' ' + fmtSentAt(sentAt).replace('le ','') : ''}</span>`
         : `<span style="font-size:9px;color:var(--muted);background:var(--s3);padding:1px 6px;border-radius:2px;border:1px solid var(--border2)" title="Mail pas encore envoyé">En attente</span>`}
       ${hasEmail
         ? `<span style="font-size:9px;color:var(--g);background:var(--g2);padding:1px 6px;border-radius:2px;border:1px solid var(--gb)">✓ Email</span>`
@@ -4588,6 +4628,8 @@ async function sendPlanningToAll() {
 
   closeModal('modal-send-planning');
 
+  const month = exportMonthOverride || getTargetMonthPrefix();
+  const sentIds = [];
   let sent = 0, skipped = 0;
   for (const [id, keys] of list) {
     const c = COMEDIANS.find(c=>c.id===id);
@@ -4607,14 +4649,21 @@ async function sendPlanningToAll() {
       const r = await sendEmail(c.email, `🎤 Tes dates ${currentClub.name} — ${moisLabel}`, msg);
       if (r.success) {
         sent++;
-        markEmailSent(id, exportMonthOverride || getTargetMonthPrefix());
+        sentIds.push(id);
       } else skipped++;
     } else {
       skipped++;
     }
   }
 
+  if (sentIds.length) {
+    const sentAt = new Date().toISOString();
+    sentIds.forEach(id => markEmailSent(id, month, sentAt));
+    const r = await adminWrite('markPlanningSent', { month, comedian_ids: sentIds });
+    if (r === false) toast("⚠ Emails partis, mais la date d'envoi n'a pas été enregistrée");
+  }
   autoSave();
+  renderPlanSendStatus();
   toast(`✓ ${sent} envoyé${sent>1?'s':''}${skipped?` · ${skipped} sans contact`:''}`);
 }
 
@@ -5368,7 +5417,7 @@ async function loadFromSupabase() {
     const dateFrom = getDisposDateFrom();
     const dateTo = getDisposDateTo();
     console.log(`[Stagely] Chargement dispos Supabase : ${dateFrom} → ${dateTo}`);
-    const [comedians, asgn, dispos, statuses, msgs, templates, events, rooms] = await Promise.all([
+    const [comedians, asgn, dispos, statuses, msgs, templates, events, rooms, sends] = await Promise.all([
       sbFetch('comedians', {params:'?order=name'}),
       // ?order=id : sans ORDER BY explicite, PostgREST renvoie les lignes dans
       // un ordre non garanti — or la POSITION 0 d'un créneau désigne le MC
@@ -5383,7 +5432,8 @@ async function loadFromSupabase() {
       sbFetch('chat_messages', {params:'?order=created_at&limit=100'}),
       sbFetch('schedule_templates', {params:'?order=weekday,time'}),
       sbFetch('events', {params:'?order=slot_key'}),
-      sbFetch('rooms', {params:'?active=eq.true&order=name'})
+      sbFetch('rooms', {params:'?active=eq.true&order=name'}),
+      sbFetch('planning_sends', {params:'?order=month'})
     ]);
     if (!comedians) { console.warn('[Stagely] Échec chargement comedians'); return false; }
     console.log(`[Stagely] Chargés : ${comedians.length} comédiens, ${asgn?.length||0} assignments, ${dispos?.length||0} dispos`);
@@ -5453,6 +5503,10 @@ async function loadFromSupabase() {
     }
     if (rooms !== null) {
       ROOMS.splice(0, ROOMS.length, ...rooms);
+    }
+    if (sends !== null) {
+      PLANNING_SENDS = {};
+      sends.forEach(r => { (PLANNING_SENDS[r.month] = PLANNING_SENDS[r.month] || {})[r.comedian_id] = r.sent_at; });
     }
     sbConnected = true;
     showSaveIndicator('✓ Supabase connecté');

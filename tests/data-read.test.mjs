@@ -142,7 +142,9 @@ test('portail : assignments scopés sur le club du code', async () => {
     await handler(fakeReq({ body: { code: 'CODEB', table: 'assignments' } }), res);
     assert.equal(res.statusCode, 200);
     const read = m.calls.find(c => c.url.includes('/assignments?'));
-    assert.ok(read.url.endsWith(`club_id=eq.${CLUB_B}`));
+    assert.ok(read.url.includes(`club_id=eq.${CLUB_B}&`));
+    // mois non envoyés masqués (planning_sends)
+    assert.ok(/&or=\(slot_key\.lt\.\d{4}-\d{2}/.test(read.url));
   } finally { m.restore(); }
 });
 

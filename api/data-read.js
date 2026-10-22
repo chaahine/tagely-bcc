@@ -42,6 +42,7 @@ const ADMIN_TABLES = {
   schedule_templates: ['weekday,time'],
   events: ['slot_key'],
   rooms: ['name'],
+  planning_sends: ['month'],
 };
 
 // Portail : tables lisibles + filtre obligatoire éventuel.
@@ -85,6 +86,34 @@ export function buildReadParams(query, allowedOrders, clubId) {
   }
   parts.push(clubOrFilter(clubId)); // toujours en dernier, jamais omis
   return '?' + parts.join('&');
+}
+
+// Mois courant à Paris, "YYYY-MM" (le serveur tourne en UTC).
+export function parisMonth(now = new Date()) {
+  return new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit' }).format(now);
+}
+
+// Portail : un humoriste ne voit ses dates d'un mois qu'une fois le planning
+// de ce mois envoyé (« Envoyer le planning », table planning_sends). Les mois
+// passés restent toujours visibles. Filtre ajouté à la requête PostgREST
+// elle-même (et non après coup) pour que la pagination par offset de
+// sbAll() reste juste. Renvoie '' si la table n'existe pas encore : on
+// retombe sur l'ancien comportement plutôt que de vider le portail.
+export function publishedSlotFilter(months, current) {
+  const parts = [`slot_key.lt.${current}`];
+  for (const m of months) if (/^\d{4}-\d{2}$/.test(m) && m >= current) parts.push(`slot_key.like.${m}-*`);
+  return `or=(${parts.join(',')})`;
+}
+
+async function portalAssignmentFilter(clubId) {
+  try {
+    const rows = await sbAdmin('planning_sends', { params: `?${clubOrFilter(clubId)}&select=month` });
+    const months = [...new Set((Array.isArray(rows) ? rows : []).map(r => r.month))];
+    return publishedSlotFilter(months, parisMonth());
+  } catch (e) {
+    console.warn('planning_sends illisible, portail non filtré :', e && e.message);
+    return '';
+  }
 }
 
 const normalizeName = (s) => String(s || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
@@ -144,8 +173,12 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: `${spec.requires} requis` });
       }
     }
-    const params = buildReadParams(body.query, spec.order, clubId);
+    let params = buildReadParams(body.query, spec.order, clubId);
     if (!params) return res.status(400).json({ error: 'Requête invalide' });
+    if (body.table === 'assignments') {
+      const extra = await portalAssignmentFilter(clubId);
+      if (extra) params += `&${extra}`;
+    }
     const rows = await sbAdmin(body.table, { params });
     return res.status(200).json(Array.isArray(rows) ? rows : []);
   } catch (e) {

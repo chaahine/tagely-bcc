@@ -557,6 +557,27 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true });
       }
 
+      // Trace serveur de « Envoyer le planning » (table planning_sends) : la
+      // date d'envoi s'affiche sur tous les appareils de l'admin, et un mois
+      // n'apparaît dans le portail des humoristes qu'une fois envoyé (voir
+      // publishedSlotFilter() dans data-read.js). Jusqu'ici l'envoi n'était
+      // noté que dans le localStorage du navigateur qui avait cliqué.
+      case 'markPlanningSent': {
+        const month = payload?.month;
+        const ids = Array.isArray(payload?.comedian_ids) ? payload.comedian_ids : [];
+        if (!/^\d{4}-\d{2}$/.test(month || '')) return res.status(400).json({ error: 'month YYYY-MM requis' });
+        if (!ids.length || ids.length > MAX_BULK || !ids.every(id => isNonEmptyString(id, 200))) {
+          return res.status(400).json({ error: 'comedian_ids requis' });
+        }
+        const sent_at = new Date().toISOString();
+        await sbAdmin('planning_sends', {
+          method: 'POST',
+          params: '?on_conflict=club_id,month,comedian_id',
+          body: ids.map(comedian_id => ({ club_id: clubId, month, comedian_id, sent_at })),
+        });
+        return res.status(200).json({ success: true, month, sent_at });
+      }
+
       default:
         return res.status(403).json({ error: 'Action non autorisée' });
     }
