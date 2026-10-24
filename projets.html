@@ -404,6 +404,33 @@ async function loadFairyTails() {
   renderFairyTails(d);
 }
 
+// Le nouveau parcours étape par étape, pour la journée (24/10/2026) : où les visiteurs partent.
+// Chaque ligne donne le nombre et la part qui continue depuis l'étape précédente.
+function parcoursDuJour(d, auj) {
+  const ej = d.etapesJour;
+  if (!ej) return '';
+  const nb = n => (n || 0).toLocaleString('fr-FR');
+  const lignes = [
+    ['Visites', auj.visites],
+    ['📷 Photo déposée', ej.photo_deposee],
+    ['🗺 Univers choisi', ej.univers_choisi],
+    ['➡️ Étape 2 atteinte', ej.etape2_vue],
+    ['🖼 Aperçu affiché', ej.apercu_affiche],
+    ['✉️ Commander cliqué', ej.commande_cliquee],
+    ['🧾 Page paiement', ej.page_commande],
+    ['💳 Paiement ouvert', ej.checkout_ouvert],
+    ['✅ Achats', d.ventes && d.ventes.jour ? d.ventes.jour.nombre : 0],
+  ];
+  const lignesHtml = lignes.map(([l, n], i) => {
+    const prec = i ? lignes[i - 1][1] : 0;
+    const pct = i && prec ? Math.round((n || 0) / prec * 100) + ' %' : '';
+    const alerte = i && prec && (n || 0) / prec < .4 ? ' style="color:#e0675b;font-weight:700"' : '';
+    return `<tr><td>${l}</td><td class="num"><strong>${nb(n)}</strong></td><td class="num"${alerte}>${pct}</td></tr>`;
+  }).join('');
+  return `<div class="panel" style="margin-bottom:12px"><div class="ph">Parcours d'aujourd'hui <em>étape par étape · en rouge, moins de 40 % continuent</em></div>
+    <div class="tbl"><table><thead><tr><th>Étape</th><th style="text-align:right">Nombre</th><th style="text-align:right">Continuent</th></tr></thead><tbody>${lignesHtml}</tbody></table></div></div>`;
+}
+
 function renderFairyTails(d) {
   // Chahine, 22/10/2026 : « un nombre précis de visites par jour », la courbe ne donnait
   // aucun chiffre exact. Tableau jour par jour à la place, et retrait de ce qui ne sert
@@ -428,6 +455,7 @@ function renderFairyTails(d) {
       ${kpi('Ventes 7 jours', eurC(v.semaine && v.semaine.montantCentimes), ((v.semaine && v.semaine.nombre) || 0) + ' vente(s)')}
       ${kpi('Total encaissé', eurC(v.total && v.total.montantCentimes), ((v.total && v.total.nombre) || 0) + ' vente(s)')}
     </div>
+    ${parcoursDuJour(d, auj)}
     <div class="grid2">
       <div class="panel"><div class="ph">Visites par jour <em>14 j</em></div>
         <div class="tbl fun"><table><thead><tr><th>Jour</th><th style="text-align:right">Visites</th><th style="text-align:right">Livres créés</th><th></th></tr></thead><tbody>
