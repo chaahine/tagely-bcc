@@ -1398,9 +1398,10 @@ function hasProAccess() {
   return true;
 }
 
-// Export comptable : inclus dans l'offre unique, comme le reste.
+// Export comptable : PAS inclus dans l'offre à 49,90 € (décision du
+// 24/10/2026). Le bouton est masqué et les exports refusés pour tous.
 function hasAccountingExport() {
-  return true;
+  return false;
 }
 
 // Lien portail humoriste — SOURCE UNIQUE utilisée à la fois par l'affichage
@@ -1617,7 +1618,7 @@ function renderPlanCard() {
       <span style="font-size:11px;color:var(--muted)">${statusLine}</span>
     </div>
     <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;font-weight:600">Tout inclus, une seule offre</div>
-    <div style="font-size:11px;color:var(--text);line-height:1.8">✓ Planning &amp; dispos · ✓ Portail humoriste · ✓ Rappels automatiques · ✓ Notifications d'annulation · ✓ Export calendrier · ✓ Mode tournée · ✓ Chapeau ou cachet · ✓ Tableau de bord financier · ✓ Export comptable · ✓ Humoristes et équipe sans limite</div>
+    <div style="font-size:11px;color:var(--text);line-height:1.8">✓ Planning &amp; dispos · ✓ Portail humoriste · ✓ Rappels automatiques · ✓ Notifications d'annulation · ✓ Export calendrier · ✓ Mode tournée · ✓ Chapeau ou cachet · ✓ Tableau de bord financier · ✓ Humoristes et équipe sans limite</div>
     <div style="font-size:10px;color:var(--muted);margin-top:14px;padding-top:14px;border-top:1px solid var(--border2);line-height:1.6">
       Plusieurs lieux ? Créez un club par lieu — chacun a son planning, ses humoristes et son abonnement. La gestion de deux salles au sein d'un même lieu (deux shows en parallèle) n'existe pas encore.
     </div>
@@ -2752,7 +2753,7 @@ function nav(id) {
       return;
     }
     document.getElementById('tactions').innerHTML = PACTIONS[id];
-    // Export comptable : palier Réseau uniquement (voir hasAccountingExport()).
+    // Export comptable : hors offre (voir hasAccountingExport()).
     // Le bouton est retiré ici plutôt que dupliqué en deux variantes de
     // PACTIONS, qui est une table statique.
     if (!hasAccountingExport()) {
@@ -6334,7 +6335,7 @@ let exportComptableMonth = null;
 function openExportComptableModal() {
   // Palier Réseau uniquement depuis le chantier "3 formules" (2026-09) — les
   // autres fonctionnalités d'argent restent Pro. Voir hasAccountingExport().
-  if (!hasAccountingExport()) { toast('🔒 L\'export comptable fait partie du palier Réseau'); return; }
+  if (!hasAccountingExport()) { toast('🔒 L\'export comptable n\'est pas inclus dans l\'offre Stagely'); return; }
   const mode = currentClub.payment_mode === 'cachet' ? 'cachet' : 'chapeau';
   const lblEl = document.getElementById('exp-compta-mode-label');
   if (lblEl) lblEl.textContent = mode === 'cachet' ? 'des cachets' : 'du chapeau';
@@ -6430,7 +6431,7 @@ function buildAccountingCSV(monthPrefix) {
 async function downloadAccountingCSV() {
   // Palier Réseau uniquement depuis le chantier "3 formules" (2026-09) — les
   // autres fonctionnalités d'argent restent Pro. Voir hasAccountingExport().
-  if (!hasAccountingExport()) { toast('🔒 L\'export comptable fait partie du palier Réseau'); return; }
+  if (!hasAccountingExport()) { toast('🔒 L\'export comptable n\'est pas inclus dans l\'offre Stagely'); return; }
   const mode = currentClub.payment_mode === 'cachet' ? 'cachet' : 'chapeau';
   // Le chapeau vit désormais côté serveur — s'assurer qu'il est chargé avant
   // d'exporter (ex. mois précédent jamais consulté dans cette session).

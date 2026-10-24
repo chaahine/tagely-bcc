@@ -360,7 +360,8 @@ export const PRO_PLANS = ['essentiel', 'pro', 'reseau'];
 // à la source, plutôt que de rustiner chaque endroit qui lit le champ.
 export const COMEDIAN_PRIOS = ['new', 'regular', 'headliner'];
 
-const FULL_CAPS = { maxComedians: null, maxClubAdmins: null, tour: true, money: true, accountingExport: true };
+// L'export comptable n'est pas inclus dans l'offre (24/10/2026).
+const FULL_CAPS = { maxComedians: null, maxClubAdmins: null, tour: true, money: true, accountingExport: false };
 export const PLAN_CAPS = {
   essentiel: { ...FULL_CAPS },
   pro:       { ...FULL_CAPS },

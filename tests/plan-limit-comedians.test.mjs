@@ -112,17 +112,16 @@ test('offre affichée : 49,90 € et « sans limite », ce que le serveur appliq
   assert.match(indexHtml, /const STAGELY_PRICE = '49,90 € HT \/ mois';/);
   assert.match(indexHtml, /Humoristes et équipe sans limite/);
   for (const plan of ['essentiel', 'pro', 'reseau']) {
-    assert.deepEqual(PLAN_CAPS[plan], { maxComedians: null, maxClubAdmins: null, tour: true, money: true, accountingExport: true }, plan);
+    assert.deepEqual(PLAN_CAPS[plan], { maxComedians: null, maxClubAdmins: null, tour: true, money: true, accountingExport: false }, plan);
   }
   assert.ok(!/const PLAN_LADDER/.test(indexHtml), "l'ancienne grille à trois paliers ne doit plus être affichée");
 });
 
-test("offre unique : le client ouvre l'export comptable et les fonctions Pro à tous", () => {
-  for (const name of ['hasAccountingExport', 'hasProAccess']) {
-    const fn = indexHtml.match(new RegExp(`function ${name}\\(\\)\\s*\\{([\\s\\S]*?)\\n\\}`));
-    assert.ok(fn, `${name}() doit exister dans index.html`);
-    assert.match(fn[1], /return true;/);
-  }
+test("offre unique : fonctions Pro ouvertes à tous, export comptable fermé à tous", () => {
+  const fn = (name) => indexHtml.match(new RegExp(`function ${name}\\(\\)\\s*\\{([\\s\\S]*?)\\n\\}`));
+  assert.match(fn('hasProAccess')[1], /return true;/);
+  assert.match(fn('hasAccountingExport')[1], /return false;/);
+  assert.ok(!/✓ Export comptable/.test(indexHtml), "l'offre affichée ne doit pas promettre l'export comptable");
 });
 
 // ── Priorité d'un humoriste : énumération fermée ───────────────────────────
