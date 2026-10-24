@@ -73,9 +73,9 @@ test('computePlanAccess : essai (trial) → accès complet quel que soit le plan
   assert.equal(computePlanAccess({ status: 'trial', plan: 'pro' }).proFeatures, true);
 });
 
-test('computePlanAccess : actif + essentiel → PAS d\'accès Pro', () => {
+test('computePlanAccess : actif + essentiel → accès complet (offre unique)', () => {
   const access = computePlanAccess({ status: 'active', plan: 'essentiel' });
-  assert.equal(access.proFeatures, false);
+  assert.equal(access.proFeatures, true);
   assert.equal(access.plan, 'essentiel');
   assert.equal(access.status, 'active');
 });
@@ -88,10 +88,10 @@ test('computePlanAccess : actif + reseau → accès Pro (le palier Réseau inclu
   assert.equal(computePlanAccess({ status: 'active', plan: 'reseau' }).proFeatures, true);
 });
 
-test('computePlanAccess : plan NULL/absent (colonne jamais renseignée) → traité comme \'essentiel\', jamais un accès Pro accordé par erreur', () => {
+test('computePlanAccess : plan NULL/absent (colonne jamais renseignée) → traité comme \'essentiel\', accès complet (offre unique)', () => {
   const access = computePlanAccess({ status: 'active', plan: null });
   assert.equal(access.plan, 'essentiel');
-  assert.equal(access.proFeatures, false);
+  assert.equal(access.proFeatures, true);
 });
 
 test('computePlanAccess : club/status totalement absents → repli \'trial\'/\'essentiel\' (accès complet, jamais un crash)', () => {
@@ -161,14 +161,14 @@ test('admin-login : BCC (actif, palier fondateur pro) → pro_features = true', 
   assert.equal(res.body.club.pro_features, true);
 });
 
-test('admin-login : club actif au palier essentiel → pro_features = false (chapeau/dashboard financier masqués)', async () => {
+test('admin-login : club actif au palier essentiel → pro_features = true (offre unique)', async () => {
   const mock = mockClubsByEmailOrId(CLUBS);
   const res = fakeRes();
   await adminLoginHandler(fakeReq({ body: { email: 'admin@essentiel-club.fr', password: 'ess-pwd' } }), res);
   mock.restore();
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.club.plan, 'essentiel');
-  assert.equal(res.body.club.pro_features, false);
+  assert.equal(res.body.club.pro_features, true);
 });
 
 test('admin-login : club en essai (peu importe plan) → pro_features = true', async () => {
@@ -200,16 +200,16 @@ test('admin-login : colonne `plan` absente en base (migration pas encore appliqu
   await adminLoginHandler(fakeReq({ body: { email: 'bruce@bcc.fr', password: 'bruce-pwd' } }), res);
   globalThis.fetch = original;
   assert.equal(res.statusCode, 200);
-  assert.equal(res.body.club.plan, 'essentiel', 'repli sûr — jamais un accès Pro accordé par défaut si la colonne manque');
+  assert.equal(res.body.club.plan, 'essentiel');
   assert.equal(res.body.club.status, 'active');
-  assert.equal(res.body.club.pro_features, false);
+  assert.equal(res.body.club.pro_features, true);
 });
 
 // ════════════════════════════════════════════════════════════════════════
 // api/switch-club.js — même relais plan/status/pro_features au switch
 // ════════════════════════════════════════════════════════════════════════
 
-test('switch-club : bascule vers un club essentiel actif → pro_features = false (revérifié en base, jamais depuis le token)', async () => {
+test('switch-club : bascule vers un club essentiel actif → pro_features = true (offre unique) (revérifié en base, jamais depuis le token)', async () => {
   const token = issueAdminToken(
     ESSENTIEL_ADMIN_ID,
     [{ id: ESSENTIEL_CLUB_ID, name: 'Club Essentiel' }],
@@ -224,7 +224,7 @@ test('switch-club : bascule vers un club essentiel actif → pro_features = fals
   await switchClubHandler(fakeReq({ token, body: { club_id: ESSENTIEL_CLUB_ID } }), res);
   mock.restore();
   assert.equal(res.statusCode, 200);
-  assert.equal(res.body.club.pro_features, false);
+  assert.equal(res.body.club.pro_features, true);
 });
 
 test('switch-club : bascule vers BCC (pro) → pro_features = true', async () => {
@@ -302,12 +302,12 @@ test('hasProAccess : club essai (trial) + plan essentiel → true (accès comple
   assert.equal(sandbox.__pro, true);
 });
 
-test('hasProAccess : club actif + plan essentiel → false (chapeau/dashboard financier masqués)', () => {
+test('hasProAccess : club actif + plan essentiel → true (offre unique)', () => {
   const sandbox = runClubIdentity(`
     applyClubInfo({ id: 'c1', name: 'X', portal_code: 'X1', status: 'active', plan: 'essentiel' });
     this.__pro = hasProAccess();
   `);
-  assert.equal(sandbox.__pro, false);
+  assert.equal(sandbox.__pro, true);
 });
 
 test('hasProAccess : club actif + plan pro → true', () => {
@@ -345,8 +345,8 @@ test('applyClubInfo : un appel avec un objet partiel (ex. saveClubSettings, qui 
     this.__plan = currentClub.plan;
     this.__status = currentClub.status;
   `);
-  assert.equal(sandbox.__proBefore, false);
-  assert.equal(sandbox.__proAfter, false, 'le plan doit rester essentiel après un appel partiel, pas retomber sur un défaut permissif');
+  assert.equal(sandbox.__proBefore, true);
+  assert.equal(sandbox.__proAfter, true);
   assert.equal(sandbox.__plan, 'essentiel');
   assert.equal(sandbox.__status, 'active');
 });

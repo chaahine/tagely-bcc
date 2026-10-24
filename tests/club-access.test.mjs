@@ -306,10 +306,7 @@ test('accept-invite : un compte EXISTANT est lié sans que son mot de passe ne c
   assert.ok(db.admin_club_links.some(l => l.admin_id === ADMIN_2 && l.club_id === CLUB_A));
 });
 
-// ── Plafond de personnes du palier Essentiel ──────────────────────────────
-// Rappel de la règle : 2 personnes au palier Essentiel, aucune limite en
-// Pro/Réseau, et accès complet pendant l'essai. Comme partout ailleurs dans
-// le gating, le plafond ne freine QUE l'ajout.
+// ── Offre unique (24/10/2026) : aucune limite de personnes ────────────────
 
 function essentielDb() {
   const db = makeDb();
@@ -318,78 +315,27 @@ function essentielDb() {
   return db;
 }
 
-test('Essentiel : jusqu\'à 3 personnes, ça passe', async () => {
-  const db = essentielDb();
-  db.admin_club_links.push({ admin_id: ADMIN_2, club_id: CLUB_A, created_at: '2026-02-01T00:00:00Z' });
-  const { res } = await callAccess({ db, action: 'invite', payload: { email: 'troisieme@club-a.fr' } });
-  assert.equal(res.statusCode, 200);
-  assert.equal(res.body.linked, false, 'adresse inconnue : invitation, pas encore un accès');
-});
-
-test('Essentiel : la 4e est refusée, avec un code exploitable par le client', async () => {
-  const db = essentielDb();
-  db.admins.push({ id: 'admin-3', email: 'trois@club-a.fr', password_hash: 'x' });
-  db.admin_club_links.push({ admin_id: ADMIN_2, club_id: CLUB_A, created_at: '2026-02-01T00:00:00Z' });
-  db.admin_club_links.push({ admin_id: 'admin-3', club_id: CLUB_A, created_at: '2026-02-02T00:00:00Z' });
-  const { res } = await callAccess({ db, action: 'invite', payload: { email: 'quatrieme@club-a.fr' } });
-  assert.equal(res.statusCode, 403);
-  assert.equal(res.body.code, 'plan_limit_club_access');
-  assert.equal(res.body.limit, 3);
-  assert.equal(db.admins.length, 3, 'aucun compte ne doit être créé quand le plafond refuse');
-});
-
-// Un club déjà au plafond Essentiel (3 personnes) : seul le palier change la
-// réponse, d'où le même état de départ dans les deux tests qui suivent.
-function atSeatLimit(db) {
-  db.admins.push({ id: 'admin-3', email: 'trois@club-a.fr', password_hash: 'x' });
-  db.admin_club_links.push({ admin_id: ADMIN_2, club_id: CLUB_A, created_at: '2026-02-01T00:00:00Z' });
-  db.admin_club_links.push({ admin_id: 'admin-3', club_id: CLUB_A, created_at: '2026-02-02T00:00:00Z' });
-  return db;
+for (const plan of ['essentiel', 'pro', 'reseau']) {
+  test(`offre unique : un club actif « ${plan} » invite une 10e personne`, async () => {
+    const db = makeDb();
+    db.clubs.find(c => c.id === CLUB_A).plan = plan;
+    db.clubs.find(c => c.id === CLUB_A).status = 'active';
+    for (let i = 0; i < 8; i++) {
+      db.admins.push({ id: `admin-r${i}`, email: `r${i}@club-a.fr`, password_hash: 'x' });
+      db.admin_club_links.push({ admin_id: `admin-r${i}`, club_id: CLUB_A, created_at: `2026-04-0${i + 1}T00:00:00Z` });
+    }
+    const { res } = await callAccess({ db, action: 'invite', payload: { email: 'dixieme@club-a.fr' } });
+    assert.equal(res.statusCode, 200);
+  });
 }
 
-test('Pro : la 4e personne passe (le plafond Pro est plus haut, pas absent)', async () => {
-  const db = atSeatLimit(makeDb()); // CLUB_A est en plan 'pro'
-  const { res } = await callAccess({ db, action: 'invite', payload: { email: 'quatrieme@club-a.fr' } });
-  assert.equal(res.statusCode, 200);
-});
-
-test('Pro : la 7e personne est refusée — Pro plafonne à 6', async () => {
-  const db = makeDb(); // CLUB_A est en plan 'pro'
-  for (let i = 0; i < 5; i++) {
-    db.admins.push({ id: `admin-p${i}`, email: `p${i}@club-a.fr`, password_hash: 'x' });
-    db.admin_club_links.push({ admin_id: `admin-p${i}`, club_id: CLUB_A, created_at: `2026-03-0${i + 1}T00:00:00Z` });
-  }
-  const { res } = await callAccess({ db, action: 'invite', payload: { email: 'septieme@club-a.fr' } });
-  assert.equal(res.statusCode, 403);
-  assert.equal(res.body.code, 'plan_limit_club_access');
-  assert.equal(res.body.limit, 6);
-});
-
-test('Réseau : aucune limite de personnes', async () => {
-  const db = makeDb();
-  db.clubs.find(c => c.id === CLUB_A).plan = 'reseau';
-  for (let i = 0; i < 8; i++) {
-    db.admins.push({ id: `admin-r${i}`, email: `r${i}@club-a.fr`, password_hash: 'x' });
-    db.admin_club_links.push({ admin_id: `admin-r${i}`, club_id: CLUB_A, created_at: `2026-04-0${i + 1}T00:00:00Z` });
-  }
-  const { res } = await callAccess({ db, action: 'invite', payload: { email: 'dixieme@club-a.fr' } });
-  assert.equal(res.statusCode, 200);
-});
-
-test("pendant l'essai, aucune limite de personnes", async () => {
-  const db = atSeatLimit(essentielDb());
-  db.clubs.find(c => c.id === CLUB_A).status = 'trial';
-  const { res } = await callAccess({ db, action: 'invite', payload: { email: 'quatrieme@club-a.fr' } });
-  assert.equal(res.statusCode, 200);
-});
-
-test('Essentiel au plafond : ne peut plus ajouter, mais peut toujours retirer', async () => {
-  const db = atSeatLimit(essentielDb());
-  const add = await callAccess({ db, action: 'invite', payload: { email: 'quatrieme@club-a.fr' } });
-  assert.equal(add.res.statusCode, 403);
-
+test('retirer un accès reste possible', async () => {
+  const db = essentielDb();
+  db.admins.push({ id: 'admin-3', email: 'trois@club-a.fr', password_hash: 'x' });
+  db.admin_club_links.push({ admin_id: ADMIN_2, club_id: CLUB_A, created_at: '2026-02-01T00:00:00Z' });
+  db.admin_club_links.push({ admin_id: 'admin-3', club_id: CLUB_A, created_at: '2026-02-02T00:00:00Z' });
   const remove = await callAccess({ db, action: 'revoke', payload: { admin_id: 'admin-3' } });
-  assert.equal(remove.res.statusCode, 200, 'retirer un accès ne doit jamais être bloqué par le palier');
+  assert.equal(remove.res.statusCode, 200);
   assert.equal(remove.res.body.admins.length, 2);
 });
 

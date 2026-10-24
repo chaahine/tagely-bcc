@@ -132,7 +132,7 @@ test('saveChapeauEntry : club Pro -> upsert scopé club_id, on_conflict=club_id,
   assert.equal(post.body[0].amount_total, 150);
 });
 
-test('saveChapeauEntry : club essentiel actif -> 403, aucun POST chapeau_entries déclenché', async () => {
+test('saveChapeauEntry : club essentiel actif -> accepté (offre unique)', async () => {
   const token = tokenForClub(ESSENTIEL_CLUB_ID);
   const mock = installFetchMock(clubAwareResponder());
   const res = fakeRes();
@@ -141,8 +141,8 @@ test('saveChapeauEntry : club essentiel actif -> 403, aucun POST chapeau_entries
   } } }), res);
   mock.restore();
 
-  assert.equal(res.statusCode, 403);
-  assert.ok(!mock.calls.some(c => c.url.includes('/chapeau_entries')), 'aucune écriture chapeau_entries pour un club non-Pro');
+  assert.equal(res.statusCode, 200);
+  assert.ok(mock.calls.some(c => c.url.includes('/chapeau_entries') && c.method === 'POST'));
 });
 
 test('saveChapeauEntry : club en essai (trial, plan essentiel) -> autorisé (essai = accès complet)', async () => {
@@ -198,13 +198,13 @@ test('getChapeauEntries : club Pro -> lecture scopée club_id, jamais un autre c
   assert.ok(get.url.includes(encodeURIComponent(PRO_CLUB_ID)));
 });
 
-test('getChapeauEntries : club essentiel actif -> 403', async () => {
+test('getChapeauEntries : club essentiel actif -> accepté (offre unique)', async () => {
   const token = tokenForClub(ESSENTIEL_CLUB_ID);
   const mock = installFetchMock(clubAwareResponder());
   const res = fakeRes();
   await adminWriteHandler(fakeReq({ token, body: { action: 'getChapeauEntries', payload: {} } }), res);
   mock.restore();
-  assert.equal(res.statusCode, 403);
+  assert.equal(res.statusCode, 200);
 });
 
 test('deleteChapeauEntry : club Pro -> DELETE scopé club_id + slot_key', async () => {
@@ -221,14 +221,14 @@ test('deleteChapeauEntry : club Pro -> DELETE scopé club_id + slot_key', async 
   assert.ok(del.url.includes(encodeURIComponent(PRO_CLUB_ID)));
 });
 
-test('deleteChapeauEntry : club essentiel actif -> 403, aucun DELETE déclenché', async () => {
+test('deleteChapeauEntry : club essentiel actif -> accepté (offre unique)', async () => {
   const token = tokenForClub(ESSENTIEL_CLUB_ID);
   const mock = installFetchMock(clubAwareResponder());
   const res = fakeRes();
   await adminWriteHandler(fakeReq({ token, body: { action: 'deleteChapeauEntry', payload: { slot_key: '2026-08-11-20h15' } } }), res);
   mock.restore();
-  assert.equal(res.statusCode, 403);
-  assert.ok(!mock.calls.some(c => c.url.includes('/chapeau_entries')));
+  assert.equal(res.statusCode, 200);
+  assert.ok(mock.calls.some(c => c.url.includes('/chapeau_entries') && c.method === 'DELETE'));
 });
 
 test('isolation croisée : le token du club Pro ne référence jamais le club essentiel (ni l\'inverse) dans les appels chapeau_entries', async () => {
@@ -262,7 +262,7 @@ test('sync comedians : club Pro règle un cachet -> cachet_amount présent dans 
   assert.ok(mock.calls.some(c => c.url.includes('/clubs') && c.method === 'GET'));
 });
 
-test('sync comedians : club essentiel tente de régler un cachet -> valeur retirée (jamais écrasée à null), reste non écrite en base', async () => {
+test('sync comedians : club essentiel règle un cachet -> écrit (offre unique)', async () => {
   const token = tokenForClub(ESSENTIEL_CLUB_ID);
   const mock = installFetchMock(clubAwareResponder());
   const res = fakeRes();
@@ -273,7 +273,7 @@ test('sync comedians : club essentiel tente de régler un cachet -> valeur retir
 
   assert.equal(res.statusCode, 200); // le sync réussit quand même (comedians a d'autres champs légitimes)
   const post = mock.calls.find(c => c.url.includes('/comedians') && c.method === 'POST');
-  assert.ok(!('cachet_amount' in post.body[0]), 'cachet_amount ne doit même pas apparaître dans la ligne envoyée à Supabase pour un club non-Pro');
+  assert.equal(post.body[0].cachet_amount, 25.5);
 });
 
 test('sync comedians : effacer un cachet (cachet_amount: null) n\'est JAMAIS gaté, même pour un club essentiel', async () => {

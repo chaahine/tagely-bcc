@@ -3,16 +3,8 @@
 // ════════════════════════════════════════════════════════════════════════
 // Exécution : node --test tests/*.test.mjs
 //
-// Règle produit tranchée par Chahine : le palier Essentiel (39,90 EUR) vise
-// les petits plateaux et s'arrête à 30 humoristes ; Pro/Réseau n'ont aucune
-// limite.
-//
-// Le point délicat couvert ici est la nuance "croissance seulement" : un club
-// qui dépasse DÉJÀ le plafond (ancien Pro redescendu au palier Essentiel, ou
-// club antérieur à cette règle) doit continuer à enregistrer son effectif tel
-// quel. Sans ça, chaque sync renverrait ses 80 fiches, serait refusé, et le
-// club ne pourrait plus rien sauvegarder du tout — planning compris. Le
-// gating masque et freine, il ne casse jamais l'existant.
+// Offre unique depuis le 24/10/2026 (49,90 € HT/mois, tout inclus) : plus
+// aucun plafond. Ces tests vérifient qu'aucun palier historique ne bride.
 //
 // Même méthode que les fichiers voisins : le VRAI handler api/admin-write.js
 // est exécuté, seul `fetch` est mocké — aucun credential ni réseau réel.
@@ -75,63 +67,25 @@ async function sync({ count, existing = 0, plan = 'essentiel', status = 'active'
   return { res, wrote, calls: mock.calls };
 }
 
-test('la grille des plafonds est bien 30 / 150 / illimité', () => {
-  assert.equal(ESSENTIEL_MAX_COMEDIANS, 30);
-  assert.equal(PLAN_CAPS.essentiel.maxComedians, 30);
-  assert.equal(PLAN_CAPS.pro.maxComedians, 150);
-  assert.equal(PLAN_CAPS.reseau.maxComedians, null, 'null signifie illimité, jamais zéro');
+// Offre unique (24/10/2026) : plus aucun plafond d'humoristes, quel que soit
+// le palier historique enregistré en base.
+test('offre unique : aucun palier ne plafonne les humoristes', () => {
+  assert.equal(ESSENTIEL_MAX_COMEDIANS, null);
+  for (const plan of ['essentiel', 'pro', 'reseau']) assert.equal(PLAN_CAPS[plan].maxComedians, null, plan);
 });
 
-test('Essentiel : 30 humoristes passent (la limite est inclusive)', async () => {
-  const { res, wrote } = await sync({ count: 30 });
-  assert.equal(res.statusCode, 200);
-  assert.ok(wrote, 'les 30 fiches doivent être enregistrées');
-});
+for (const plan of ['essentiel', 'pro', 'reseau']) {
+  test(`offre unique : un club actif « ${plan} » enregistre 200 humoristes`, async () => {
+    const { res, wrote } = await sync({ count: 200, plan });
+    assert.equal(res.statusCode, 200);
+    assert.ok(wrote);
+  });
+}
 
-test('Essentiel : la 31e est refusée en 403, avec un code exploitable par le client', async () => {
-  const { res, wrote } = await sync({ count: 31 });
-  assert.equal(res.statusCode, 403);
-  assert.equal(res.body.code, 'plan_limit_comedians');
-  assert.equal(res.body.limit, 30);
-  assert.ok(/palier/i.test(res.body.error), 'le message doit orienter vers le palier supérieur');
-  assert.equal(wrote, false, 'RIEN ne doit être écrit : un sync à moitié appliqué corromprait le club');
-});
-
-test('Pro : 150 humoristes passent', async () => {
-  const { res, wrote } = await sync({ count: 150, plan: 'pro' });
-  assert.equal(res.statusCode, 200);
-  assert.ok(wrote);
-});
-
-test('Pro : la 151e est refusée — le palier a son propre plafond, pas juste Essentiel', async () => {
-  const { res, wrote } = await sync({ count: 151, plan: 'pro' });
-  assert.equal(res.statusCode, 403);
-  assert.equal(res.body.limit, 150);
-  assert.equal(wrote, false);
-});
-
-test('Réseau : aucune limite non plus', async () => {
-  const { res } = await sync({ count: 200, plan: 'reseau' });
-  assert.equal(res.statusCode, 200);
-});
-
-test("pendant l'essai, aucune limite quel que soit le plan (on ne bride jamais une démo)", async () => {
+test("pendant l'essai, aucune limite non plus", async () => {
   const { res, wrote } = await sync({ count: 200, plan: 'essentiel', status: 'trial' });
   assert.equal(res.statusCode, 200);
   assert.ok(wrote);
-});
-
-test('club déjà au-dessus du plafond : il peut continuer à enregistrer son effectif existant', async () => {
-  const { res, wrote } = await sync({ count: 80, existing: 80 });
-  assert.equal(res.statusCode, 200, 'un downgrade ne doit jamais bloquer toute sauvegarde');
-  assert.ok(wrote);
-});
-
-test('club déjà au-dessus du plafond : il ne peut pas pour autant en ajouter un de plus', async () => {
-  const { res, wrote } = await sync({ count: 81, existing: 80 });
-  assert.equal(res.statusCode, 403);
-  assert.equal(res.body.current, 80);
-  assert.equal(wrote, false);
 });
 
 test('un petit club ne paie jamais l\'aller-retour de comptage', async () => {
@@ -142,12 +96,9 @@ test('un petit club ne paie jamais l\'aller-retour de comptage', async () => {
   assert.equal(counted, false, 'sous le plafond, aucune requête de comptage ne doit partir');
 });
 
-// ── Cohérence grille affichée ↔ grille appliquée ───────────────────────────
-// PLAN_LADDER (index.html, ce que le client LIT sur sa page de prix) et
-// PLAN_CAPS (api/_lib.js, ce que le serveur APPLIQUE) sont deux déclarations
-// séparées, par nécessité : l'une est du HTML de présentation, l'autre la
-// règle d'autorisation. Une divergence entre les deux est la pire espèce de
-// bug — elle ne se découvre qu'après le paiement.
+// ── Cohérence offre affichée ↔ offre appliquée ─────────────────────────────
+// La carte « Mon abonnement » (index.html) promet tout inclus et sans limite :
+// le serveur (PLAN_CAPS) doit l'appliquer, et le client ne doit rien brider.
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -157,44 +108,21 @@ const indexHtml = readFileSync(
   path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'index.html'), 'utf8',
 );
 
-function planLadderPerks(key) {
-  const block = indexHtml.match(/const PLAN_LADDER = \[([\s\S]*?)\];/);
-  assert.ok(block, 'PLAN_LADDER doit exister dans index.html');
-  const line = block[1].split('\n').find(l => l.includes(`'${key}'`));
-  assert.ok(line, `le palier ${key} doit figurer dans PLAN_LADDER`);
-  return line;
-}
-
-test('grille affichée : Essentiel annonce exactement les plafonds appliqués', () => {
-  const line = planLadderPerks('essentiel');
-  assert.match(line, new RegExp(`${PLAN_CAPS.essentiel.maxComedians} humoristes`));
-  assert.match(line, new RegExp(`${PLAN_CAPS.essentiel.maxClubAdmins} personnes`));
+test('offre affichée : 49,90 € et « sans limite », ce que le serveur applique', () => {
+  assert.match(indexHtml, /const STAGELY_PRICE = '49,90 € HT \/ mois';/);
+  assert.match(indexHtml, /Humoristes et équipe sans limite/);
+  for (const plan of ['essentiel', 'pro', 'reseau']) {
+    assert.deepEqual(PLAN_CAPS[plan], { maxComedians: null, maxClubAdmins: null, tour: true, money: true, accountingExport: true }, plan);
+  }
+  assert.ok(!/const PLAN_LADDER/.test(indexHtml), "l'ancienne grille à trois paliers ne doit plus être affichée");
 });
 
-test('grille affichée : Pro annonce exactement les plafonds appliqués', () => {
-  const line = planLadderPerks('pro');
-  assert.match(line, new RegExp(`${PLAN_CAPS.pro.maxComedians} humoristes`));
-  assert.match(line, new RegExp(`${PLAN_CAPS.pro.maxClubAdmins} personnes`));
-});
-
-test('grille affichée : Réseau annonce "sans limite", ce que le serveur applique bien', () => {
-  const line = planLadderPerks('reseau');
-  assert.match(line, /sans limite/i);
-  assert.equal(PLAN_CAPS.reseau.maxComedians, null);
-  assert.equal(PLAN_CAPS.reseau.maxClubAdmins, null);
-});
-
-test("l'export comptable est annoncé au seul palier qui l'ouvre côté serveur", () => {
-  assert.match(planLadderPerks('reseau'), /export comptable/i);
-  assert.equal(PLAN_CAPS.reseau.accountingExport, true);
-  assert.equal(PLAN_CAPS.pro.accountingExport, false);
-  assert.equal(PLAN_CAPS.essentiel.accountingExport, false);
-  // Et le client refuse bien l'accès hors Réseau (hasAccountingExport).
-  const fn = indexHtml.match(/function hasAccountingExport\(\)\s*\{([\s\S]*?)\n\}/);
-  assert.ok(fn, 'hasAccountingExport() doit exister dans index.html');
-  assert.match(fn[1], /plan === 'reseau'/);
-  assert.match(fn[1], /status === 'trial'/, "l'essai doit toujours donner l'accès complet");
-  assert.ok(!/plan === 'pro'/.test(fn[1]), "le palier Pro ne doit PAS ouvrir l'export comptable");
+test("offre unique : le client ouvre l'export comptable et les fonctions Pro à tous", () => {
+  for (const name of ['hasAccountingExport', 'hasProAccess']) {
+    const fn = indexHtml.match(new RegExp(`function ${name}\\(\\)\\s*\\{([\\s\\S]*?)\\n\\}`));
+    assert.ok(fn, `${name}() doit exister dans index.html`);
+    assert.match(fn[1], /return true;/);
+  }
 });
 
 // ── Priorité d'un humoriste : énumération fermée ───────────────────────────

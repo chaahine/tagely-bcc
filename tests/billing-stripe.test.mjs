@@ -24,8 +24,8 @@ process.env.ADMIN_TOKEN_SECRET = 'test-secret-do-not-use-in-prod';
 process.env.SUPABASE_SERVICE_KEY = 'test-service-key';
 process.env.STRIPE_SECRET_KEY = 'sk_test_fake';
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_fake';
-process.env.STRIPE_PRICE_PRO = 'price_pro_123';
-process.env.STRIPE_PRICE_RESEAU = 'price_reseau_456';
+// Offre unique (24/10/2026) : un seul prix, vendu sous le palier 'pro'.
+process.env.STRIPE_PRICE = 'price_pro_123';
 
 const { issueAdminToken, sha256Hex } = await import('../api/_lib.js');
 const {
@@ -147,15 +147,16 @@ function webhookReq(rawBody, { secret = 'whsec_test_fake', timestamp = Math.floo
 // Paliers ↔ prix
 // ════════════════════════════════════════════════════════════════════════
 
-test('un palier sans variable d\'environnement n\'est pas achetable', () => {
+test('offre unique : un seul palier achetable, au prix STRIPE_PRICE', () => {
   assert.equal(priceIdForPlan('pro'), 'price_pro_123');
-  assert.equal(priceIdForPlan('essentiel'), null, 'STRIPE_PRICE_ESSENTIEL non renseignée');
+  assert.equal(priceIdForPlan('essentiel'), null);
+  assert.equal(priceIdForPlan('reseau'), null);
   assert.equal(priceIdForPlan('inconnu'), null);
-  assert.deepEqual(purchasablePlans().sort(), ['pro', 'reseau']);
+  assert.deepEqual(purchasablePlans(), ['pro']);
 });
 
 test('un price id se retraduit en palier (changement fait depuis le portail Stripe)', () => {
-  assert.equal(planForPriceId('price_reseau_456'), 'reseau');
+  assert.equal(planForPriceId('price_pro_123'), 'pro');
   assert.equal(planForPriceId('price_inconnu'), null);
   assert.equal(planForPriceId(undefined), null);
 });
@@ -164,7 +165,7 @@ test('billing-config n\'expose que les paliers achetables, jamais les price ids'
   const res = fakeRes();
   await configHandler(fakeReq({ method: 'GET' }), res);
   assert.equal(res.body.enabled, true);
-  assert.deepEqual(res.body.plans.sort(), ['pro', 'reseau']);
+  assert.deepEqual(res.body.plans, ['pro']);
   assert.equal(JSON.stringify(res.body).includes('price_'), false);
 });
 
@@ -248,22 +249,21 @@ test('checkout complété : le club passe actif, au palier réellement souscrit'
   const state = freshState();
   const mock = installMock(state, {
     stripeResponses: {
-      '/v1/subscriptions/': { id: 'sub_1', status: 'active', customer: 'cus_1', items: { data: [{ price: { id: 'price_reseau_456' } }] } },
+      '/v1/subscriptions/': { id: 'sub_1', status: 'active', customer: 'cus_1', items: { data: [{ price: { id: 'price_pro_123' } }] } },
     },
   });
   try {
     const res = fakeRes();
     const body = JSON.stringify({
       type: 'checkout.session.completed',
-      data: { object: { id: 'cs_1', metadata: { club_id: CLUB_ID, plan: 'pro' }, customer: 'cus_1', subscription: 'sub_1' } },
+      data: { object: { id: 'cs_1', metadata: { club_id: CLUB_ID, plan: 'essentiel' }, customer: 'cus_1', subscription: 'sub_1' } },
     });
     await webhookHandler(webhookReq(body), res);
     assert.equal(res.statusCode, 200);
     const club = state.clubs[0];
     assert.equal(club.status, 'active');
-    // 'reseau' et non 'pro' : c'est l'abonnement réel qui fait foi, pas le
-    // palier demandé au départ (l'utilisateur a pu en changer dans Checkout).
-    assert.equal(club.plan, 'reseau');
+    // C'est l'abonnement réel qui fait foi, pas la métadonnée de départ.
+    assert.equal(club.plan, 'pro');
     assert.equal(club.stripe_customer_id, 'cus_1');
     assert.equal(club.stripe_subscription_id, 'sub_1');
     assert.equal(club.trial_ends_at, null, 'l\'essai n\'a plus lieu d\'être');
@@ -288,19 +288,19 @@ test('abonnement résilié : club suspendu ET retombé au palier d\'entrée', as
   } finally { mock.restore(); }
 });
 
-test('changement de palier depuis le portail Stripe : reflété en base', async () => {
+test('abonnement mis à jour depuis le portail Stripe : reflété en base', async () => {
   const state = freshState();
   state.clubs[0].status = 'active';
-  state.clubs[0].plan = 'pro';
+  state.clubs[0].plan = 'essentiel';
   const mock = installMock(state);
   try {
     const res = fakeRes();
     const body = JSON.stringify({
       type: 'customer.subscription.updated',
-      data: { object: { id: 'sub_1', status: 'active', customer: 'cus_1', metadata: { club_id: CLUB_ID }, items: { data: [{ price: { id: 'price_reseau_456' } }] } } },
+      data: { object: { id: 'sub_1', status: 'active', customer: 'cus_1', metadata: { club_id: CLUB_ID }, items: { data: [{ price: { id: 'price_pro_123' } }] } } },
     });
     await webhookHandler(webhookReq(body), res);
-    assert.equal(state.clubs[0].plan, 'reseau');
+    assert.equal(state.clubs[0].plan, 'pro');
     assert.equal(state.clubs[0].status, 'active');
   } finally { mock.restore(); }
 });
@@ -386,7 +386,7 @@ test('checkout : palier sans prix configuré refusé', async () => {
     const res = fakeRes();
     await checkoutHandler(fakeReq({ token: validToken(), body: { plan: 'essentiel' } }), res);
     assert.equal(res.statusCode, 400);
-    assert.deepEqual(res.body.available.sort(), ['pro', 'reseau']);
+    assert.deepEqual(res.body.available, ['pro']);
   } finally { mock.restore(); }
 });
 

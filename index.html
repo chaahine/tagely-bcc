@@ -1110,7 +1110,7 @@ async function handleBillingReturn(params) {
                plan actuel du club, sans flux de changement en self-service (pas de
                Stripe) : voir la fonction renderPlanCard() plus bas dans le fichier. -->
           <div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px">
-            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);margin-bottom:16px;font-weight:700">🎫 Mon palier Stagely</div>
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--o);margin-bottom:16px;font-weight:700">🎫 Mon abonnement Stagely</div>
             <div id="plan-card-body"></div>
           </div>
 
@@ -1387,50 +1387,20 @@ if (typeof window !== 'undefined') window.currentClub = currentClub;
 // traité comme 'trial' — accès complet — pour ne jamais faire régresser une
 // session déjà ouverte (ex. BCC) tant qu'elle n'a pas rechargé une identité
 // fraîche via un prochain login/switch de club.
-// Échelle des trois formules affichée dans Réglages (chantier "3 formules",
-// 2026-09). Doit rester cohérente avec PLAN_CAPS côté serveur (api/_lib.js) —
-// un test le vérifie : une grille de prix qui promet autre chose que ce que le
-// serveur applique est le pire des bugs, il se découvre après le paiement.
-const PLAN_LADDER = [
-  { key: 'essentiel', label: 'Essentiel', price: '39,90 €', perks: '30 humoristes · 3 personnes · planning, dispos et portail' },
-  { key: 'pro',       label: 'Pro',       price: '69,90 €', perks: '150 humoristes · 6 personnes · mode tournée · chapeau ou cachet · tableau de bord financier' },
-  { key: 'reseau',    label: 'Réseau',    price: '99,90 €', perks: 'humoristes et personnes sans limite · export comptable (CSV)' },
-];
+// Offre unique (24/10/2026) : 49,90 € HT/mois, tout inclus, pour tout le
+// monde. Doit rester cohérente avec PLAN_CAPS côté serveur (api/_lib.js), où
+// les trois paliers historiques ouvrent désormais exactement la même chose.
+const STAGELY_PRICE = '49,90 € HT / mois';
 
-function renderPlanLadder() {
-  const current = currentClub.plan || 'essentiel';
-  return PLAN_LADDER.map(p => {
-    const isCurrent = p.key === current;
-    return `<div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);${isCurrent ? '' : 'opacity:.55'}">
-      <div style="flex-shrink:0;width:96px">
-        <div style="font-size:11px;font-weight:700;color:${isCurrent ? 'var(--o)' : 'var(--text)'}">${p.label}</div>
-        <div style="font-size:10px;color:var(--muted)">${p.price}</div>
-      </div>
-      <div style="font-size:11px;line-height:1.6;color:${isCurrent ? 'var(--text)' : 'var(--muted)'}">${p.perks}${isCurrent ? ' <span style="color:var(--o)">— ton palier</span>' : ''}</div>
-    </div>`;
-  }).join('');
-}
-
+// Offre unique : tout est inclus pour tous les clubs. Les appels restent en
+// place (gates historiques), ils renvoient simplement toujours vrai.
 function hasProAccess() {
-  const status = currentClub.status || 'trial';
-  const plan = currentClub.plan || 'essentiel';
-  return status === 'trial' || plan === 'pro' || plan === 'reseau';
+  return true;
 }
 
-// L'export comptable est réservé au palier Réseau (chantier "3 formules",
-// 2026-09) — les autres fonctionnalités d'argent (chapeau, cachet, tableau de
-// bord) restent Pro. Doit rester cohérent avec PLAN_CAPS côté serveur
-// (api/_lib.js) : un test le vérifie.
-//
-// À la différence des plafonds d'humoristes et de personnes, ce gate n'existe
-// QUE côté client : l'export est un CSV généré ici, à partir de données que le
-// palier Pro a déjà le droit de lire. C'est donc une limite commerciale, pas
-// une barrière technique — assumé, personne ne va bidouiller le JavaScript
-// pour économiser 30 €.
+// Export comptable : inclus dans l'offre unique, comme le reste.
 function hasAccountingExport() {
-  const status = currentClub.status || 'trial';
-  const plan = currentClub.plan || 'essentiel';
-  return status === 'trial' || plan === 'reseau';
+  return true;
 }
 
 // Lien portail humoriste — SOURCE UNIQUE utilisée à la fois par l'affichage
@@ -1618,28 +1588,24 @@ function renderProLockedBlock(featureLabel) {
   return `<div style="text-align:center;padding:48px 20px;background:var(--s1);border:1px solid var(--border);border-radius:10px">
     <div style="font-size:28px;margin-bottom:10px">🔒</div>
     <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px">${featureLabel} — fonctionnalité Pro</div>
-    <div style="font-size:12px;color:var(--muted);max-width:420px;margin:0 auto 18px;line-height:1.6">Cette fonctionnalité fait partie du palier Pro (69,90 €/mois) — mode tournée, chapeau ou cachet et tableau de bord financier. Le palier Essentiel (39,90 €/mois) couvre le planning, les dispos et le portail, jusqu'à 30 humoristes et 3 personnes.</div>
-    <button class="btn btn-o" onclick="nav('reglages')">Voir mon palier →</button>
+    <div style="font-size:12px;color:var(--muted);max-width:420px;margin:0 auto 18px;line-height:1.6">Cette fonctionnalité est incluse dans l'abonnement Stagely (49,90 € HT/mois).</div>
+    <button class="btn btn-o" onclick="nav('reglages')">Voir mon abonnement →</button>
   </div>`;
 }
 
 // Carte "Palier" affichée en Réglages (visibilité honnête — mission gating
 // 2026-08, point 6 : pas de flux de changement de palier en self-service,
 // juste une visibilité claire sur ce que le club a débloqué).
-const PLAN_LABELS = { essentiel: 'Essentiel', pro: 'Pro', reseau: 'Réseau' };
 function renderPlanCard() {
   if (typeof document === 'undefined') return;
   const el = document.getElementById('plan-card-body');
   if (!el) return;
-  const pro = hasProAccess();
   const status = currentClub.status || 'trial';
-  const plan = currentClub.plan || 'essentiel';
-  const planLabel = PLAN_LABELS[plan] || plan;
   let statusLine;
   if (status === 'trial') {
     const until = currentClub.trial_ends_at ? new Date(currentClub.trial_ends_at) : null;
     const untilTxt = until && !isNaN(until) ? ` jusqu'au ${until.toLocaleDateString('fr-FR')}` : '';
-    statusLine = `<span style="color:var(--g)">● Essai en cours${untilTxt}</span> — accès complet à toutes les fonctionnalités existantes, quel que soit le palier ci-dessous.`;
+    statusLine = `<span style="color:var(--g)">● Essai en cours${untilTxt}</span> — accès complet à toutes les fonctionnalités.`;
   } else if (status === 'active') {
     statusLine = `<span style="color:var(--g)">● Compte actif</span>`;
   } else {
@@ -1647,13 +1613,11 @@ function renderPlanCard() {
   }
   el.innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <span style="font-size:11px;font-weight:800;padding:4px 12px;border-radius:20px;background:var(--o2);color:var(--o);border:1px solid var(--ob)">${planLabel.toUpperCase()}</span>
+      <span style="font-size:11px;font-weight:800;padding:4px 12px;border-radius:20px;background:var(--o2);color:var(--o);border:1px solid var(--ob)">STAGELY · ${STAGELY_PRICE}</span>
       <span style="font-size:11px;color:var(--muted)">${statusLine}</span>
     </div>
-    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;font-weight:600">Toujours inclus</div>
-    <div style="font-size:11px;color:var(--text);line-height:1.8">✓ Planning &amp; dispos · ✓ Portail humoriste · ✓ Rappels automatiques · ✓ Notifications d'annulation · ✓ Export calendrier</div>
-    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;font-weight:600">Les trois formules</div>
-    ${renderPlanLadder()}
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;font-weight:600">Tout inclus, une seule offre</div>
+    <div style="font-size:11px;color:var(--text);line-height:1.8">✓ Planning &amp; dispos · ✓ Portail humoriste · ✓ Rappels automatiques · ✓ Notifications d'annulation · ✓ Export calendrier · ✓ Mode tournée · ✓ Chapeau ou cachet · ✓ Tableau de bord financier · ✓ Export comptable · ✓ Humoristes et équipe sans limite</div>
     <div style="font-size:10px;color:var(--muted);margin-top:14px;padding-top:14px;border-top:1px solid var(--border2);line-height:1.6">
       Plusieurs lieux ? Créez un club par lieu — chacun a son planning, ses humoristes et son abonnement. La gestion de deux salles au sein d'un même lieu (deux shows en parallèle) n'existe pas encore.
     </div>
@@ -1671,7 +1635,6 @@ function renderPlanCard() {
 // 503 parce que les clés Stripe ne sont pas renseignées serait pire que pas
 // de bouton du tout. Cette configuration est lue une seule fois par session.
 let billingConfig = null;
-const PLAN_ORDER = ['essentiel', 'pro', 'reseau'];
 
 async function loadBillingConfig() {
   if (billingConfig) return billingConfig;
@@ -1691,17 +1654,14 @@ async function renderBillingActions() {
   if (!cfg.enabled || !cfg.plans.length) { el.style.display = 'none'; return; }
   el.style.display = '';
 
-  const current = currentClub.plan || 'essentiel';
+  // Offre unique : un club pas encore abonné voit le bouton d'abonnement,
+  // un club abonné passe par le portail Stripe pour tout le reste.
   const isSubscribed = currentClub.status === 'active';
-  // Ne proposer que les paliers réellement supérieurs à celui du club : une
-  // descente de palier ou un changement de moyen de paiement passe par le
-  // portail Stripe, qui gère le prorata et la fin de période.
-  const upgrades = cfg.plans.filter(p => PLAN_ORDER.indexOf(p) > PLAN_ORDER.indexOf(current));
 
   el.innerHTML = `
     <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;font-weight:600">Abonnement</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      ${upgrades.map(p => `<button class="btn btn-o" onclick="startCheckout('${p}')">Passer au palier ${PLAN_LABELS[p] || p}</button>`).join('')}
+      ${isSubscribed ? '' : `<button class="btn btn-o" onclick="startCheckout('${cfg.plans[0]}')">S'abonner — ${STAGELY_PRICE}</button>`}
       ${isSubscribed ? `<button class="btn btn-ghost" onclick="openBillingPortal()">Gérer mon abonnement</button>` : ''}
     </div>
     <div style="font-size:9px;color:var(--muted);margin-top:10px;line-height:1.6">
@@ -4949,7 +4909,7 @@ async function offerReactivation(email, password, errEl) {
     errEl.style.display = 'block';
     return;
   }
-  const best = plans.includes('pro') ? 'pro' : plans[0];
+  const best = plans[0];
   errEl.innerHTML = `⚠ Votre période d'essai est terminée.<br>
     <span style="color:#888">Vos données sont conservées — réactivez votre club pour y accéder à nouveau.</span><br>
     <button id="btn-reactivate" style="margin-top:10px;padding:9px 16px;background:#f97316;color:#fff;border:none;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;cursor:pointer">Réactiver mon club</button>`;

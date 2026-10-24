@@ -338,7 +338,7 @@ export function verifyPasswordHash(candidate, expectedHash) {
 // chantier fusionné séparément, voir le commentaire en tête de
 // api/admin-write.js). Les 4 fonctionnalités vendues comme Pro sont donc
 // désormais réellement construites.
-export const PRO_PLANS = ['pro', 'reseau'];
+export const PRO_PLANS = ['essentiel', 'pro', 'reseau'];
 
 // ── Capacités par palier (chantier "3 formules", 2026-09) ─────────────────
 // UNE table, source unique de ce que chaque palier ouvre. Déplacer une
@@ -350,19 +350,21 @@ export const PRO_PLANS = ['pro', 'reseau'];
 // qui ne survit pas à JSON.stringify et arriverait à `null` côté client de
 // toute façon, mais silencieusement.
 //
-// Grille tranchée par Chahine : 39,90 / 69,90 / 99,90 €. La progression se
-// lit d'une traite — Essentiel : tu t'organises. Pro : tu suis ton argent.
-// Réseau : tu le sors pour ton comptable.
+// Offre unique tranchée par Chahine le 24/10/2026 : 49,90 € HT/mois, tout
+// inclus, pour tout le monde (remplace la grille 39,90 / 69,90 / 99,90 €).
+// Les trois noms de palier restent en base (contrainte clubs_plan_check) mais
+// ouvrent désormais exactement la même chose : rien n'est bridé.
 // Priorités valides d'un humoriste (comedians.prio). L'UI ne sait afficher que
 // ces trois valeurs : toute autre chaîne arrivait en base telle quelle et
 // s'affichait « undefined » sur la fiche du comédien. On restreint donc ici,
 // à la source, plutôt que de rustiner chaque endroit qui lit le champ.
 export const COMEDIAN_PRIOS = ['new', 'regular', 'headliner'];
 
+const FULL_CAPS = { maxComedians: null, maxClubAdmins: null, tour: true, money: true, accountingExport: true };
 export const PLAN_CAPS = {
-  essentiel: { maxComedians: 30,   maxClubAdmins: 3,    tour: false, money: false, accountingExport: false },
-  pro:       { maxComedians: 150,  maxClubAdmins: 6,    tour: true,  money: true,  accountingExport: false },
-  reseau:    { maxComedians: null, maxClubAdmins: null, tour: true,  money: true,  accountingExport: true  },
+  essentiel: { ...FULL_CAPS },
+  pro:       { ...FULL_CAPS },
+  reseau:    { ...FULL_CAPS },
 };
 
 // Plafonds du palier d'entrée, ré-exportés depuis la table pour les appelants

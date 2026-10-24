@@ -65,10 +65,11 @@ export async function stripeRequest(path, { method = 'POST', body } = {}) {
 // changement de tarif crée un nouveau price id chez Stripe. Un palier dont
 // la variable n'est pas renseignée n'est simplement pas proposé à l'achat —
 // pas d'erreur, pas de prix inventé.
+//
+// Offre unique (24/10/2026) : un seul prix, 49,90 € HT/mois, vendu sous le
+// palier 'pro' (les trois paliers ouvrent la même chose, voir PLAN_CAPS).
 export const PLAN_PRICE_ENV = {
-  essentiel: 'STRIPE_PRICE_ESSENTIEL',
-  pro: 'STRIPE_PRICE_PRO',
-  reseau: 'STRIPE_PRICE_RESEAU',
+  pro: 'STRIPE_PRICE',
 };
 
 export function priceIdForPlan(plan) {

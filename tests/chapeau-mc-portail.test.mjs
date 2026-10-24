@@ -185,10 +185,10 @@ test('comédien connu mais NON assigné à ce créneau -> 403, aucune écriture'
   assert.equal(writes.length, 0, 'on n’invente pas la recette d’une soirée où l’on ne jouait pas');
 });
 
-test('club non-Pro -> 403 (même verrou de palier que côté admin), aucune écriture', async () => {
+test('club essentiel actif -> accepté (offre unique)', async () => {
   const { res, writes } = await saveAsMc({ ...NOMINAL, code: ESSENTIEL_CODE });
-  assert.equal(res.statusCode, 403);
-  assert.equal(writes.length, 0);
+  assert.equal(res.statusCode, 200);
+  assert.ok(writes.length > 0);
 });
 
 test('slot_key invalide -> 400 avant toute lecture de comédien', async () => {

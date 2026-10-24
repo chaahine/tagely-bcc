@@ -93,14 +93,14 @@ test('addEvent : heure malformée → 400', async () => {
 // addEvent — gating Pro (le coeur du chantier gating pour le mode tournée)
 // ════════════════════════════════════════════════════════════════════════
 
-test('addEvent : club actif au palier Essentiel → 403, MÊME en forçant l\'appel API directement (jamais fait confiance au client)', async () => {
+test('addEvent : club actif au palier Essentiel → accepté (offre unique)', async () => {
   const mock = mockAddEventDeps({ status: 'active', plan: 'essentiel' });
   const req = fakeReq({ token: tokenForClub(CLUB_B), body: { action: 'addEvent', payload: { date: '2026-08-15', time: '20:00' } } });
   const res = fakeRes();
   await adminWriteHandler(req, res);
   mock.restore();
-  assert.equal(res.statusCode, 403);
-  assert.ok(!mock.calls.some(c => c.method === 'POST' && c.url.includes('/events')), 'aucune ligne events ne doit être insérée pour un club Essentiel');
+  assert.equal(res.statusCode, 200);
+  assert.ok(mock.calls.some(c => c.method === 'POST' && c.url.includes('/events')));
 });
 
 test('addEvent : club actif au palier Pro → autorisé (201/200, ligne events insérée)', async () => {
